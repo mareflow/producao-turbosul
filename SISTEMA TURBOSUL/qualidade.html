@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setor de Qualidade | TurboSul</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-turbo-teal { background-color: #0D9488; }
+        .text-turbo-teal { color: #0D9488; }
+        .bg-turbo-red { background-color: #DC2626; }
+        .text-turbo-red { color: #DC2626; }
+        .os-card-selected { border-left: 4px solid #DC2626 !important; background-color: #fef2f2 !important; }
+        .tab-active { border-bottom: 3px solid #DC2626 !important; color: #DC2626 !important; font-weight: 900 !important; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* Estilo customizado para o Checkbox da Qualidade */
+        .check-qualidade:checked + div {
+            border-color: #10B981;
+            background-color: #ECFDF5;
+        }
+        .check-qualidade:checked + div span {
+            color: #047857;
+        }
+        .check-qualidade:checked + div .fa-check {
+             color: #059669;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen overflow-hidden">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- HEADER -->
+    <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+        <div class="flex items-center space-x-4">
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="TurboSul Logo" class="h-10">
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-slate-900 uppercase">TurboSul - Controle de Produção</h1>
+                <p class="text-xs text-slate-500 font-medium italic">Setor de Controle de Qualidade</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-6">
+            <div class="text-right pr-4">
+                <p class="text-sm font-black text-slate-800 uppercase tracking-wider leading-none">Qualidade</p>
+            </div>
+            <button onclick="window.location.href='https://mareflow.github.io/turbosul-login/'" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-bold transition">Sair</button>
+        </div>
+    </header>
+
+    <div class="flex h-[calc(100vh-64px)]">
+        <!-- SIDEBAR -->
+        <aside class="w-80 bg-white border-r border-slate-200 overflow-y-auto flex-shrink-0 custom-scroll">
+            <div class="p-4 border-b border-slate-100 bg-slate-50 sticky top-0 z-10 flex justify-between items-center">
+                <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 italic">Fila de Inspeção</h2>
+                <button onclick="fetchQueue()" class="text-turbo-red hover:rotate-180 transition-all duration-500"><i class="fa-solid fa-rotate-right"></i></button>
+            </div>
+            <div id="os-list" class="p-4 space-y-3">
+                <div class="p-8 text-center text-slate-400 text-xs italic animate-pulse">Carregando fila...</div>
+            </div>
+        </aside>
+
+        <!-- MAIN -->
+        <main class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 custom-scroll relative">
+            
+            <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-slate-400">
+                <i class="fa-solid fa-clipboard-check text-6xl mb-4 opacity-10"></i>
+                <p class="uppercase tracking-widest font-bold text-sm">Selecione uma OS para Auditoria</p>
+            </div>
+
+            <div id="main-workspace" class="hidden space-y-6 pb-24">
+                
+                <!-- TOP INFO -->
+                <div class="bg-turbo-red rounded-3xl shadow-lg text-white p-6 min-h-[120px] flex justify-between items-center relative overflow-hidden">
+                    <div class="relative z-10 ml-4">
+                        <h2 id="display-os" class="text-3xl font-black mb-1 italic tracking-tighter uppercase">OS-XXXX</h2>
+                        <p id="display-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest italic">CLIENTE | MODELO</p>
+                    </div>
+                    <!-- Botão de histórico integrado à Qualidade -->
+                    <button type="button" onclick="carregarLinhaDoTempo(selectedOS?.os_id || selectedOS?.id)" class="relative z-10 bg-slate-900 hover:bg-black text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg mr-4">
+                        <i class="fa-solid fa-clock-rotate-left mr-2"></i> Histórico Completo
+                    </button>
+                    <i class="fa-solid fa-magnifying-glass absolute right-[-20px] bottom-[-20px] text-white opacity-10 text-9xl"></i>
+                </div>
+
+                <!-- CHECKLISTS (ABAS) -->
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 border-b bg-slate-50 flex space-x-8 overflow-x-auto">
+                        <button onclick="switchTab(this, 'tab1')" class="tab-button text-slate-400 py-3 text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-all">1. Auditoria Anexos</button>
+                        <button onclick="switchTab(this, 'tab2')" class="tab-button text-slate-400 py-3 text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-all">2. Auditoria Geral</button>
+                        <button onclick="switchTab(this, 'tab4')" class="tab-button tab-active py-3 text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-all">3. Inspeção Técnica Final</button>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div id="tab1" class="tab-content hidden space-y-1"></div>
+                        <div id="tab2" class="tab-content hidden space-y-1"></div>
+                        
+                        <!-- NOVO: AÇÕES DA AUDITORIA (Visível apenas nas Abas 1 e 2) -->
+                        <div id="audit-actions" class="hidden pt-6 border-t border-slate-100 mt-4 flex justify-end">
+                            <button type="button" id="btn-salvar-auditoria" onclick="saveAuditChecklist()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center">
+                                <i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Auditoria (Anexos e Geral)
+                            </button>
+                        </div>
+                        
+                        <!-- ABA 4 (Inspeção Técnica Final - Exclusiva Qualidade) -->
+                        <div id="tab4" class="tab-content space-y-6">
+                            
+                            <div class="bg-blue-50/50 rounded-2xl border border-blue-100 p-6 flex justify-between items-center">
+                                <div>
+                                    <p class="text-[9px] font-black text-blue-800 uppercase tracking-widest mb-1">Destino</p>
+                                    <h4 class="text-sm font-black text-slate-800 uppercase">Retirada Balcão</h4>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] font-black text-blue-800 uppercase tracking-widest mb-1">Data/Hora</p>
+                                    <h4 id="current-time" class="text-sm font-black text-slate-800 uppercase">--/--/----</h4>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] font-black text-blue-800 uppercase tracking-widest mb-1">Prioridade</p>
+                                    <span id="display-urgency" class="px-3 py-1 bg-blue-500 text-white text-[10px] font-black rounded-full uppercase tracking-widest">Normal</span>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] font-black text-blue-800 uppercase tracking-widest mb-1">Nº Série (ID)</p>
+                                    <h4 id="serial-number" class="text-sm font-black text-slate-800 uppercase">GERANDO...</h4>
+                                </div>
+                            </div>
+
+                            <div id="quality-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <!-- Preenchido via JS -->
+                            </div>
+
+                            <!-- [NOVO] BOTÃO DE SALVAR CHECKLIST -->
+                             <div class="pt-6 border-t border-slate-100 mt-6 flex justify-end">
+                                <button id="btn-salvar-checklist" disabled onclick="saveQualityChecklist()" class="bg-amber-300 text-amber-800 cursor-not-allowed font-bold py-4 px-8 rounded-xl transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center">
+                                    <i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Checklist para Liberar Aprovação
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- BOTÃO GLOBAL DE APROVAÇÃO (Fixo no Rodapé) -->
+    <div id="footer-actions" class="fixed bottom-0 right-0 left-80 p-6 bg-white border-t border-slate-200 z-30 hidden flex justify-between items-center">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">* Verifique as abas de auditoria antes de liberar o certificado de garantia.</p>
+        
+        <button id="btn-finalize-quality" disabled onclick="handleApproveQuality()" class="bg-slate-300 text-slate-500 opacity-50 cursor-not-allowed px-12 py-4 rounded-xl font-black uppercase tracking-[0.1em] text-sm transition-all duration-300">
+            Aprovar e Notificar Expedição
+        </button>
+    </div>
+
+    <script>
+        // URLs e Configurações
+        const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const API_QUEUE = 'https://webhook.mareflow.com.br/webhook/production/quality-queue';
+        const API_ACTION = 'https://webhook.mareflow.com.br/webhook/production/quality-action';
+        let selectedOS = null;
+        let queueData = [];
+        let isAuditSaved = false; // Indica se o checklist de auditoria já está salvo
+
+        const AUDIT_ITEMS = {
+            'tab1': ['Travas CCO', 'Travas CT', 'Parafuso CT Flangeado', 'Parafuso CCO Flangeado', 'Cano Retorno Parafusos', 'Adaptador Lubrificação', 'Nipel de Lubrificação', 'Cano Lubrificação com Nipel', 'Atuador Pressão', 'Atuador Vácuo', 'Atuador Vácuo Eletrônico', 'Atuador Eletrônico com Haste', 'Suporte Atuador Eletrônico', 'Calço Atuador', 'Chapa de Proteção Atuador', 'Parafusos Suporte Atuador', 'Parafusos Chapa Proteção', 'Mangueira na CCO', 'Prisioneiro Saída', 'Prisioneiro Pé Mesa CT', 'Prisioneiro CCE', 'Parafuso CCE', 'Prisioneiro CCO', 'Parafuso CCO', 'Prisioneiro Especial Longo', 'Saída de Escape', 'Flange Saída CT', 'Chapa de Proteção CT', 'Freio Motor', 'Chapa de Proteção Saída', 'Nipel Fixo na CCO', 'Nipel Roscado na CCO', 'Nipel com Parafuso OCO', 'Olhal', 'Parafuso OCO', 'Coletor', 'Cinta CT CCE', 'Cinta CCO', 'Cinta Saída', 'Flange Pé Mesa CT', 'Cano Admissão CCO', 'Cano Admissão Motor', 'Cano de Água', 'Valvula Prioritária', 'Valvula Solenóide', 'Sonda Temp Pressão', 'Sensor PVF', 'Bocal Plástico Biturbo', 'Tampão CT', 'Arruela Plástica Biturbo', 'Bocal Alumínio Biturbo', 'Luva Borracha Biturbo', 'Cano Ligação Alumínio', 'Capa Alumínio Biturbo', 'Peça Alumínio com Mola', 'Juntas', 'Almofada Amianto Saída', 'Mangueira Atuador', 'Conexão T', 'Defletor Admissão com Trava', 'Abraçadeiras', 'Capa Protetiva Alumínio', 'Nipel de Retorno', 'Mangueira de Retorno', 'Suporte CT', 'Anel Cano Retorno', 'Parafuso União Biturbo', 'Valvula Pressão Partida', 'Oring', 'Valvula Sensor Partida', 'Mangueira Bocal Alumínio'],
+            'tab2': ['Mancal Radial', 'Mancal Encosto', 'Flange', 'Colar', 'Espaçador', 'Calço Arruela', 'Defletor de Óleo', 'Protetor Térmico', 'Travas de Mancal CCE', 'Trava Aranha Mancal', 'Trava de Flange', 'Calço de Altura no Rotor', 'Porca do Eixo', 'Almofada Vedação Eixo', 'Almofada Vedação Caracol', 'Arruela Metálica Vedação', 'Geometria Variável TGV', 'Flange da TGV', 'Viton', 'Aneis Vedação Flange TGV', 'Anel Assentamento Valvula Biturbo']
+        };
+
+        const QUALITY_CHECKS = [
+            "Teste de Folga Radial", "Teste de Folga Axial", "Inspeção de Roscas",
+            "Inspeção de Furos", "Inspeção de Faceamento", "Encaixe da Chaveta",
+            "Alinhamento do Eixo nos Atuadores", "Limpeza Geral Técnica", "Lacres e Etiquetas de Garantia",
+            "Certificado com Nº de Série", "Embalagem e Proteção", "Liberação Final para Expedição"
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchQueue();
+            updateTime();
+            setInterval(updateTime, 60000); // Atualiza a cada minuto
+        });
+
+        async function fetchQueue() {
+            try {
+                const response = await fetch(API_QUEUE);
+                const data = await response.json();
+                queueData = Array.isArray(data) ? data : (data.data || []);
+                renderSidebar();
+            } catch (e) {
+                console.error("Erro ao carregar fila da Qualidade:", e); 
+                queueData = [];
+                renderSidebar();
+            }
+        }
+
+        function renderSidebar() {
+            const list = document.getElementById('os-list');
+            if (!queueData || queueData.length === 0) {
+                list.innerHTML = '<div class="p-8 text-center text-slate-400 text-xs italic">Nenhuma turbina na fila de inspeção.</div>';
+                return;
+            }
+
+            list.innerHTML = queueData.map(os => {
+                const osId = os.os_id || os.service_order_id || os.id;
+                const busId = os.business_id || 'S/N';
+                const urg = os.urgency || 'Normal';
+                const mod = os.model || '---';
+                const cli = os.client || '---';
+
+                return `
+                    <div id="os-card-${osId}" onclick="selectOS('${osId}')" class="p-4 cursor-pointer bg-white border-l-4 border-transparent hover:bg-slate-50 transition rounded-xl shadow-sm">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-sm font-black text-slate-900">${busId}</span>
+                            <span class="px-2 py-0.5 text-[9px] font-black uppercase rounded-md bg-blue-100 text-blue-600">${urg}</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-700 uppercase mb-1">${mod}</p>
+                        <p class="text-[10px] font-medium text-slate-500 uppercase truncate">${cli}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function selectOS(id) {
+            selectedOS = queueData.find(o => (o.os_id || o.service_order_id || o.id) === id);
+            
+            document.querySelectorAll('#os-list > div').forEach(c => c.classList.remove('os-card-selected'));
+            document.getElementById(`os-card-${id}`).classList.add('os-card-selected');
+
+            document.getElementById('welcome-screen').classList.add('hidden');
+            document.getElementById('main-workspace').classList.remove('hidden');
+            document.getElementById('footer-actions').classList.remove('hidden');
+            document.getElementById('footer-actions').classList.add('flex');
+            
+            document.getElementById('display-os').innerText = selectedOS.business_id;
+            document.getElementById('display-desc').innerText = `${selectedOS.client} | ${selectedOS.model}`;
+            document.getElementById('serial-number').innerText = selectedOS.serial_number || 'N/A';
+            document.getElementById('display-urgency').innerText = selectedOS.urgency || 'Normal';
+            
+            const destinoLabel = document.querySelector('#tab4 .bg-blue-50\\/50 h4');
+            if(destinoLabel) destinoLabel.innerText = selectedOS.destino || 'RETIRADA BALCÃO';
+            
+            // Garante que a aba de Inspeção Final (Aba 3) está desbloqueada ao carregar uma nova OS
+            const tab4 = document.getElementById('tab4');
+            if(tab4) tab4.classList.remove('opacity-40', 'pointer-events-none', 'grayscale');
+
+            // Reseta visual do botão de auditoria caso venha de outra OS finalizada
+            const btnAuditoria = document.getElementById('btn-salvar-auditoria');
+            if(btnAuditoria) {
+                btnAuditoria.disabled = false;
+                btnAuditoria.className = 'bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center';
+                btnAuditoria.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Auditoria (Anexos e Geral)';
+            }
+
+            // BUSCA SE JÁ EXISTEM DADOS SALVOS NO BANCO PARA ESSA OS
+            let savedAuditData = [];
+            isAuditSaved = false;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('checklist_qualidade')
+                    .select('*')
+                    .eq('service_order_id', selectedOS.os_id || selectedOS.id);
+                
+                if (!error && data) {
+                    savedAuditData = data;
+                    isAuditSaved = data.length > 0; // Se houver linhas salvas, define como True
+                }
+            } catch (e) {
+                console.error("Erro ao buscar auditoria salva:", e);
+            }
+
+            renderAuditTabs(savedAuditData); // Passa os dados salvos para a função desenhar na tela
+            renderQualityGrid();
+            validateQualityClearance(); // Valida o estado inicial dos botões
+        }
+
+        function renderAuditTabs(savedData = []) {
+            const isSaved = savedData.length > 0;
+
+            ['tab1', 'tab2'].forEach(tabId => {
+                const container = document.getElementById(tabId);
+                
+                if (isSaved) {
+                    // --- MODO LEITURA (IGUAL DESMONTAGEM) ---
+                    // Filtra apenas os registros que pertencem especificamente a esta aba
+                    const savedItemsForThisTab = savedData.filter(d => 
+                        AUDIT_ITEMS[tabId].some(item => item.toUpperCase().trim() === d.item_name.toUpperCase().trim())
+                    );
+
+                    if (savedItemsForThisTab.length === 0) {
+                        container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs italic">Nenhuma divergência ou alteração foi necessária nas peças desta aba.</div>`;
+                        return;
+                    }
+
+                    container.innerHTML = savedItemsForThisTab.map(item => {
+                        let badgeColor = "bg-slate-100 text-slate-700";
+                        if (item.status === 'PEÇA OK') badgeColor = "bg-emerald-500 text-white";
+                        if (item.status === 'RECONDICIONAR') badgeColor = "bg-yellow-500 text-white";
+                        if (item.status === 'TROCAR') badgeColor = "bg-red-600 text-white";
+
+                        return `
+                            <div class="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-100 rounded-2xl mb-2">
+                                <span class="font-extrabold text-slate-700 uppercase text-[10px] tracking-tight ml-2">${item.item_name}</span>
+                                <div class="flex items-center space-x-3">
+                                    <span class="px-3 py-1 rounded-lg text-[9px] font-black uppercase ${badgeColor} tracking-wider">${item.status}</span>
+                                    ${item.notes || item.observation ? `<span class="text-[10px] text-slate-400 italic max-w-[200px] truncate">Obs: "${item.notes || item.observation}"</span>` : ''}
+                                </div>
+                            </div>`;
+                    }).join('');
+
+                } else {
+                    // --- MODO EDIÇÃO (PADRÃO ANTES DE SALVAR) ---
+                    container.innerHTML = AUDIT_ITEMS[tabId].map(item => `
+                        <div class="grid grid-cols-12 gap-3 items-center bg-white p-2 border-b border-slate-50 hover:bg-slate-50 transition">
+                            <div class="col-span-5 text-[10px] font-bold text-slate-600 uppercase tracking-tighter ml-2">${item}</div>
+                            <div class="col-span-3">
+                                <select onchange="updateSelectColor(this);" class="select-audit-final w-full bg-slate-400 text-white text-[9px] font-black py-2 rounded-lg uppercase text-center outline-none">
+                                    <option value="NÃO INFORMADO">NÃO INFORMADO</option>
+                                    <option value="PEÇA OK">PEÇA OK</option>
+                                    <option value="RECONDICIONAR">RECONDICIONAR</option>
+                                    <option value="TROCAR">TROCAR</option>
+                                </select>
+                            </div>
+                            <div class="col-span-4">
+                                <input type="text" placeholder="Obs de auditoria..." class="w-full bg-slate-100 text-slate-500 text-[10px] rounded-lg px-3 py-1.5 outline-none focus:ring-1 border border-transparent">
+                            </div>
+                        </div>`).join('');
+                }
+            });
+        }
+
+        function renderQualityGrid() {
+            const grid = document.getElementById('quality-grid');
+            grid.innerHTML = QUALITY_CHECKS.map((check) => `
+                <label class="relative cursor-pointer group">
+                    <input type="checkbox" class="check-qualidade absolute opacity-0 w-0 h-0" onchange="validateQualityClearance()">
+                    <div class="bg-white border-2 border-slate-100 rounded-2xl p-5 flex items-center transition-all duration-300 shadow-sm hover:border-slate-300">
+                        <div class="w-6 h-6 rounded border-2 border-slate-300 mr-4 flex items-center justify-center group-hover:border-slate-400 transition-colors">
+                            <i class="fa-solid fa-check text-transparent text-sm transition-colors duration-300"></i>
+                        </div>
+                        <span class="text-[11px] font-black text-slate-500 uppercase tracking-tight transition-colors">${check}</span>
+                    </div>
+                </label>
+            `).join('');
+        }
+
+        function validateQualityClearance() {
+            const checkedCount = document.querySelectorAll('.check-qualidade:checked').length;
+            const btnSave = document.getElementById('btn-salvar-checklist');
+
+            // Liberado se pelo menos 1 item estiver selecionado
+            if (checkedCount >= 1) {
+                btnSave.disabled = false;
+                btnSave.classList.remove('bg-amber-300', 'text-amber-800', 'cursor-not-allowed');
+                btnSave.classList.add('bg-amber-500', 'text-white', 'hover:bg-amber-600');
+            } else {
+                btnSave.disabled = true;
+                btnSave.classList.add('bg-amber-300', 'text-amber-800', 'cursor-not-allowed');
+                btnSave.classList.remove('bg-amber-500', 'text-white', 'hover:bg-amber-600');
+            }
+        }
+        
+        // LÓGICA DE SALVAMENTO DA AUDITORIA (ABAS 1 E 2) COM VERIFICAÇÃO DE DIVERGÊNCIA
+        async function saveAuditChecklist() {
+            if (!selectedOS) return false;
+            
+            const btn = document.getElementById('btn-salvar-auditoria');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Verificando Divergências...`;
+
+            const rows = [];
+            document.querySelectorAll('.select-audit-final').forEach(select => {
+                const itemName = select.parentElement.previousElementSibling.innerText;
+                const obsInput = select.parentElement.nextElementSibling.querySelector('input');
+                const statusValue = select.value;
+                
+                if (statusValue !== 'NÃO INFORMADO') {
+                    rows.push({
+                        service_order_id: selectedOS.os_id || selectedOS.id,
+                        item_name: itemName.toUpperCase().trim(),
+                        status: statusValue,
+                        observation: obsInput ? obsInput.value.trim() : ''
+                    });
+                }
+            });
+
+            if (rows.length === 0) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Auditoria (Anexos e Geral)';
+                alert('Preencha ao menos um item da auditoria antes de salvar.');
+                return false;
+            }
+
+            try {
+                // 1. Busca baseline da Análise Técnica
+                const { data: baseline, error: baselineError } = await supabaseClient
+                    .from('checklist_analysis_general')
+                    .select('item_name, status')
+                    .eq('service_order_id', selectedOS.os_id || selectedOS.id);
+
+                if (baselineError) throw baselineError;
+
+                // 2. Compara valores para achar divergências
+                let hasDivergence = false;
+                const divergentItems = [];
+
+                rows.forEach(item => {
+                    const baseItem = baseline && baseline.find(b => b.item_name.toUpperCase().trim() === item.item_name.toUpperCase().trim());
+                    const baseStatus = baseItem ? baseItem.status.toUpperCase().trim() : 'NÃO INFORMADO';
+                    const newStatus = item.status.toUpperCase().trim();
+
+                    if (baseStatus !== newStatus) {
+                        if (baseStatus === 'NÃO INFORMADO' && newStatus === 'PEÇA OK') {
+                            // Aceitável
+                        } else {
+                            hasDivergence = true;
+                            divergentItems.push(`${item.item_name} (Análise: ${baseStatus} | Qualidade: ${newStatus})`);
+                        }
+                    }
+                });
+
+                const executeSaveAudit = async (isAuthorized = false, supervisorName = "") => {
+                    const { error } = await supabaseClient
+                        .from('checklist_qualidade') // Salva na tabela específica da qualidade
+                        .upsert(rows, { onConflict: 'service_order_id,item_name' });
+                    
+                    if (error) throw error;
+
+                    if (isAuthorized) {
+                        await supabaseClient
+                            .from('history_events')
+                            .insert({
+                                service_order_id: selectedOS.os_id || selectedOS.id,
+                                action: 'Divergência de Qualidade Autorizada',
+                                details: `Supervisor ${supervisorName} autorizou divergências na Qualidade: ${divergentItems.join(', ')}`,
+                                timestamp: new Date().toISOString()
+                            });
+                    }
+
+                    // Sucesso visual
+                    btn.classList.replace('bg-blue-600', 'bg-emerald-600');
+                    btn.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
+                    btn.innerHTML = '<i class="fa-solid fa-check mr-2"></i> Auditoria Salva!';
+                    
+                    // Garante que a Aba 3 (Inspeção Final) esteja desbloqueada para uso
+                    const tab4 = document.getElementById('tab4');
+                    if(tab4) tab4.classList.remove('opacity-40', 'pointer-events-none', 'grayscale');
+
+                    return true;
+                };
+
+                // 3. Trava de Senha se houver divergência
+                if (hasDivergence) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Auditoria (Anexos e Geral)';
+
+                    const modal = document.getElementById('modal-supervisor');
+                    document.getElementById('modal-supervisor-desc').innerHTML = `<b>Divergências detectadas:</b><br>${divergentItems.join('<br>')}<br><br>Digite a senha do líder para autorizar o salvamento.`;
+                    document.getElementById('input-supervisor-password').value = '';
+                    modal.style.display = 'flex';
+
+                    // Modifica a ação do botão confirmar no modal dinamicamente
+                    document.getElementById('btn-confirm-supervisor').onclick = async () => {
+                        const pass = document.getElementById('input-supervisor-password').value.trim();
+                        if (pass === 'TURBOSUL2026') {
+                            closeSupervisorModal(true); 
+                            btn.disabled = true;
+                            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Gravando...`;
+                            await executeSaveAudit(true, "Líder Qualidade");
+                        } else {
+                            alert("❌ Senha incorreta! Autorização negada.");
+                        }
+                    };
+                    return false;
+                } else {
+                    await executeSaveAudit(false);
+                    return true;
+                }
+
+            } catch (e) {
+                console.error(e);
+                alert("Falha ao salvar auditoria.");
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Auditoria (Anexos e Geral)';
+                return false;
+            }
+        }
+
+        async function saveQualityChecklist() {
+            const btn = document.getElementById('btn-salvar-checklist');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Validando e Salvando...`;
+
+            const qualityChecks = Array.from(document.querySelectorAll('.check-qualidade')).map((input, index) => ({
+                item: QUALITY_CHECKS[index],
+                ok: input.checked
+            }));
+
+            try {
+                // Placeholder para lógica de divergência
+                const hasDivergence = false; 
+
+                const executeSave = async (isAuthorized = false, supervisor = "") => {
+                    const response = await fetch(API_ACTION, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            os_id: selectedOS.os_id, 
+                            checks: qualityChecks,
+                            action: 'SAVE_QUALITY_CHECKLIST',
+                            authorized_by: supervisor 
+                        })
+                    });
+
+                    if (response.ok) {
+                        alert("✅ Checklist de Qualidade salvo com sucesso!");
+                        const btnFinalize = document.getElementById('btn-finalize-quality');
+                        btnFinalize.disabled = false;
+                        btnFinalize.classList.remove('bg-slate-300', 'text-slate-500', 'opacity-50', 'cursor-not-allowed');
+                        btnFinalize.classList.add('bg-emerald-600', 'text-white', 'hover:bg-emerald-700', 'shadow-xl');
+                        btn.innerHTML = `<i class="fa-solid fa-check mr-2"></i> Checklist Salvo`;
+                        btn.classList.add('bg-emerald-600', 'text-white');
+                    } else {
+                        throw new Error('Falha ao salvar o checklist.');
+                    }
+                };
+
+                if (hasDivergence) {
+                    document.getElementById('modal-supervisor').style.display = 'flex';
+                    document.getElementById('btn-confirm-supervisor').onclick = () => {
+                        const pass = document.getElementById('input-supervisor-password').value;
+                        if(pass === 'TURBOSUL2026') {
+                            executeSave(true, "Supervisor Qualidade");
+                            closeSupervisorModal();
+                        } else { alert("Senha incorreta"); }
+                    };
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Checklist para Liberar Aprovação`;
+
+                } else {
+                    await executeSave(false);
+                }
+            } catch (e) {
+                alert("❌ Erro ao salvar o checklist. Tente novamente.");
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Checklist para Liberar Aprovação`;
+                console.error("Erro ao salvar:", e);
+            }
+        }
+
+        function handleApproveQuality() {
+            if (!selectedOS) return;
+            document.getElementById('quality-modal').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('quality-modal-card').classList.remove('scale-95', 'opacity-0');
+            }, 10);
+
+            document.getElementById('quality-modal-confirm-btn').onclick = async () => {
+                closeQualityModal();
+                await executeQualityApproval(); 
+            };
+        }
+
+        async function executeQualityApproval() {
+            const btn = document.getElementById('btn-finalize-quality');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> NOTIFICANDO EXPEDIÇÃO...`;
+
+            try {
+                const response = await fetch(API_ACTION, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        os_id: selectedOS.os_id,
+                        action: 'QUALITY_APPROVED',
+                        inspector_id: '8ab0d7ed-055c-4480-a1af-eb0b08894682',
+                        serial_number: document.getElementById('serial-number').innerText,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+
+                if (response.ok) {
+                    alert("✅ Turbina aprovada e enviada para a Expedição!");
+                    window.location.reload();
+                } else {
+                    throw new Error('Falha na notificação para a expedição.');
+                }
+            } catch (e) {
+                console.error("Erro na aprovação final:", e);
+                alert("❌ Falha de conexão com o servidor. A aprovação não foi concluída.");
+                btn.disabled = false;
+                btn.innerText = "Aprovar e Notificar Expedição";
+            }
+        }
+
+        function switchTab(btn, tabId) {
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('tab-active'));
+            btn.classList.add('tab-active');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            // Só exibe o botão de Salvar se for Aba 1 ou 2 E a auditoria ainda NÃO estiver salva
+            const auditActions = document.getElementById('audit-actions');
+            if (auditActions) {
+                if ((tabId === 'tab1' || tabId === 'tab2') && !isAuditSaved) {
+                    auditActions.classList.remove('hidden');
+                } else {
+                    auditActions.classList.add('hidden');
+                }
+            }
+        }
+
+        function updateSelectColor(el) {
+            const val = el.value;
+            el.className = 'select-audit-final w-full text-white text-[9px] font-black py-2 rounded-lg uppercase text-center outline-none';
+            if (val === 'NÃO INFORMADO') el.classList.add('bg-slate-400');
+            else if (val === 'PEÇA OK') el.classList.add('bg-emerald-500');
+            else if (val === 'RECONDICIONAR') el.classList.add('bg-yellow-500');
+            else if (val === 'TROCAR') el.classList.add('bg-red-600');
+        }
+
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-time').innerText = now.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+        }
+
+        function closeQualityModal() {
+            const modal = document.getElementById('quality-modal');
+            const card = document.getElementById('quality-modal-card');
+            if(card) card.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => { if(modal) modal.classList.add('hidden'); }, 300);
+        }
+
+        function closeSupervisorModal(isAuthorized = false) {
+            document.getElementById('modal-supervisor').style.display = 'none';
+            
+            // Se o líder NÃO autorizou a divergência da auditoria, bloqueia a Inspeção Final (Aba 3) e o Botão Final
+            if (!isAuthorized) {
+                const tab4 = document.getElementById('tab4');
+                const btnFinalize = document.getElementById('btn-finalize-quality');
+                
+                if(tab4) tab4.classList.add('opacity-40', 'pointer-events-none', 'grayscale');
+                if(btnFinalize) {
+                    btnFinalize.disabled = true;
+                    btnFinalize.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                alert("⚠️ Divergência não autorizada. A Inspeção Técnica Final foi bloqueada.");
+            }
+        }
+
+        // FUNÇÕES DE HISTÓRICO E CONTROLE DE MODAL DA QUALIDADE
+        function closeModal(id) { 
+            document.getElementById(id).classList.add('hidden'); 
+            document.getElementById(id).classList.remove('flex'); 
+        }
+
+        async function carregarLinhaDoTempo(osId) {
+            if (!osId) return;
+            const os = selectedOS;
+            
+            // Preenche dados básicos no modal
+            document.getElementById('detail-business-id').textContent = os.business_id;
+            document.getElementById('detail-model').textContent = os.model || 'N/A';
+
+            const timeline = document.getElementById('timeline-container');
+            timeline.innerHTML = '<p class="text-xs text-slate-400 animate-pulse text-center">Buscando rastreio...</p>';
+            
+            document.getElementById('details-modal').classList.remove('hidden');
+            document.getElementById('details-modal').classList.add('flex');
+
+            try {
+                const { data: events, error } = await supabaseClient
+                    .from('history_events')
+                    .select('*')
+                    .eq('service_order_id', osId)
+                    .order('timestamp', { ascending: true });
+
+                if (!error && events && events.length > 0) {
+                    timeline.innerHTML = events.map(ev => `
+                        <div class="relative pb-3">
+                            <div class="absolute -left-[21px] top-1 w-3 h-3 bg-red-600 rounded-full border-2 border-white"></div>
+                            <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight">${ev.action}</p>
+                            <p class="text-[10px] text-slate-500 font-medium">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
+                            ${ev.details ? `<p class="text-[9px] text-slate-400 italic">"${ev.details}"</p>` : ''}
+                        </div>`).join('');
+                } else { 
+                    timeline.innerHTML = '<p class="text-xs text-slate-400 italic text-center">Nenhum evento registrado ainda.</p>'; 
+                }
+            } catch (err) { console.error(err); }
+        }
+
+    </script>
+	
+	<!-- MODAL CUSTOMIZADO QUALIDADE -->
+    <div id="quality-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden transition-all duration-300">
+        <div id="quality-modal-card" class="bg-white rounded-[40px] p-8 max-w-sm w-full mx-4 shadow-2xl transform scale-95 opacity-0 transition-all duration-300 border border-slate-100">
+            <div class="text-center">
+                <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i class="fa-solid fa-file-shield text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-black text-slate-900 uppercase tracking-tighter mb-2">Aprovar Auditoria?</h3>
+                <p class="text-sm text-slate-500 font-medium mb-8 leading-relaxed">A OS será enviada para a **Expedição** e o certificado de garantia será liberado para impressão.</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeQualityModal()" class="flex-1 py-4 px-6 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition">Voltar</button>
+                <button id="quality-modal-confirm-btn" class="flex-1 py-4 px-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-200 transition transform active:scale-95">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: SENHA DO SUPERVISOR -->
+    <div id="modal-supervisor" style="display: none;" class="fixed inset-0 bg-slate-900/80 z-[300] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center border-t-8 border-red-500">
+            <div class="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-key text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-black text-slate-800 uppercase tracking-tighter mb-2">Divergência Detectada!</h3>
+            <p id="modal-supervisor-desc" class="text-[11px] text-slate-500 font-medium italic mb-6">Os vereditos selecionados divergem da Análise Técnica. Digite a senha do líder para autorizar.</p>
+            <input type="password" id="input-supervisor-password" placeholder="Digite a senha..." class="w-full bg-slate-100 border-2 border-transparent focus:border-red-500 rounded-2xl px-5 py-3 text-sm font-bold text-center outline-none mb-6">
+            <div class="flex space-x-3">
+                <button type="button" onclick="closeSupervisorModal()" class="flex-1 bg-slate-100 text-slate-400 font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-slate-200">Cancelar</button>
+                <button type="button" id="btn-confirm-supervisor" class="flex-[2] bg-red-600 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest shadow-lg hover:bg-red-700">Autorizar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE HISTÓRICO COMPLETO (TIMELINE) -->
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-[110]">
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+            <div class="flex justify-between items-center border-b pb-4 mb-4 sticky top-0 bg-white z-10">
+                <h3 class="text-xl font-black text-turbo-red uppercase tracking-tighter">Histórico da OS</h3>
+                <button onclick="closeModal('details-modal')" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 text-sm border-b pb-4 mb-4">
+                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Identificação</p><p id="detail-business-id" class="text-lg font-black text-slate-800">--</p></div>
+                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Modelo</p><p id="detail-model" class="text-slate-800 font-bold">--</p></div>
+            </div>
+
+            <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 text-center border-t pt-4">Linha do Tempo de Produção</h4>
+            <div id="timeline-container" class="space-y-4 border-l-2 border-slate-200 ml-2 pl-4">
+                <!-- Histórico injetado aqui -->
+            </div>
+        </div>
+    </div>
+	
+    <script src="js/auth.js"></script>
+</body>
+</html>

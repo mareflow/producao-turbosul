@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Pré-Vendas TurboSul</title>
+    
+    <!-- Inclusão do Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/tailwind-cfg.js"></script>
+
+    <!-- Global CSS -->
+    <link rel="stylesheet" href="css/global.css">
+
+    <!-- Importação da fonte 'Inter' do Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Estilos Customizados -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Cor de destaque principal (Blue-600) */
+        .bg-brand-blue {
+            background-color: #2563EB; 
+        }
+        .hover\:bg-brand-blue-dark:hover {
+            background-color: #1D4ED8; 
+        }
+        /* Torna os cards clicáveis e dá feedback visual */
+        .os-card:hover {
+            cursor: pointer;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px);
+            transition: all 0.2s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 pt-20">
+
+    <!-- HEADER FIXO (Topo da Tela) -->
+    <header class="fixed top-0 left-0 right-0 h-20 bg-white shadow-md z-10 flex items-center justify-between px-8">
+        <div class="flex items-center space-x-4">
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="Logo TurboSul" class="w-10 h-10">
+            <div>
+                <h1 class="text-lg font-bold text-gray-800">TurboSul - Controle de Produção</h1>
+                <p class="text-sm text-gray-500">Gerenciamento de Ordens de Serviço</p>
+            </div>
+        </div>
+
+        <nav class="flex items-center space-x-6 text-sm text-gray-600">
+            <div class="flex items-center space-x-2 text-gray-700 pr-4">
+                <span class="text-sm font-black text-slate-800 uppercase tracking-wider">Setor Pré-Vendas</span>
+            </div>
+            <button id="logout-button" onclick="window.location.href='./login.html'" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-4 rounded-md transition duration-150">Sair</button>
+        </nav>
+    </header>
+
+    <!-- CONTEÚDO PRINCIPAL (Mantido) -->
+    <main class="p-6 lg:p-10">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800">Pré-Vendas / Entrada</h2>
+            <button id="novo-orcamento-btn" class="bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-md shadow transition duration-200">
+                Novo Orçamento
+            </button>
+        </div>
+
+        <div class="text-sm mb-4">
+            <span class="text-brand-blue border-b-2 border-brand-blue font-medium pb-1">Entrada / Programação</span>
+        </div>
+
+        <div class="lg:flex lg:space-x-8 space-y-6 lg:space-y-0">
+            <div class="lg:w-3/5">
+                <div class="bg-green-100 p-4 rounded-lg shadow-sm border border-green-200 mb-4 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-green-700">Fila do Dia (Despachar para Análise)</h3>
+                    <button id="despachar-tudo-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium text-sm py-1.5 px-3 rounded transition duration-200">
+                        Despachar Tudo para Análise (<span id="fila-count">0</span>)
+                    </button>
+                </div>
+                
+                <div id="fila-do-dia-container" class="space-y-4">
+                    <p id="loading-message" class="text-gray-500 text-center mt-8">Carregando ordens...</p>
+                </div>
+            </div>
+
+<div class="lg:w-2/5">
+                <div class="bg-blue-100 p-4 rounded-lg shadow-sm border border-blue-200 mb-4">
+                    <h3 class="text-lg font-semibold text-blue-700 uppercase font-black text-sm tracking-widest">Programação Futura</h3>
+                </div>
+                <div id="fila-futura-container" class="space-y-4">
+                    <p class="text-gray-400 italic text-center py-10 bg-white rounded-lg border border-dashed text-xs">Nenhuma programação futura.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- RODAPÉ DE ASSINATURA MARÉ FLOW -->
+    <div id="app-footer"></div>
+
+    <!-- MODAL 1: Abertura de Entrada / Orçamento (Criação) -->
+    <div id="new-os-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+        <div class="bg-white w-full max-w-xl rounded-xl shadow-2xl transform transition-all duration-300 scale-100 opacity-100 max-h-[90vh] overflow-y-auto">
+            
+            <div class="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
+                <h3 class="text-xl font-semibold text-gray-800">Abertura de Entrada / Orçamento</h3>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600 transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <form id="new-os-form" class="p-6 space-y-6">
+                <div><label for="orcamento_entrada_num" class="block text-sm font-medium text-gray-700 mb-1">Número do Orçamento / Entrada</label><input type="text" id="orcamento_entrada_num" name="orcamento_entrada_num" placeholder="ORÇ-000" required class="w-full px-3 py-2 border border-gray-300 rounded-lg font-bold text-blue-700 focus:ring-blue-500 focus:border-blue-500"></div>
+                <div><label for="nome_cliente" class="block text-sm font-medium text-gray-700 mb-1">Nome do Cliente</label><input type="text" id="nome_cliente" name="nome_cliente" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="relative">
+                        <label for="part_number" class="block text-sm font-medium text-gray-700 mb-1">Part Number</label>
+                        <input type="text" id="part_number" name="part_number" required autocomplete="off" placeholder="Digite para buscar..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <div id="part_number_dropdown" class="absolute z-50 w-full bg-white border border-gray-200 shadow-lg rounded-b-lg hidden max-h-48 overflow-y-auto mt-1 custom-scroll"></div>
+                    </div>
+                    <div>
+                        <label for="modelo_turbo" class="block text-sm font-medium text-gray-700 mb-1">Modelo do Turbo</label>
+                        <input type="text" id="modelo_turbo" name="modelo_turbo" required readonly class="w-full px-3 py-2 border border-gray-300 bg-gray-50 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-lg bg-amber-50 border border-amber-200 space-y-3">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="venda_base_troca_check" name="venda_base_troca_check" class="h-4 w-4 text-brand-blue border-gray-300 rounded focus:ring-brand-blue">
+                        <label for="venda_base_troca_check" class="ml-2 text-sm font-bold text-gray-800">Venda à Base de Troca</label>
+                    </div>
+                    <div id="hull-state-options" class="ml-6 space-y-2 text-sm text-gray-700 hidden">
+<div class="flex items-center"><input type="radio" id="recebido" name="base_troca_status" value="Já Recebido" class="h-4 w-4 text-brand-blue border-gray-300 focus:ring-brand-blue"><label for="recebido" class="ml-2">Já Recebido (Seguir Processo)</label></div>
+<div class="flex items-center"><input type="radio" id="aguardando_cliente" name="base_troca_status" value="Standby" class="h-4 w-4 text-brand-blue border-gray-300 focus:ring-brand-blue"><label for="aguardando_cliente" class="ml-2">Aguardando Cliente Trazer (Standby)</label></div>
+<div class="flex items-center"><input type="radio" id="pago_incluso" name="base_troca_status" value="Pago/Incluso" class="h-4 w-4 text-brand-blue border-gray-300 focus:ring-brand-blue"><label for="pago_incluso" class="ml-2">Pago/Incluso (Seguir Processo)</label></div>
+                    </div>
+                </div>
+
+                <div><label for="data_programacao" class="block text-sm font-medium text-gray-700 mb-1">Data de Programação</label><input type="date" id="data_programacao" name="data_programacao" value="" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></div>
+                <div><label for="grau_urgencia" class="block text-sm font-medium text-gray-700 mb-1">Grau de Urgência</label><select id="grau_urgencia" name="grau_urgencia" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"><option value="Baixa">Baixa</option><option value="Normal" selected>Normal</option><option value="Alta">Alta</option><option value="Urgente">Urgente</option></select></div>
+                
+                
+                
+                <div><label for="observacoes" class="block text-sm font-black text-amber-600 uppercase text-[10px] tracking-widest mb-1">Reclamação do Cliente</label><textarea id="observacoes" name="observacoes" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea></div>
+            </form>
+
+            <div class="p-4 border-t bg-slate-50 flex justify-end space-x-3 sticky bottom-0">
+                <button type="button" id="cancel-modal-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-150">Cancelar</button>
+                <button type="submit" form="new-os-form" class="bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-lg transition duration-150">Criar Entrada</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL 2: Confirmação de Sucesso (Criação Simples) -->
+    <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <div class="flex flex-col items-center mb-4">
+                <svg class="w-12 h-12 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <h3 class="text-xl font-bold text-gray-800">Sucesso!</h3>
+                <p class="text-gray-600 mt-2">Ordem de Serviço criada com sucesso.</p>
+            </div>
+            <button id="success-modal-ok-btn" class="w-full bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                OK
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 4: Sucesso no Despacho -->
+    <div id="dispatch-success-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <div class="flex flex-col items-center mb-4">
+                <svg class="w-12 h-12 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <h3 class="text-xl font-bold text-gray-800">Despacho Realizado!</h3>
+                <p id="dispatch-success-message" class="text-gray-600 mt-2">--</p>
+            </div>
+            <button id="dispatch-success-ok-btn" class="w-full bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                OK
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Detalhes do Processo (Visualização/Leitura) -->
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl">
+            
+            <!-- Header do Modal de Detalhes -->
+            <div class="p-6 border-b flex justify-between items-center">
+                <h3 class="text-xl font-semibold text-gray-800">Detalhes do Processo</h3>
+                <button id="close-details-modal-btn" class="text-gray-400 hover:text-gray-600 transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Corpo do Modal de Detalhes -->
+            <div class="p-6 space-y-5 text-sm">
+                
+                <!-- Informações Principais -->
+                <div class="grid grid-cols-3 gap-4 border-b pb-4">
+                    <div><p class="text-gray-500 font-medium">Nº ORÇAMENTO / ENTRADA</p><p id="detail-business-id" class="text-lg font-bold text-gray-800">--</p></div>
+                    <div><p class="text-gray-500 font-medium">MODELO</p><p id="detail-model" class="text-gray-800">--</p></div>
+                    <div><p class="text-gray-500 font-medium">CLIENTE</p><p id="detail-client" class="text-gray-800">--</p></div>
+                </div>
+
+                <!-- Status e Urgência -->
+                <div class="grid grid-cols-4 gap-4 pb-4">
+                    <div><p class="text-gray-500 font-medium text-[10px] uppercase">Status</p><span id="detail-status" class="inline-block text-xs font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">--</span></div>
+                    <div><p class="text-gray-500 font-medium text-[10px] uppercase">Urgência</p><span id="detail-urgency" class="inline-block text-xs font-bold px-2 py-0.5 rounded-full">--</span></div>
+                    <div><p class="text-gray-500 font-medium text-[10px] uppercase">Criação</p><p id="detail-created-at" class="text-xs text-gray-800 font-bold">--</p></div>
+                    <div><p class="text-amber-600 font-black text-[10px] uppercase">Programação</p><p id="detail-scheduled-at" class="text-xs text-amber-700 font-black">--</p></div>
+                </div>
+                
+                <!-- Detalhes Adicionais -->
+                <h4 class="text-base font-semibold text-gray-800 border-b pb-2">Detalhes Adicionais</h4>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><p class="text-gray-500 font-medium">GRAU DE DIFICULDADE</p><p id="detail-difficulty" class="text-gray-800">--</p></div>
+                    <div><p class="text-gray-500 font-medium">TIPO DE VENDA</p><p id="detail-trade-in" class="text-gray-800">--</p></div>
+                </div>
+
+                <!-- Itens Adicionais -->
+                <div class="space-y-2">
+                    <p class="text-gray-500 font-medium">ITENS ADICIONAIS INCLUÍDOS</p>
+                    <ul id="detail-maintenance-extras" class="text-gray-800 list-disc list-inside bg-slate-50 p-3 rounded-lg">
+                        <!-- Itens serão injetados aqui -->
+                    </ul>
+                </div>
+
+                <!-- Observações e Histórico -->
+                <div class="space-y-2">
+                    <p class="text-gray-500 font-medium">OBSERVAÇÕES</p>
+                    <p id="detail-observation" class="bg-slate-50 p-3 rounded-lg text-gray-800 italic">Nenhuma observação registrada.</p>
+                </div>
+                
+                <h4 class="text-base font-semibold text-gray-800 border-b pb-2 pt-4">Histórico de Eventos</h4>
+                <div id="timeline-container" class="mt-4 space-y-4 border-l-2 border-slate-200 ml-2 pl-4"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL DE CONFIRMAÇÃO DE DESPACHO (Modal 5 na minha contagem, mas Modal de Confirmação no código) -->
+    <div id="confirm-dispatch-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Confirmar Despacho</h3>
+            <p id="confirm-dispatch-message" class="text-gray-600 mb-6">Tem certeza que deseja despachar X ordens para Análise Técnica?</p>
+            
+            <div class="flex justify-center space-x-3">
+                <button id="cancel-dispatch-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-150">
+                    Cancelar
+                </button>
+                <button id="confirm-dispatch-btn" class="bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                    OK
+                </button>
+            </div>
+        </div>
+</div>
+
+<!-- MODAL DE ERRO DE VALIDAÇÃO (Campos Obrigatórios) -->
+<div id="error-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[110]">
+    <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center border-t-4 border-red-500">
+        <div class="flex flex-col items-center mb-4">
+            <div class="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-3">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800">Campos Pendentes!</h3>
+            <p id="error-modal-message" class="text-gray-600 mt-2 text-sm">Por favor, preencha todos os campos obrigatórios para continuar.</p>
+        </div>
+        <button onclick="document.getElementById('error-modal').classList.add('hidden'); document.getElementById('error-modal').classList.remove('flex');" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+            Entendido
+        </button>
+    </div>
+</div>
+
+<!-- Inclusão da biblioteca do Supabase via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+
+    <!-- Lógica de Frontend com JavaScript Puro (Vanilla JS) -->
+    <script>
+        // ====================================================================
+        // 1. CONFIGURAÇÃO E INICIALIZAÇÃO
+        // ====================================================================
+        
+        const WEBHOOK_GET = API_ENDPOINTS.PREVENDAS_GET;
+        const WEBHOOK_POST = API_ENDPOINTS.PREVENDAS_POST;
+        const WEBHOOK_DISPATCH = API_ENDPOINTS.PREVENDAS_DISPATCH;
+        
+        // Elementos DOM (Declarados no escopo global para serem lidos pelo DOMContentLoaded)
+        const filaContainer = document.getElementById('fila-do-dia-container');
+        const filaCountSpan = document.getElementById('fila-count');
+        const loadingMessage = document.getElementById('loading-message');
+        const modal = document.getElementById('new-os-modal');
+        const successModal = document.getElementById('success-modal');
+        const detailsModal = document.getElementById('details-modal');
+        const confirmDispatchModal = document.getElementById('confirm-dispatch-modal');
+        const dispatchSuccessModal = document.getElementById('dispatch-success-modal');
+        const confirmDispatchMessage = document.getElementById('confirm-dispatch-message');
+        const dispatchSuccessMessage = document.getElementById('dispatch-success-message');
+        const form = document.getElementById('new-os-form');
+        const baseTrocaCheck = document.getElementById('venda_base_troca_check');
+        const baseTrocaRadiosDiv = document.getElementById('hull-state-options');
+        const successOkBtn = document.getElementById('success-modal-ok-btn');
+        const closeDetailsBtn = document.getElementById('close-details-modal-btn');
+        const dispatchAllBtn = document.getElementById('despachar-tudo-btn');
+        const confirmDispatchBtn = document.getElementById('confirm-dispatch-btn');
+        const cancelDispatchBtn = document.getElementById('cancel-dispatch-btn');
+        const dispatchSuccessOkBtn = document.getElementById('dispatch-success-ok-btn');
+        
+        const FALLBACK_USER_UID = '8ab0d7ed-055c-4480-a1af-eb0b08894682';
+
+        let currentOrders = [];
+
+        const MAINTENANCE_MAP = {
+            actuator: 'Atuador',
+            geometry: 'Geometria Variável',
+            geometryStem: 'Canote da Geometria',
+            geometryFlange: 'Flange da Geometria'
+        };
+
+        const HULL_STATE_MAP = {
+            'RECEIVED': 'Já Recebido (Seguir Processo)',
+            'WAITING': 'Aguardando Cliente Trazer (Standby)',
+            'PAID': 'Pago/Incluso (Seguir Processo)',
+            'UNKNOWN': 'Aguardando definição de status' 
+        };
+
+        // ====================================================================
+        // 2. FUNÇÕES AUXILIARES E DE CONTROLE
+        // ====================================================================
+
+        async function getCurrentUserUID() { 
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session && session.user) { return session.user.id; }
+            } catch (error) { console.error("Erro ao obter a sessão para UID.", error); }
+            return FALLBACK_USER_UID;
+        }
+
+        function getUrgencyBadge(urgency) {
+            switch (urgency) {
+                case 'Alta':
+                case 'Urgente': return 'bg-red-500 text-white';
+                case 'Normal': return 'bg-yellow-200 text-yellow-800';
+                case 'Baixa': return 'bg-gray-100 text-gray-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+        
+        function formatDateTime(isoString) {
+            if (!isoString) return '--';
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            } catch {
+                return isoString;
+            }
+        }
+
+        function formatMaintenanceExtras(extras) {
+            if (!extras || typeof extras !== 'object') { return '<li>Nenhum item adicional selecionado.</li>'; }
+            
+            const selectedItems = Object.keys(extras)
+                .filter(key => extras[key] === true)
+                .map(key => MAINTENANCE_MAP[key] || key);
+                
+            if (selectedItems.length === 0) { return '<li>Nenhum item adicional selecionado.</li>'; }
+            
+            return selectedItems.map(item => `<li>${item}</li>`).join('');
+        }
+        
+function renderOrderCard(order) {
+            const urgencyText = order.urgency || 'Normal';
+            const urgencyClass = getUrgencyBadge(urgencyText);
+            const dataProg = order.scheduled_date ? new Date(order.scheduled_date).toLocaleDateString('pt-BR') : '--';
+            
+            return `
+                <div class="os-card bg-white p-4 rounded-lg shadow border border-gray-200 flex justify-between items-center" data-order-id="${order.id}">
+                    <div>
+                        <p class="text-lg font-bold text-gray-800">${order.business_id}</p>
+                        <p class="text-sm text-gray-600">${order.model}</p>
+                        <p class="text-[10px] text-gray-500 mt-1 uppercase font-bold">Data Entrada: <span class="text-amber-600">${dataProg}</span></p>
+                    </div>
+                    <div class="text-right space-y-1">
+                        <span class="inline-block text-[10px] font-black ${urgencyClass} px-2 py-0.5 rounded-full uppercase">${urgencyText}</span>
+                        <p class="text-[9px] text-gray-400 font-bold uppercase">${order.client}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+async function loadPendingOrders() { 
+            filaContainer.innerHTML = '';
+            const futuraContainer = document.getElementById('fila-futura-container');
+            if (futuraContainer) futuraContainer.innerHTML = '';
+            loadingMessage.classList.remove('hidden');
+            
+            try {
+                const response = await fetch(WEBHOOK_GET, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+                const text = await response.text();
+                let responseJson = text ? JSON.parse(text) : { data: [] };
+                let orders = responseJson.data || responseJson;
+                if (!Array.isArray(orders)) orders = [];
+                
+                currentOrders = orders.map(rawOrder => {
+                    const o = rawOrder.json || rawOrder;
+                    const extras = (typeof o.maintenance_extras === 'string' && o.maintenance_extras.startsWith('{')) ? JSON.parse(o.maintenance_extras) : (o.maintenance_extras || {});
+                    return { ...o, maintenance_extras: extras };
+                });
+
+                const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+                const filaDoDia = []; const filaFutura = [];
+
+                currentOrders.forEach(order => {
+                    const dataOS = new Date(order.scheduled_date || order.created_at);
+                    dataOS.setHours(0, 0, 0, 0);
+                    if (dataOS > hoje) filaFutura.push(order); else filaDoDia.push(order);
+                });
+
+                loadingMessage.classList.add('hidden');
+
+                // Renderizar Fila do Dia (Esquerda)
+                if (filaDoDia.length === 0) {
+                    filaContainer.innerHTML = '<p class="text-gray-400 text-center py-10 bg-white rounded-lg border border-dashed text-xs uppercase font-bold">Fila do dia vazia.</p>';
+                    filaCountSpan.textContent = '0';
+                    dispatchAllBtn.disabled = true;
+                    dispatchAllBtn.innerHTML = `Despachar Tudo para Análise (0)`;
+                } else {
+                    filaCountSpan.textContent = filaDoDia.length;
+                    dispatchAllBtn.disabled = false;
+                    dispatchAllBtn.innerHTML = `Despachar Tudo para Análise (${filaDoDia.length})`;
+                    filaDoDia.forEach(o => filaContainer.insertAdjacentHTML('beforeend', renderOrderCard(o)));
+                }
+
+                // Renderizar Programação Futura (Direita)
+                if (filaFutura.length > 0) {
+                    filaFutura.forEach(o => futuraContainer.insertAdjacentHTML('beforeend', renderOrderCard(o)));
+                } else if (futuraContainer) {
+                    futuraContainer.innerHTML = '<p class="text-gray-400 text-center py-10 bg-white rounded-lg border border-dashed text-xs uppercase font-bold">Nenhuma programação futura.</p>';
+                }
+                
+                addCardClickListeners();
+            } catch (error) {
+                console.error("Erro ao carregar:", error);
+                loadingMessage.textContent = "Erro na conexão.";
+            }
+        }
+async function showDetailsModal(order) {
+            let tradeInText = 'Venda Comum';
+            if (order.is_trade_in) {
+                let status = HULL_STATE_MAP[order.hull_state] || 'Aguardando definição';
+                tradeInText = `Venda à Base de Troca (${status})`;
+            }
+            
+            document.getElementById('detail-business-id').textContent = order.business_id;
+            document.getElementById('detail-model').textContent = order.model;
+            document.getElementById('detail-client').textContent = order.client;
+            document.getElementById('detail-urgency').textContent = order.urgency;
+            document.getElementById('detail-urgency').className = 'inline-block text-xs font-bold px-2 py-0.5 rounded-full ' + getUrgencyBadge(order.urgency);
+            document.getElementById('detail-status').textContent = order.status;
+            document.getElementById('detail-created-at').textContent = formatDateTime(order.created_at);
+            document.getElementById('detail-scheduled-at').textContent = order.scheduled_date ? new Date(order.scheduled_date).toLocaleDateString('pt-BR') : '--';
+            document.getElementById('detail-difficulty').textContent = order.difficulty;
+            document.getElementById('detail-trade-in').textContent = tradeInText; 
+            document.getElementById('detail-maintenance-extras').innerHTML = formatMaintenanceExtras(order.maintenance_extras);
+            document.getElementById('detail-observation').textContent = order.observation || 'Nenhuma observação registrada.';
+            
+            await carregarLinhaDoTempo(order.id);
+            detailsModal.classList.remove('hidden');
+            detailsModal.classList.add('flex');
+        }
+
+        async function carregarLinhaDoTempo(osId) {
+            const listParent = document.getElementById('details-modal').querySelector('.p-6.space-y-5');
+            const existingTimeline = document.getElementById('timeline-container');
+            if (existingTimeline) existingTimeline.remove();
+
+            try {
+                const { data: events, error } = await supabaseClient.from('history_events').select('*').eq('service_order_id', osId).order('timestamp', { ascending: true });
+                if (error) throw error;
+                let timelineHtml = `<div id="timeline-container" class="mt-4 space-y-4 border-l-2 border-slate-200 ml-2 pl-4">`;
+                if (events && events.length > 0) {
+                    events.forEach(ev => {
+                        const date = new Date(ev.timestamp);
+                        timelineHtml += `<div class="relative"><div class="absolute -left-[21px] top-1 w-3 h-3 bg-brand-blue rounded-full border-2 border-white"></div><p class="text-[11px] font-black text-slate-800 uppercase tracking-tighter">${ev.action}</p><p class="text-[10px] text-gray-500 font-medium">${date.toLocaleDateString('pt-BR')} às ${date.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</p></div>`;
+                    });
+                } else {
+                    timelineHtml += `<p class="text-[10px] text-gray-400 italic uppercase">Iniciando histórico...</p>`;
+                }
+                timelineHtml += `</div>`;
+                listParent.insertAdjacentHTML('beforeend', timelineHtml);
+            } catch (err) { console.error(err); }
+        }
+
+        function showSuccessModal() {
+            successModal.classList.remove('hidden');
+            successModal.classList.add('flex');
+        }
+
+        function showDispatchSuccessModal(count) {
+            dispatchSuccessMessage.textContent = `${count} ${count > 1 ? 'ordens foram despachadas' : 'ordem foi despachada'} para Análise Técnica.`;
+            dispatchSuccessModal.classList.remove('hidden');
+            dispatchSuccessModal.classList.add('flex');
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function closeDetailsModal() {
+            detailsModal.classList.add('hidden');
+            detailsModal.classList.remove('flex');
+        }
+
+        function closeConfirmDispatchModal() {
+            confirmDispatchModal.classList.add('hidden');
+            confirmDispatchModal.classList.remove('flex');
+        }
+        
+        function closeDispatchSuccessModal() {
+            dispatchSuccessModal.classList.add('hidden');
+            dispatchSuccessModal.classList.remove('flex');
+        }
+        
+        async function dispatchAllOrders(osIds) {
+            const userId = await getCurrentUserUID();
+            
+            const dispatchPromises = osIds.map(id => {
+                // Busca os dados completos da ordem na memória para enviar ao n8n
+                const orderData = currentOrders.find(o => o.id === id);
+                const payload = { 
+                    id: id, 
+                    user_id: userId,
+                    is_trade_in: orderData?.is_trade_in,
+                    trade_in_option: orderData?.trade_in_option
+                };
+                
+                return fetch(WEBHOOK_DISPATCH, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                }).then(response => {
+                    if (!response.ok) {
+                        return response.json().then(error => {
+                            throw new Error(`Falha ao despachar OS ${id}: ${error.message || response.statusText}`);
+                        }).catch(() => {
+                             throw new Error(`Falha na rede ao despachar OS ${id}.`);
+                        });
+                    }
+                    return response.json();
+                });
+            });
+
+            try {
+                dispatchAllBtn.disabled = true;
+                dispatchAllBtn.textContent = 'Despachando...';
+                
+                await Promise.all(dispatchPromises);
+                
+                showDispatchSuccessModal(osIds.length); 
+
+            } catch (error) {
+                console.error("Erro no Despacho:", error);
+                alert(`Erro ao despachar ordens. Detalhe: ${error.message}`);
+            } finally {
+                if (dispatchAllBtn.textContent === 'Despachando...') {
+                    dispatchAllBtn.textContent = `Despachar Tudo para Análise (${currentOrders.length})`;
+                    dispatchAllBtn.disabled = false;
+                }
+            }
+        }
+
+
+        // ====================================================================
+        // 4. INICIALIZAÇÃO DOS LISTENERS (Encapsulados em DOMContentLoaded)
+        // ====================================================================
+
+        function addCardClickListeners() {
+            // Este é o único lugar onde os listeners de card são anexados.
+            document.querySelectorAll('.os-card').forEach(card => {
+                card.addEventListener('click', (event) => {
+                    const orderId = event.currentTarget.dataset.orderId;
+                    const orderData = currentOrders.find(o => o.id === orderId);
+                    
+                    if (orderData) {
+                        showDetailsModal(orderData);
+                    } else {
+                        alert("Detalhes da Ordem não encontrados!");
+                    }
+                });
+            });
+        }
+		
+		async function carregarLinhaDoTempo(osId) {
+            const container = document.getElementById('details-modal').querySelector('.space-y-2:last-of-type + h4 + p');
+            const listParent = document.getElementById('details-modal').querySelector('.p-6.space-y-5');
+            
+            // Remove o placeholder antigo
+            const placeholder = listParent.querySelector('p.text-gray-500.italic');
+            if (placeholder) placeholder.remove();
+
+            // Limpa histórico anterior se houver
+            const existingTimeline = document.getElementById('timeline-container');
+            if (existingTimeline) existingTimeline.remove();
+
+            try {
+                const { data: events, error } = await supabaseClient
+                    .from('history_events')
+                    .select('*')
+                    .eq('service_order_id', osId)
+                    .order('timestamp', { ascending: true });
+
+                if (error) throw error;
+
+                let timelineHtml = `<div id="timeline-container" class="mt-4 space-y-4 border-l-2 border-slate-200 ml-2 pl-4">`;
+                
+                if (events && events.length > 0) {
+                    events.forEach(ev => {
+                        const date = new Date(ev.timestamp);
+                        const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                        const dateStr = date.toLocaleDateString('pt-BR');
+                        
+                        timelineHtml += `
+                            <div class="relative">
+                                <div class="absolute -left-[21px] top-1 w-3 h-3 bg-brand-blue rounded-full border-2 border-white"></div>
+                                <p class="text-[11px] font-black text-slate-800 uppercase tracking-tighter">${ev.action}</p>
+                                <p class="text-[10px] text-gray-500 font-medium">${dateStr} às ${timeStr}</p>
+                                ${ev.details ? `<p class="text-[10px] text-slate-400 italic">"${ev.details}"</p>` : ''}
+                            </div>
+                        `;
+                    });
+                } else {
+                    timelineHtml += `<p class="text-[10px] text-gray-400 italic uppercase">Iniciando histórico de eventos...</p>`;
+                }
+
+                timelineHtml += `</div>`;
+                listParent.insertAdjacentHTML('beforeend', timelineHtml);
+
+            } catch (err) {
+                console.error("Erro ao carregar histórico:", err);
+            }
+        }
+        
+        // ANEXANDO TODOS OS LISTENERS DE DOM AQUI DENTRO, APÓS O DOM COMPLETO
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // Listener de Logout
+            document.getElementById('logout-button').addEventListener('click', async () => {
+                await supabaseClient.auth.signOut();
+                window.location.href = 'https://mareflow.github.io/turbosul-login/';
+            });
+            
+            // Listener do modal de sucesso de CRIAÇÃO
+            successOkBtn.addEventListener('click', async () => {
+                successModal.classList.add('hidden');
+                successModal.classList.remove('flex');
+                closeModal(); 
+                await loadPendingOrders(); 
+            });
+            
+            // Listener do modal de sucesso de DESPACHO (Fecha e recarrega)
+            dispatchSuccessOkBtn.addEventListener('click', async () => {
+                closeDispatchSuccessModal();
+                await loadPendingOrders(); 
+            });
+
+            // Listener do botão Despachar Tudo (FILTRADO APENAS PARA HOJE/PASSADO)
+            dispatchAllBtn.addEventListener('click', () => {
+                const hoje = new Date(); hoje.setHours(0,0,0,0);
+                const ordensDoDia = currentOrders.filter(o => {
+                    const dataOS = new Date(o.scheduled_date || o.created_at);
+                    dataOS.setHours(0,0,0,0);
+                    return dataOS <= hoje;
+                });
+
+                if (ordensDoDia.length === 0) {
+                    alert("Não há ordens de HOJE/ATRASADAS para despachar."); return;
+                }
+
+                const count = ordensDoDia.length;
+                confirmDispatchMessage.textContent = `Confirmar o despacho de ${count} ${count > 1 ? 'ordens' : 'ordem'} da Fila do Dia para Análise Técnica?`;
+                confirmDispatchBtn.dataset.idsParaDespacho = JSON.stringify(ordensDoDia.map(o => o.id));
+                confirmDispatchModal.classList.remove('hidden'); confirmDispatchModal.classList.add('flex');
+            });
+
+            // Ação de Confirmação no Modal (Envia apenas o que foi filtrado)
+            confirmDispatchBtn.addEventListener('click', async () => {
+                closeConfirmDispatchModal();
+                const osIds = JSON.parse(confirmDispatchBtn.dataset.idsParaDespacho || "[]");
+                if (osIds.length > 0) await dispatchAllOrders(osIds);
+            });
+
+            cancelDispatchBtn.addEventListener('click', closeConfirmDispatchModal);
+
+            // Listener para fechar o modal de detalhes
+            closeDetailsBtn.addEventListener('click', closeDetailsModal);
+
+            // Listeners dos Modais de Criação 
+            document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+            document.getElementById('cancel-modal-btn').addEventListener('click', closeModal);
+            document.getElementById('novo-orcamento-btn').addEventListener('click', () => {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                form.reset(); 
+                
+                // Força o prefixo inicial e a data de hoje
+                const budgetInput = document.getElementById('orcamento_entrada_num');
+                budgetInput.value = 'ORÇ-';
+                document.getElementById('data_programacao').valueAsDate = new Date();
+                baseTrocaRadiosDiv.classList.add('hidden'); 
+            });
+
+            // Lógica para forçar o prefixo "ORÇ-" e apenas números depois
+            const budgetInput = document.getElementById('orcamento_entrada_num');
+            budgetInput.addEventListener('input', (e) => {
+                let value = e.target.value.toUpperCase();
+                const prefix = "ORÇ-";
+
+                // Se o usuário tentar apagar o prefixo, ele volta
+                if (!value.startsWith(prefix)) {
+                    value = prefix;
+                }
+
+                // Remove tudo que não for número após o prefixo
+                const numericPart = value.substring(prefix.length).replace(/\D/g, '');
+                e.target.value = prefix + numericPart;
+            });
+
+            budgetInput.addEventListener('keydown', (e) => {
+                const prefix = "ORÇ-";
+                // Impede o backspace de apagar o prefixo
+                if (e.key === 'Backspace' && e.target.selectionStart <= prefix.length) {
+                    e.preventDefault();
+                }
+            });
+
+            baseTrocaCheck.addEventListener('change', (event) => {
+                if (!event.target.checked) {
+                    // Se desmarcar o checkbox, limpa os rádio botões para não enviar dados "sujos"
+                    document.querySelectorAll('input[name="base_troca_status"]').forEach(radio => {
+                        radio.checked = false;
+                    });
+                    baseTrocaRadiosDiv.classList.add('hidden');
+                } else {
+                    baseTrocaRadiosDiv.classList.remove('hidden');
+                }
+            });
+
+            // Listener de Submissão com Validação Rigorosa (CORRIGIDO)
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                
+                // Pega os valores para validar
+                const orcamentoNum = document.getElementById('orcamento_entrada_num').value.trim();
+                const nomeCliente = document.getElementById('nome_cliente').value.trim();
+                const modeloTurbo = document.getElementById('modelo_turbo').value.trim();
+                const partNumber = document.getElementById('part_number').value.trim();
+                const dataProg = document.getElementById('data_programacao').value;
+                const observacoes = document.getElementById('observacoes').value.trim();
+                const isBaseTroca = document.getElementById('venda_base_troca_check').checked;
+                const baseTrocaStatus = document.querySelector('input[name="base_troca_status"]:checked');
+
+                // CORREÇÃO: Busca o botão no documento inteiro, pois ele está fora da tag <form>
+                const submitBtn = document.querySelector('button[type="submit"][form="new-os-form"]');
+
+                const showError = (msg) => {
+                    document.getElementById('error-modal-message').textContent = msg;
+                    document.getElementById('error-modal').classList.remove('hidden');
+                    document.getElementById('error-modal').classList.add('flex');
+                };
+
+                // VALIDAÇÕES OBRIGATÓRIAS
+                if (orcamentoNum === "ORÇ-" || orcamentoNum === "") return showError("Informe o Número do Orçamento.");
+                if (nomeCliente === "") return showError("Informe o Nome do Cliente.");
+                if (modeloTurbo === "") return showError("Informe o Modelo do Turbo.");
+                if (partNumber === "") return showError("O Part Number é obrigatório.");
+                if (dataProg === "") return showError("Selecione uma Data de Programação.");
+                if (observacoes === "") return showError("Descreva a Reclamação do Cliente em 'Observações'.");
+
+                if (isBaseTroca && !baseTrocaStatus) {
+                    return showError("Selecione o status da carcaça (Recebido, Standby ou Pago).");
+                }
+
+                const userId = await getCurrentUserUID(); 
+                const data = {
+                    user_id: userId, 
+                    business_id: orcamentoNum,
+                    part_number: partNumber,
+                    client: nomeCliente,
+                    model: modeloTurbo,
+                    is_exchange_sale: isBaseTroca,
+                    exchange_status: baseTrocaStatus ? baseTrocaStatus.value : null, 
+                    program_date: dataProg,
+                    urgency: document.getElementById('grau_urgencia').value,
+                    observations: observacoes,
+                };
+
+                try {
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = "Processando...";
+                    }
+
+                    const response = await fetch('https://teste.mareflow.com.br/webhook/orders/new-entry', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                    });
+
+                    if (response.ok) { 
+                        closeModal(); 
+                        showSuccessModal(); 
+                    } else {
+                        showError("Erro ao salvar no banco. Verifique os dados.");
+                    }
+                } catch (error) {
+                    showError("Falha de conexão com o servidor.");
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = "Criar Entrada";
+                    }
+                }
+            });
+
+            // ====== AUTOCOMPLETE DE PART NUMBER ======
+            let listaPecas = [];
+            fetch('js/pecas.json')
+                .then(r => r.json())
+                .then(data => { listaPecas = data; })
+                .catch(err => console.error("Erro ao carregar pecas.json:", err));
+            
+            const pnInput = document.getElementById('part_number');
+            const modInput = document.getElementById('modelo_turbo');
+            const pnDropdown = document.getElementById('part_number_dropdown');
+
+            if(pnInput && modInput && pnDropdown) {
+                pnInput.addEventListener('input', function() {
+                    const term = this.value.toUpperCase();
+                    pnDropdown.innerHTML = '';
+                    
+                    if (!term) {
+                        pnDropdown.classList.add('hidden');
+                        return;
+                    }
+                    
+                    const matches = listaPecas.filter(p => p.partNumber.toUpperCase().startsWith(term)).slice(0, 50);
+                    
+                    if (matches.length > 0) {
+                        pnDropdown.classList.remove('hidden');
+                        matches.forEach(p => {
+                            const div = document.createElement('div');
+                            div.className = 'px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col transition-colors';
+                            div.innerHTML = `<span class="font-bold text-gray-800 text-sm">${p.partNumber}</span><span class="text-xs text-gray-500 uppercase">${p.modelo}</span>`;
+                            div.addEventListener('click', () => {
+                                pnInput.value = p.partNumber;
+                                modInput.value = p.modelo;
+                                pnDropdown.classList.add('hidden');
+                            });
+                            pnDropdown.appendChild(div);
+                        });
+                    } else {
+                        pnDropdown.classList.add('hidden');
+                    }
+                });
+
+                document.addEventListener('click', function(e) {
+                    if (!pnInput.contains(e.target) && !pnDropdown.contains(e.target)) {
+                        pnDropdown.classList.add('hidden');
+                    }
+                });
+            }
+            // ==========================================
+
+            // Chama a inicialização da dashboard e proteção de rota
+            (async function initDashboard() {
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+
+                if (error || !session) {
+                    window.location.href = '/index.html'; 
+                    return;
+                }
+
+                await loadPendingOrders();
+            })();
+        }); // FIM DO DOMContentLoaded
+    </script>
+</body>
+</html>

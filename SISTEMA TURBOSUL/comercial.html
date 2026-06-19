@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Aprovação Comercial e Vendas</title>
+    
+    <!-- Inclusão do Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Importação da fonte 'Inter' do Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Biblioteca Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Estilos Customizados -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .bg-brand-blue { background-color: #2563EB; }
+        .hover\:bg-brand-blue-dark:hover { background-color: #1D4ED8; }
+        
+        .os-card:hover {
+            cursor: pointer;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px);
+            transition: all 0.2s ease-in-out;
+        }
+        .os-card.active {
+            border-left: 4px solid #2563EB;
+            background-color: #EBF8FF;
+        }
+        
+        .divergence-warning {
+            background-color: #FEE2E2;
+            border: 1px solid #EF4444;
+            color: #B91C1C;
+        }
+
+        .decision-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd' /%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1.5em;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col pt-20">
+
+    <!-- HEADER FIXO (Topo da Tela) -->
+    <header class="fixed top-0 left-0 right-0 h-20 bg-white shadow-md z-10 flex items-center justify-between px-8">
+        <div class="flex items-center space-x-4">
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="Logo TurboSul" class="w-10 h-10">
+            <div>
+                <h1 class="text-lg font-bold text-gray-800">TurboSul - Controle de Produção</h1>
+                <p class="text-sm text-gray-500">Gerenciamento de Ordens de Serviço</p>
+            </div>
+        </div>
+
+        <nav class="flex items-center space-x-6 text-sm text-gray-600">
+            <div class="flex items-center space-x-2 text-gray-700 pr-4">
+                <span class="text-sm font-black text-slate-800 uppercase tracking-wider">Setor Vendas</span>
+            </div>
+            <button id="logout-button" onclick="window.location.href='https://mareflow.github.io/turbosul-login/'" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-4 rounded-md transition duration-150">Sair</button>
+        </nav>
+    </header>
+
+    <!-- CONTEÚDO PRINCIPAL (Layout de 2 Colunas) -->
+    <main class="p-6 lg:p-6 flex flex-1 space-x-6">
+        
+        <!-- Coluna 1: Fila de Orçamentos (25%) -->
+        <div class="w-1/4 max-w-xs bg-white rounded-lg shadow p-4 flex flex-col space-y-4 overflow-y-auto">
+            <h2 class="text-xl font-semibold text-gray-800 mb-2">ORÇAMENTOS PENDENTES</h2>
+
+            <!-- Fila de OSs (Renderizada pelo JS) -->
+            <div id="fila-de-vendas-container" class="space-y-3">
+                <p id="loading-message" class="text-gray-500 text-center mt-4">Carregando orçamentos...</p>
+            </div>
+        </div>
+
+        <!-- Coluna 2: Aprovação de Decisão (75%) -->
+        <div id="form-container" class="w-3/4 flex flex-col space-y-4">
+            
+            <h2 class="text-2xl font-semibold text-gray-800">APROVAÇÃO COMERCIAL E VENDAS</h2>
+
+            <!-- Placeholder Inicial (Até que uma OS seja selecionada) -->
+            <div id="initial-placeholder" class="bg-white rounded-lg shadow p-20 text-center flex-grow flex flex-col items-center justify-center space-y-4">
+                <svg class="w-16 h-16 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <p class="text-slate-400 font-bold text-xs uppercase tracking-widest">Selecione um Orçamento para iniciar a aprovação comercial.</p>
+            </div>
+
+            <!-- Interface de Decisão (Visível após clique) -->
+            <div id="analysis-decision-wrapper" class="bg-white rounded-lg shadow flex-grow hidden">
+                <form id="sales-decision-form" class="flex flex-col h-full">
+
+                    <!-- Área Fixa: Título e Ações Rápidas -->
+                    <div class="p-4 border-b bg-gray-50 rounded-t-lg">
+                        <div class="flex justify-between items-center">
+                            <h3 id="form-title" class="text-xl font-semibold text-gray-800">VEN-XXX - Modelo</h3>
+                            <button type="button" class="bg-slate-600 hover:bg-slate-700 text-white font-medium py-1 px-3 rounded-md transition duration-150 uppercase text-xs" id="historic-button">
+                                Histórico Completo
+                            </button>
+                        </div>
+                        <p id="ref-orcamento" class="text-sm text-gray-500 mt-1">REF. ORÇAMENTO: ORC-XXX</p>
+                        
+                        <!-- Ações Rápidas -->
+                        <div class="mt-4 flex space-x-3 items-center">
+                            <span class="text-sm font-medium text-gray-700">AÇÕES RÁPIDAS:</span>
+                            <button type="button" id="trocar-conjunto-btn" data-action="trocar" class="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md transition duration-150 text-sm">
+                                TROCAR CONJUNTO (FULL)
+                            </button>
+                            <button type="button" id="reset-diagnostico-btn" data-action="reset" class="bg-slate-200 hover:bg-slate-300 text-gray-800 font-medium py-1 px-3 rounded-md transition duration-150 text-sm">
+                                RESETAR DIAGNÓSTICO
+                            </button>
+                        </div>
+                    </div>
+
+<!-- CHECKLIST ÚNICO DE APROVAÇÃO (TurboSul Commercial) -->
+                    <div class="p-4 bg-slate-50 border-b space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex flex-col">
+                                <span class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Checklist de Itens para Vendas</span>
+                                <span class="text-[9px] text-blue-600 font-bold uppercase ml-2 italic">* Itens estruturais e de valor comercial</span>
+                            </div>
+                        </div>
+
+                        <!-- AVISO INFORMATIVO TURBOSUL -->
+                        <div class="mx-2 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-xl flex items-start space-x-3">
+                            <i class="fa-solid fa-circle-info text-blue-500 mt-0.5"></i>
+                            <div class="text-[10px] text-blue-800 leading-tight">
+                                <p class="font-black uppercase mb-0.5">Dica de Preenchimento:</p>
+                                <p class="font-medium">Caso o componente **não tenha vindo** com a turbina (ex: Atuador ausente), mantenha a opção <span class="font-black">"SELECIONAR..."</span> em branco. Apenas itens com veredito farão parte do orçamento final.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-grow p-6 overflow-y-auto max-h-[500px] custom-scroll">
+                        <table class="min-w-full divide-y divide-gray-200 border rounded-xl overflow-hidden shadow-sm">
+                            <thead class="bg-slate-100">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-1/2">Peça / Serviço Detectado</th>
+                                    <th class="px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest w-1/2">Decisão de Vendas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="body-checklist-unico" class="bg-white divide-y divide-slate-100">
+                                <!-- Os itens serão injetados aqui via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                        <div class="mt-6 p-4 border rounded-lg bg-blue-50">
+                            <h4 class="text-base font-semibold text-blue-800 mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-7-9a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                INFORMAÇÕES DE LOGÍSTICA E EXPEDIÇÃO
+                            </h4>
+                            <div class="grid grid-cols-4 gap-4 items-end">
+                                <div>
+                                    <label for="previsao-saida" class="block text-sm font-medium text-gray-700">Previsão de Saída</label>
+                                    <input type="date" id="previsao-saida" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-blue focus:border-brand-blue">
+                                </div>
+                                <div>
+                                    <label for="horario-corte" class="block text-sm font-medium text-gray-700">Horário de Corte</label>
+                                    <input type="time" id="horario-corte" value="18:00" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-blue focus:border-brand-blue">
+                                </div>
+                                <div>
+                                    <label for="dispatch-location-select" class="block text-sm font-medium text-gray-700">Local de Despacho</label>
+                                    <select id="dispatch-location-select" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-blue focus:border-brand-blue">
+                                        <!-- Populated by JS -->
+                                    </select>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <input type="checkbox" id="segunda-hora-check" class="h-4 w-4 text-brand-blue border-gray-300 rounded">
+                                    <label for="segunda-hora-check" class="text-sm font-medium text-gray-700">2ª HORA</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Venda à Base de Troca (Casco) -->
+                        <div class="p-4 border rounded-lg bg-yellow-50">
+                            <h4 class="text-base font-semibold text-yellow-800 mb-2">VENDA À BASE DE TROCA</h4>
+                            <p id="hull-status" class="text-sm text-yellow-700">Status: Aguardando definição de status</p>
+                        </div>
+                    </div>
+
+                    <!-- Área de Observações e Finalização -->
+                    <div class="p-6 border-t bg-white sticky bottom-0">
+                        <div class="mb-4">
+                            <label for="vendas-observacoes" class="block text-sm font-semibold text-gray-700 mb-2">Observações de Vendas (Para Orçamento/Logística)</label>
+                            <textarea id="vendas-observacoes" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-blue focus:border-brand-blue text-sm"></textarea>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4">
+                            <button type="button" id="reprove-sales-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-lg transition duration-200 uppercase tracking-tighter text-sm">
+                                Reprovar Orçamento
+                            </button>
+                            <button type="submit" id="finalize-sales-btn" class="flex-[2] bg-green-600 hover:bg-green-700 text-white font-black py-3 rounded-lg transition duration-200 uppercase tracking-tighter text-sm">
+                                Aprovar Venda e Gerar OS
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- RODAPÉ DE ASSINATURA MARÉ FLOW -->
+    <footer class="mt-auto py-3 text-center border-t bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-10">
+        <div class="flex items-center justify-center space-x-2">
+            <span class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Desenvolvido por</span>
+            <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Maré Flow</span>
+            <span class="text-slate-300">|</span>
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic">TurboSul Controle de Produção © 2026</span>
+        </div>
+    </footer>
+    
+    <!-- MODAL DE CONFIRMAÇÃO DE AÇÃO RÁPIDA (Reutilizável) -->
+    <div id="quick-action-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <h3 class="text-xl font-black text-brand-blue uppercase tracking-tight mb-2" id="action-modal-title">Confirmar Ação</h3>
+            <p id="action-modal-message" class="text-sm text-gray-500 font-medium leading-relaxed mb-6">Tem certeza que deseja realizar esta ação?</p>
+            
+            <div class="flex justify-center space-x-3">
+                <button id="cancel-action-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-150">
+                    Cancelar
+                </button>
+                <button id="confirm-action-btn" class="bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE SUCESSO DE AÇÃO RÁPIDA (Reutilizável) -->
+    <div id="action-success-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <div class="flex flex-col items-center mb-4">
+                <svg class="w-12 h-12 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <h3 class="text-xl font-bold text-gray-800">Sucesso!</h3>
+                <p id="action-success-message" class="text-gray-600 mt-2">Ação realizada com sucesso.</p>
+            </div>
+            <button id="action-success-ok-btn" class="w-full bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                OK
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL DE HISTÓRICO COMPLETO (ESPELHO TOTAL DA ANÁLISE TÉCNICA) -->
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-[110]">
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+            <div class="flex justify-between items-center border-b pb-4 mb-4 sticky top-0 bg-white z-10">
+                <h3 class="text-xl font-black text-brand-blue uppercase tracking-tighter">Detalhes do Processo</h3>
+                <button id="close-details-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 text-sm border-b pb-4 mb-4">
+                <div><p class="text-gray-500 font-medium uppercase text-xs">Nº Orçamento</p><p id="detail-business-id" class="text-lg font-bold text-gray-800">--</p></div>
+                <div><p class="text-gray-500 font-medium uppercase text-xs">Modelo</p><p id="detail-model" class="text-gray-800">--</p></div>
+                <div><p class="text-gray-500 font-medium uppercase text-xs">Cliente</p><p id="detail-client" class="text-gray-800">--</p></div>
+                <div><p class="text-gray-500 font-medium uppercase text-xs">Status Atual</p><span id="detail-status" class="inline-block bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">--</span></div>
+            </div>
+
+            <div class="space-y-4 mb-6">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div><p class="text-gray-500 font-medium uppercase text-xs">Grau de Dificuldade</p><p id="detail-difficulty" class="text-gray-800 font-bold">--</p></div>
+                    <div><p class="text-gray-500 font-medium uppercase text-xs">Tipo de Venda</p><p id="detail-trade-in" class="text-gray-800 font-bold">--</p></div>
+                </div>
+                <div>
+                    <p class="text-gray-500 font-medium uppercase text-xs">Itens Adicionais Incluídos</p>
+                    <ul id="detail-maintenance-extras" class="text-sm list-disc list-inside bg-slate-50 p-3 rounded-lg mt-1 text-gray-800"></ul>
+                </div>
+                <div>
+                    <p class="text-gray-500 font-medium uppercase text-xs">Observações Técnicas</p>
+                    <p id="detail-observation" class="text-sm bg-slate-50 p-3 rounded-lg mt-1 italic text-gray-800">--</p>
+                </div>
+            </div>
+
+            <h4 class="text-sm font-bold text-gray-800 uppercase tracking-widest mb-4 text-center border-t pt-4">Linha do Tempo de Produção</h4>
+            <div id="timeline-container" class="space-y-4 border-l-2 border-slate-200 ml-2 pl-4">
+                <!-- Histórico injetado aqui -->
+            </div>
+        </div>
+    </div>
+	
+	<!-- MODAL: GERAR NÚMERO DE OS OFICIAL -->
+    <div id="modal-gerar-os" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[120]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">Aprovar e Gerar OS</h3>
+            <p class="text-xs text-gray-500 mb-4 font-medium italic text-blue-600">Confirme o número oficial da Ordem de Serviço abaixo:</p>
+            
+            <input type="text" id="input-os-oficial" placeholder="Ex: 5500" class="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-green-500 outline-none text-center font-black text-lg mb-4">
+            
+            <div class="flex items-center justify-center space-x-2 mb-6 bg-blue-50 p-2 rounded border border-blue-100">
+                <input type="checkbox" id="open-pdf-comercial" checked class="h-4 w-4 text-brand-blue border-gray-300 rounded focus:ring-brand-blue">
+                <label for="open-pdf-comercial" class="text-xs font-bold text-blue-900 cursor-pointer">Abrir PDF na tela após salvar</label>
+            </div>
+
+            <div class="flex space-x-3">
+                <button type="button" onclick="document.getElementById('modal-gerar-os').classList.add('hidden')" class="flex-1 bg-slate-200 text-slate-600 font-bold py-3 rounded-lg text-sm">VOLTAR</button>
+                <button type="button" id="confirm-generate-os-btn" class="flex-[2] bg-green-600 text-white font-black py-3 rounded-lg text-sm shadow-lg shadow-green-200">CONFIRMAR E ENVIAR</button>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <!-- MODAL: AVISO DE OS TRAVADA -->
+    <div id="modal-os-travada" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-[150]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-8 border-t-8 border-red-600 text-center">
+            <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 font-black text-2xl">!</div>
+            <h3 class="text-2xl font-black text-slate-800 uppercase tracking-tight">OS Bloqueada!</h3>
+            <p class="text-sm text-gray-500 mt-2 font-medium mb-6">Divergência detectada entre Vendas e Técnico. A OS foi travada no sistema e exige autorização Admin.</p>
+            <button type="button" onclick="location.reload()" class="w-full bg-slate-800 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest shadow-lg">OK, ENTENDIDO</button>
+        </div>
+    </div>
+
+    <!-- Inclusão da biblioteca do Supabase via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Lógica de Frontend com JavaScript Puro (Vanilla JS) -->
+    <script>
+        // ====================================================================
+        // 1. CONFIGURAÇÃO E DADOS
+        // ====================================================================
+        const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
+        
+        // Webhooks
+        const WEBHOOK_GET_SALES = 'https://webhook.mareflow.com.br/webhook/sales/dashboard-data';
+        const WEBHOOK_RESET_DIAGNOSTICO = 'https://webhook.mareflow.com.br/webhook/sales/reset-diagnostico';
+        const WEBHOOK_TROCAR_CONJUNTO = 'https://teste.mareflow.com.br/webhook/sales/trocar-conjunto'; 
+        const WEBHOOK_FINALIZE_SALES = 'https://webhook.mareflow.com.br/webhook/sales/finalize'; 
+        
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        let currentOrders = [];
+        let activeOSId = null;
+
+        // --- LISTA DE REFERÊNCIA PARA DIVISÃO DE ABAS ---
+        const ANALYSIS_ITEMS = {
+            tab1: [
+                'Travas CCO', 'Travas CT', 'Parafuso CT Flangeado', 'Parafuso CCO Flangeado', 'Cano Retorno Parafusos', 
+                'Adaptador Lubrificação', 'Nipel de Lubrificação', 'Cano Lubrificação com Nipel', 'Atuador Pressão', 
+                'Atuador Vácuo', 'Atuador Vácuo Eletrônico', 'Atuador Eletrônico com Haste', 'Suporte Atuador Eletrônico', 
+                'Calço Atuador', 'Chapa de Proteção Atuador', 'Parafusos Suporte Atuador', 'Parafusos Chapa Proteção', 
+                'Mangueira na CCO', 'Prisioneiro Saída', 'Prisioneiro Pé Mesa CT', 'Prisioneiro CCE', 'Parafuso CCE', 
+                'Prisioneiro CCO', 'Prisioneiro Especial Longo', 'Saída de Escape', 'Flange Saída CT', 'Chapa de Proteção CT', 
+                'Freio Motor', 'Chapa de Proteção Saída', 'Nipel Fixo na CCO', 'Nipel Roscado na CCO', 'Nipel com Parafuso OCO', 
+                'Olhal', 'Parafuso OCO', 'Coletor', 'Cinta CT CCE', 'Cinta CCO', 'Cinta Saída', 'Flange Pé Mesa CT', 
+                'Cano Admissão CCO', 'Cano Admissão Motor', 'Cano de Água', 'Valvula Prioritária', 'Valvula Solenóide', 
+                'Sonda Temp Pressão', 'Sensor PVF', 'Bocal Plástico Biturbo', 'Tampão CT', 'Arruela Plástica Biturbo', 
+                'Bocal Alumínio Biturbo', 'Luva Borracha Biturbo', 'Cano Ligação Alumínio', 'Capa Alumínio Biturbo', 
+                'Peça Alumínio com Mola', 'Juntas', 'Almofada Amianto Saída', 'Mangueira Atuador', 'Conexão T', 
+                'Defletor Admissão com Trava', 'Abraçadeiras', 'Capa Protetiva Alumínio', 'Nipel de Retorno', 
+                'Mangueira de Retorno', 'Suporte CT', 'Anel Cano Retorno', 'Parafuso União Biturbo', 'Valvula Pressão Partida', 
+                'Oring', 'Valvula Sensor Partida', 'Mangueira Bocal Alumínio'
+            ],
+            tab2: [
+                'Mancal Radial', 'Mancal Encosto', 'Flange', 'Colar', 'Espaçador', 'Calço Arruela', 
+                'Defletor de Óleo', 'Protetor Térmico', 'Travas de Mancal CCE', 'Trava Aranha Mancal', 'Trava de Flange', 
+                'Calço de Altura no Rotor', 'Porca do Eixo', 'Almofada Vedação Eixo', 'Almofada Vedação Caracol', 
+                'Arruela Metálica Vedação', 'Geometria Variável TGV', 'Flange da TGV', 'Viton', 'Aneis Vedação Flange TGV', 
+                'Anel Assentamento Valvula Biturbo'
+            ],
+            tab3: [
+                'Trinca Base Face ou Gases', 'Quebra Base Face', 'Espessura da Base Minima 9mm', 'Embuchamento da CT', 
+                'Desgaste Saida Escape Flangeada', 'Desgaste Face Encaixe CCE', 'Trinca Face Assentamento CCE', 
+                'Trinca Parede Lateral Protetor', 'Trinca ou Quebra da Voluta', 'Borboleta ou Moeda Folga', 
+                'Bucha Guia Borboleta', 'Braco Wastegate', 'Pino de Centro', 'Assentamento Borboleta Moeda', 
+                'Coletor Anexo', 'Plaina Coletor Uniao Biturbo', 'Empenamento Faces Alojamento', 'Necessita Gabarito Usinagem', 
+                'Tipo de Solda'
+            ]
+        };
+
+        const SALES_DECISION_OPTIONS = ['OK', 'RECONDICIONAR', 'TROCAR']; 
+        const DISPATCH_OPTIONS = ['Selecione...', 'SC LOG', 'BALCÃO', 'ESTOQUE', 'MOTOBOY'];
+
+        const HULL_STATE_MAP = {
+            'RECEIVED': 'Casco Recebido (Seguir Processo)',
+            'WAITING': 'Aguardando Cliente Trazer Casco',
+            'PAID': 'Pago/Incluso (Seguir Processo)',
+            'UNKNOWN': 'Aguardando definição de status' 
+        };
+        
+        const FALLBACK_USER_UID = '8ab0d7ed-055c-4480-a1af-eb0b08894682';
+
+        // Variáveis DOM
+        let filaContainer, loadingMessage, decisionTableBody, dispatchLocationSelect;
+        let quickActionModal, confirmActionBtn, cancelActionBtn, actionModalTitle, actionModalMessage, actionSuccessModal, actionSuccessOkBtn, actionSuccessMessage;
+        let trocarConjuntoBtn, resetDiagnosticoBtn;
+
+
+        // ====================================================================
+        // 2. FUNÇÕES AUXILIARES E DE CONTROLE
+        // ====================================================================
+
+        async function getCurrentUserUID() { 
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session && session.user) { return session.user.id; }
+            } catch (error) { console.error("Erro ao obter a sessão para UID.", error); }
+            return FALLBACK_USER_UID;
+        }
+
+        function getUrgencyBadge(urgency) {
+            switch (urgency) {
+                case 'Urgente': return 'bg-red-600 text-white';
+                case 'Alta': return 'bg-red-400 text-white'; 
+                case 'Normal': return 'bg-blue-300 text-gray-800';
+                case 'Baixa': return 'bg-gray-300 text-gray-800';
+                default: return 'bg-gray-300 text-gray-800';
+            }
+        }
+        
+        function formatDateTime(isoString) {
+            if (!isoString) return '--';
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleDateString('pt-BR');
+            } catch {
+                return isoString;
+            }
+        }
+
+        // Gera o badge de status TÉCNICO
+        function getTechnicalStatusClass(status) {
+            if (status.includes('OK')) {
+                return '<span class="inline-block text-xs font-medium bg-green-500 text-white px-2 py-0.5 rounded-full">OK</span>';
+            } else if (status.includes('TROCAR') || status.includes('CONDENAR')) {
+                return '<span class="inline-block text-xs font-medium bg-red-600 text-white px-2 py-0.5 rounded-full">TROCAR</span>';
+            } else if (status.includes('RECONDICIONAR')) {
+                return '<span class="inline-block text-xs font-medium bg-yellow-500 text-white px-2 py-0.5 rounded-full">RECONDICIONAR</span>';
+            }
+            return '<span class="inline-block text-xs font-medium bg-slate-200 text-gray-800 px-2 py-0.5 rounded-full">NÃO INF.</span>';
+        }
+
+function renderOrderCard(order) {
+            const urgencyText = order.urgency || 'Normal';
+            const urgencyClass = getUrgencyBadge(urgencyText);
+            
+            return `
+                <div class="os-card border border-gray-200 bg-white p-3 rounded-lg shadow cursor-pointer transition-all duration-200" 
+                     data-order-id="${order.id}" 
+                     data-status="${order.status}">
+                    <p class="text-base font-bold text-gray-800 mb-1 flex justify-between items-center">${order.business_id}
+                        <span class="inline-block text-xs font-medium ${urgencyClass} px-2 py-0.5 rounded-full">${urgencyText}</span>
+                    </p>
+                    <p class="text-sm text-gray-600">${order.model}</p>
+                    <p class="text-xs text-gray-500">${order.client}</p>
+                </div>
+            `;
+        }
+
+        // --- CORREÇÃO 1: CRIAÇÃO DO SELETOR E ESTILO DINÂMICO ---
+        function createDecisionSelect(itemName, techVerdict, initialDecision) {
+            const cleanName = itemName.replace(/\s+/g, '_').toLowerCase();
+            const optionsList = ['SELECIONAR...', 'OK', 'RECONDICIONAR', 'TROCAR', 'TROCAR CONJUNTO'];
+            const options = optionsList.map(opt => {
+                const val = opt === 'SELECIONAR...' ? '' : opt;
+                const isSelected = (val === initialDecision) ? 'selected' : ''; 
+                return `<option value="${val}" ${isSelected}>${opt}</option>`;
+            }).join('');
+            
+            return `
+                <select id="decisao-${cleanName}" 
+                        data-item-name="${itemName}" 
+                        data-tech-verdict="${techVerdict || 'NÃO INFORMADO'}"
+                        onchange="updateStatusSelectStyle(this)"
+                        class="decision-select-item w-full px-3 py-2 border-2 border-slate-200 rounded-lg bg-white text-sm font-black uppercase transition-all duration-200">
+                    ${options}
+                </select>
+            `;
+        }
+
+        function updateStatusSelectStyle(select) {
+            const val = select.value;
+            select.classList.remove('bg-green-500', 'bg-yellow-500', 'bg-red-600', 'text-white', 'border-transparent');
+            select.classList.add('bg-white', 'text-slate-800', 'border-slate-200');
+
+            if (val === 'OK') {
+                select.classList.replace('bg-white', 'bg-green-500');
+                select.classList.replace('text-slate-800', 'text-white');
+                select.classList.replace('border-slate-200', 'border-transparent');
+            } else if (val === 'RECONDICIONAR') {
+                select.classList.replace('bg-white', 'bg-yellow-500');
+                select.classList.replace('text-slate-800', 'text-white');
+                select.classList.replace('border-slate-200', 'border-transparent');
+            } else if (val === 'TROCAR' || val === 'TROCAR CONJUNTO') {
+                select.classList.replace('bg-white', 'bg-red-600');
+                select.classList.replace('text-slate-800', 'text-white');
+                select.classList.replace('border-slate-200', 'border-transparent');
+            }
+            validarDivergencias(); 
+        }
+
+function renderDecisionTable(order) {
+            const body = document.getElementById('body-checklist-unico');
+            if (!body) return;
+            body.innerHTML = '';
+
+            // --- OS 9 ITENS OBRIGATÓRIOS DA TURBOSUL (HARDCODED) ---
+            const coreItems = [
+                { id: 'actuator', name: "ATUADOR" },
+                { id: 'geometry', name: "GEOMETRIA VARIÁVEL" },
+                { id: 'geometryStem', name: "CANOTE DA GEOMETRIA" },
+                { id: 'geometryFlange', name: "FLANGE DA GEOMETRIA" },
+                { id: 'eixo', name: "EIXO" },
+                { id: 'rotor', name: "ROTOR" },
+				{ id: 'cco', name: "CCO" }, 
+                { id: 'cce', name: "CCE" },
+                { id: 'reparos', name: "REPAROS" },
+                { id: 'ct', name: "CARCAÇA DE TURBINA (CT)" }
+            ];
+
+            // Recupera o que veio do banco (Análise Técnica)
+            const techChecklist = order.checklist || [];
+
+            const externalItems = ["ATUADOR", "GEOMETRIA VARIÁVEL", "CANOTE DA GEOMETRIA", "FLANGE DA GEOMETRIA"];
+
+            coreItems.forEach(item => {
+                // Tenta encontrar o item no checklist tratando variações de nomenclatura de legado
+                const existingData = techChecklist.find(c => {
+                    const dbName = (c.item_name || "").toUpperCase().trim();
+                    const targetName = item.name.toUpperCase().trim();
+                    
+                    if (dbName === targetName) return true;
+                    
+                    // Fallbacks de Normalização da TurboSul (Legado vs Novo Padrão de Vendas)
+                    if (targetName === "EIXO" && (dbName === "EIXO ROTOR" || dbName === "EIXO_ROTOR")) return true;
+                    if (targetName === "ROTOR" && (dbName === "ROTOR COMPRESSOR" || dbName === "ROTOR_COMPRESSOR")) return true;
+                    if (targetName === "CARCAÇA DE TURBINA (CT)" && (dbName === "CARCAÇA_DE_TURBINA_(CT)" || dbName === "CARCAÇA DE TURBINA" || dbName === "CT")) return true;
+                    
+                    return false;
+                });
+
+                const isExternal = externalItems.includes(item.name);
+                let came = false;
+
+                // REGRA: Peças externas só aparecem se o técnico marcou "Veio?"
+                if (isExternal) {
+                    if (existingData) came = true;
+                    if (order.maintenance_extras) {
+                        let extras = order.maintenance_extras;
+                        if (typeof extras === 'string') {
+                            try { extras = JSON.parse(extras); } catch(e) {}
+                        }
+                        if (item.name === "ATUADOR" && extras.actuator && extras.actuator.came) came = true;
+                        if (item.name === "GEOMETRIA VARIÁVEL" && extras.geometry && extras.geometry.came) came = true;
+                        if (item.name === "CANOTE DA GEOMETRIA" && extras.geometryStem && extras.geometryStem.came) came = true;
+                        if (item.name === "FLANGE DA GEOMETRIA" && extras.geometryFlange && extras.geometryFlange.came) came = true;
+                    }
+                    if (!came) return; // Pula a renderização se não veio
+                }
+
+                // Recupera a decisão de vendas se já existir, senão fica vazio para o vendedor escolher
+                let salesDecision = existingData ? (existingData.decisao_vendas === "PENDING" ? "" : existingData.decisao_vendas) : "";
+                
+                // Exibe o veredito do técnico (BOM/OK ou TROCAR) para orientar o vendedor
+                const techVerdict = existingData ? existingData.status : "NÃO INFORMADO";
+
+                // PRÉ-PREENCHIMENTO AUTOMÁTICO: O que o técnico marcou, já vem selecionado pro Comercial
+                if (!salesDecision && techVerdict !== "NÃO INFORMADO") {
+                    const tv = techVerdict.toUpperCase();
+                    if (tv === "PEÇA OK" || tv === "OK" || tv === "BOM") salesDecision = "OK";
+                    else if (tv === "RECONDICIONAR") salesDecision = "RECONDICIONAR";
+                    else if (tv === "TROCAR" || tv === "RUIM") salesDecision = "TROCAR";
+                }
+
+                // Diferenciação visual: Conjunto Rotativo (Peças Físicas do Núcleo) vs Acessórios
+                const isCore = ["EIXO", "ROTOR", "CCE", "REPAROS", "CARCAÇA DE TURBINA (CT)"].includes(item.name);
+                const rowClass = isCore ? 'bg-amber-50/40 border-amber-100' : 'bg-blue-50/40 border-blue-100';
+                const icon = isCore ? 'fa-gears text-amber-500' : 'fa-check-double text-blue-500';
+
+                const row = `
+                    <tr class="${rowClass} hover:bg-slate-50 transition border-b">
+                        <td class="px-6 py-5 text-sm font-black text-slate-800 uppercase tracking-tighter">
+                            <i class="fa-solid ${icon} mr-3"></i>${item.name}
+                            <p class="text-[9px] text-slate-400 font-bold italic mt-1 uppercase">Auditoria Comercial Obrigatória</p>
+                        </td>
+                        <td class="px-6 py-5 text-sm">
+                            ${createDecisionSelect(item.name, techVerdict, salesDecision)}
+                        </td>
+                    </tr>`;
+                
+                body.insertAdjacentHTML('beforeend', row);
+            });
+
+            validarDivergencias();
+            
+            // Pinta os selects que já possuem valor
+            setTimeout(() => {
+                document.querySelectorAll('.decision-select-item').forEach(select => {
+                    if (select.value && select.value !== "") {
+                        updateStatusSelectStyle(select);
+                    }
+                });
+            }, 100);
+        }
+		
+        function populateDecisionPanel(order) {
+            activeOSId = order.id;
+			// Reseta o checkbox global de caracol ao carregar uma nova OS
+            const globalCheck = document.getElementById('condenar-caracol-global-vendas');
+            if (globalCheck) globalCheck.checked = false;
+            document.getElementById('initial-placeholder').classList.add('hidden');
+            document.getElementById('analysis-decision-wrapper').classList.remove('hidden');
+            
+            document.getElementById('form-title').textContent = `${order.business_id} - ${order.model}`;
+            document.getElementById('ref-orcamento').textContent = `REF. ORÇAMENTO: ${order.ref_orcamento || order.business_id}`;
+            
+            renderDecisionTable(order);
+            
+            // FORMATAÇÃO DE DATA PARA O NAVEGADOR (YYYY-MM-DD)
+            if (order.previsao_saida) {
+                const dateOnly = order.previsao_saida.split('T')[0];
+                document.getElementById('previsao-saida').value = dateOnly;
+            } else {
+                document.getElementById('previsao-saida').value = '';
+            }
+
+document.getElementById('horario-corte').value = order.horario_corte || '18:00';
+
+            // MEMÓRIA TurboSul: Força o checkbox a marcar se o banco retornar true
+            const checkSegundaHora = document.getElementById('segunda-hora-check');
+            if (checkSegundaHora) {
+                checkSegundaHora.checked = (order.segunda_hora === true);
+            }
+
+            document.getElementById('vendas-observacoes').value = order.vendas_observacoes || '';
+            
+            document.getElementById('hull-status').textContent = `Status: ${HULL_STATE_MAP[order.hull_status] || HULL_STATE_MAP['UNKNOWN']}`;
+            
+            const dispatchOptions = dispatchLocationSelect.querySelectorAll('option');
+            let found = false;
+            dispatchOptions.forEach(option => {
+                if (option.value === (order.local_despacho || 'Selecione...')) {
+                    option.selected = true;
+                    found = true;
+                }
+            });
+            if (!found && order.local_despacho) {
+                 dispatchLocationSelect.insertAdjacentHTML('beforeend', `<option value="${order.local_despacho}" selected>${order.local_despacho}</option>`);
+            }
+        }
+
+        async function loadSalesOrders() { 
+            filaContainer.innerHTML = '';
+            loadingMessage.classList.remove('hidden');
+            
+            try {
+                const response = await fetch(WEBHOOK_GET_SALES, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+                if (!response.ok) throw new Error(`Falha HTTP: ${response.status}`);
+
+                const text = await response.text();
+                let orders = [];
+                
+                if (text && text.trim().length > 0) {
+                    const responseJson = JSON.parse(text);
+                    orders = responseJson.data || responseJson; 
+                }
+                
+                if (!Array.isArray(orders)) orders = [];
+                currentOrders = orders;
+                loadingMessage.classList.add('hidden');
+                
+                if (currentOrders.length === 0) {
+                    filaContainer.innerHTML = `<div class="py-12 text-center"><p class="text-gray-400 font-bold text-[10px] uppercase tracking-widest leading-relaxed">Nenhuma ordem pendente<br>na fila de vendas.</p></div>`;
+                    return;
+                }
+
+                currentOrders.forEach(orderToRender => {
+                    filaContainer.insertAdjacentHTML('beforeend', renderOrderCard(orderToRender));
+                });
+                
+                addCardClickListeners();
+            } catch (error) {
+                console.error("Erro:", error);
+                loadingMessage.textContent = "Erro na conexão.";
+            }
+        }
+        
+        function showQuickActionModal(action, title, message) {
+            actionModalTitle.textContent = title;
+            actionModalMessage.textContent = message;
+            confirmActionBtn.dataset.actionToConfirm = action; 
+            quickActionModal.classList.remove('hidden');
+            quickActionModal.classList.add('flex');
+        }
+
+        function closeQuickActionModal() {
+            quickActionModal.classList.add('hidden');
+            quickActionModal.classList.remove('flex');
+            confirmActionBtn.dataset.actionToConfirm = '';
+            confirmActionBtn.disabled = false;
+            confirmActionBtn.textContent = 'Confirmar';
+        }
+        
+        function showActionSuccessModal(message) {
+            actionSuccessMessage.textContent = message;
+            actionSuccessModal.classList.remove('hidden');
+            actionSuccessModal.classList.add('flex');
+        }
+
+        function closeActionSuccessModal() {
+            actionSuccessModal.classList.add('hidden');
+            actionSuccessModal.classList.remove('flex');
+        }
+
+        // ====================================================================
+        // 3. AÇÕES RÁPIDAS E HISTÓRICO
+        // ====================================================================
+
+        function executarAcaoLocal(tipo) {
+            const selects = document.querySelectorAll('.decision-select-item');
+            
+            if (tipo === 'trocar') {
+                selects.forEach(s => {
+                    const name = s.dataset.itemName;
+                    // Lógica TurboSul: Marca apenas as 4 peças físicas do Conjunto Rotativo para troca automática
+                    if (["EIXO", "ROTOR", "REPAROS", "CCE"].includes(name)) {
+                        s.value = 'TROCAR CONJUNTO';
+                        updateStatusSelectStyle(s);
+
+                        s.classList.add('hidden'); // Esconde o dropdown
+                        let parentTd = s.parentElement;
+                        if (!parentTd.querySelector('.badge-conjunto')) {
+                            parentTd.insertAdjacentHTML('beforeend', '<div class="badge-conjunto bg-red-600 text-white font-black text-xs px-3 py-2 border-2 border-red-700 rounded-lg text-center uppercase tracking-widest shadow">TROCAR CONJUNTO</div>');
+                        }
+                    }
+                });
+                showActionSuccessModal('TROCA FULL: As 4 peças principais foram consolidadas como "TROCAR CONJUNTO".');
+            } else if (tipo === 'reset') {
+                selects.forEach(s => {
+                    s.classList.remove('hidden'); // Mostra o dropdown novamente
+                    const badge = s.parentElement.querySelector('.badge-conjunto');
+                    if (badge) badge.remove();
+
+                    // Restaura a decisão pro que o técnico marcou originalmente
+                    const tv = s.dataset.techVerdict;
+                    if (tv && tv !== "NÃO INFORMADO") {
+                        const tvUp = tv.toUpperCase();
+                        if (tvUp === "PEÇA OK" || tvUp === "OK" || tvUp === "BOM") s.value = "OK";
+                        else if (tvUp === "RECONDICIONAR") s.value = "RECONDICIONAR";
+                        else if (tvUp === "TROCAR" || tvUp === "RUIM") s.value = "TROCAR";
+                        else s.value = '';
+                    } else {
+                        s.value = '';
+                    }
+                    updateStatusSelectStyle(s);
+                });
+                showActionSuccessModal('RESET: Seleções retornaram para os vereditos da Análise Técnica.');
+            }
+            
+            validarDivergencias();
+            closeQuickActionModal();
+        }
+
+        async function carregarLinhaDoTempo(osId) {
+            const order = currentOrders.find(o => o.id === osId);
+            if (!order) return;
+
+            const extras = typeof order.maintenance_extras === 'string' ? JSON.parse(order.maintenance_extras) : order.maintenance_extras;
+            const tradeInText = order.is_trade_in ? `Venda à Base de Troca (${order.trade_in_option || 'Pendente'})` : 'Venda Comum';
+
+            document.getElementById('detail-business-id').textContent = order.business_id;
+            document.getElementById('detail-model').textContent = order.model;
+            document.getElementById('detail-client').textContent = order.client;
+            document.getElementById('detail-status').textContent = order.status;
+            document.getElementById('detail-difficulty').textContent = order.difficulty || 'Não definido';
+            document.getElementById('detail-trade-in').textContent = tradeInText;
+            document.getElementById('detail-observation').textContent = order.observation || 'Nenhuma observação técnica registrada.';
+            
+            const listExtras = document.getElementById('detail-maintenance-extras');
+            listExtras.innerHTML = formatMaintenanceExtras(extras);
+
+            const timeline = document.getElementById('timeline-container');
+            timeline.innerHTML = '<p class="text-xs text-gray-400 animate-pulse text-center">Buscando rastreio...</p>';
+            
+            document.getElementById('details-modal').classList.remove('hidden');
+            document.getElementById('details-modal').classList.add('flex');
+
+            try {
+                const { data: events, error } = await supabaseClient.from('history_events').select('*').eq('service_order_id', osId).order('timestamp', { ascending: true });
+                if (!error && events && events.length > 0) {
+                    timeline.innerHTML = events.map(ev => `
+                        <div class="relative pb-3">
+                            <div class="absolute -left-[21px] top-1 w-3 h-3 bg-brand-blue rounded-full border-2 border-white"></div>
+                            <p class="text-sm font-bold text-gray-800 uppercase tracking-tight">${ev.action}</p>
+                            <p class="text-xs text-gray-500 font-medium">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
+                        </div>`).join('');
+                } else { timeline.innerHTML = '<p class="text-xs text-gray-400 italic text-center">Iniciando rastreio...</p>'; }
+            } catch (err) { console.error(err); }
+        }
+
+        function formatMaintenanceExtras(extras) {
+            if (!extras || typeof extras !== 'object') return '<li class="text-gray-400">Nenhum item adicional.</li>';
+            const mapping = { actuator: 'Atuador', geometry: 'Geometria', geometryStem: 'Canote', geometryFlange: 'Flange' };
+            const items = Object.entries(extras)
+                .filter(([_, val]) => val === true || (val && val.came === true))
+                .map(([key, _]) => `<li class="font-bold text-slate-700">${mapping[key] || key}</li>`);
+            return items.length > 0 ? items.join('') : '<li class="text-gray-400">Nenhum item adicional.</li>';
+        }
+
+ function addCardClickListeners() {
+            document.querySelectorAll('.os-card').forEach(card => {
+                card.addEventListener('click', (event) => {
+                    const orderId = event.currentTarget.dataset.orderId;
+                    const orderData = currentOrders.find(o => o.id === orderId);
+                    
+                    if (orderData) {
+                        document.querySelectorAll('.os-card').forEach(c => c.classList.remove('active'));
+                        event.currentTarget.classList.add('active');
+                        
+                        populateDecisionPanel(orderData);
+                    }
+                });
+            });
+        }
+
+        // --- VALIDAÇÃO UNIFICADA DE PREENCHIMENTO ---
+        function validarDivergencias() {
+            const selects = document.querySelectorAll('.decision-select-item');
+            const finalizeBtn = document.getElementById('finalize-sales-btn');
+            let temPeloMenosUmSelecionado = false;
+
+            selects.forEach(select => {
+                const salesRaw = select.value.toUpperCase().trim();
+                
+                // Verifica se há pelo menos um item selecionado com decisão válida
+                if (salesRaw && salesRaw !== '') {
+                    temPeloMenosUmSelecionado = true;
+                }
+                select.classList.remove('ring-4', 'ring-red-500', 'ring-inset');
+            });
+
+            const alertMsg = document.getElementById('alert-divergence');
+            if (alertMsg) alertMsg.remove();
+
+            // Libera o botão caso haja pelo menos uma peça com decisão selecionada
+            if (!temPeloMenosUmSelecionado) {
+                finalizeBtn.innerHTML = 'AGUARDANDO SELEÇÃO...';
+                finalizeBtn.classList.replace('bg-green-600', 'bg-slate-300');
+                finalizeBtn.disabled = true;
+            } else {
+                finalizeBtn.innerHTML = 'APROVAR VENDA E GERAR OS';
+                finalizeBtn.classList.replace('bg-slate-300', 'bg-green-600');
+                finalizeBtn.disabled = false;
+            }
+            
+            return { temDivergencia: false, temIncompleto: !temPeloMenosUmSelecionado };
+        }
+// ====================================================================
+        // 4. INICIALIZAÇÃO DOS LISTENERS (VERSÃO FINAL E LIMPA)
+        // ====================================================================
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Mapeamento de Elementos
+            filaContainer = document.getElementById('fila-de-vendas-container');
+            loadingMessage = document.getElementById('loading-message');
+            dispatchLocationSelect = document.getElementById('dispatch-location-select');
+            trocarConjuntoBtn = document.getElementById('trocar-conjunto-btn');
+            resetDiagnosticoBtn = document.getElementById('reset-diagnostico-btn');
+            quickActionModal = document.getElementById('quick-action-modal');
+            confirmActionBtn = document.getElementById('confirm-action-btn');
+            cancelActionBtn = document.getElementById('cancel-action-btn');
+            actionModalTitle = document.getElementById('action-modal-title');
+            actionModalMessage = document.getElementById('action-modal-message');
+            actionSuccessModal = document.getElementById('action-success-modal');
+            actionSuccessOkBtn = document.getElementById('action-success-ok-btn');
+            actionSuccessMessage = document.getElementById('action-success-message');
+
+            // Popular locais de despacho
+            DISPATCH_OPTIONS.forEach(option => {
+                dispatchLocationSelect.insertAdjacentHTML('beforeend', `<option value="${option}">${option}</option>`);
+            });
+
+            // Listeners de Ações Rápidas (Troca Full / Reset)
+            trocarConjuntoBtn.addEventListener('click', () => {
+                if (!activeOSId) return;
+                showQuickActionModal('trocar', 'TROCA TOTAL (FULL)', 'Deseja marcar todos os itens como TROCAR automaticamente?');
+            });
+            
+            resetDiagnosticoBtn.addEventListener('click', () => {
+                if (!activeOSId) return;
+                showQuickActionModal('reset', 'RESETAR DIAGNÓSTICO', 'Deseja limpar suas decisões e voltar para SELECIONAR?');
+            });
+
+            confirmActionBtn.addEventListener('click', () => {
+                const action = confirmActionBtn.dataset.actionToConfirm;
+                if (action) { executarAcaoLocal(action); }
+            });
+
+            cancelActionBtn.addEventListener('click', closeQuickActionModal);
+            actionSuccessOkBtn.addEventListener('click', closeActionSuccessModal);
+
+            // Listeners de UI e Histórico
+            document.getElementById('historic-button').addEventListener('click', () => {
+                if (activeOSId) carregarLinhaDoTempo(activeOSId);
+            });
+
+            document.getElementById('close-details-modal-btn').addEventListener('click', () => {
+                document.getElementById('details-modal').classList.add('hidden');
+                document.getElementById('details-modal').classList.remove('flex');
+            });
+
+            // --- REPROVAR ORÇAMENTO (ENVIAR PARA ARQUIVADO) ---
+            document.getElementById('reprove-sales-btn').addEventListener('click', async () => {
+                if (!activeOSId) {
+                    alert("Por favor, selecione um orçamento pendente antes de reprovar.");
+                    return;
+                }
+
+                const confirmacao = confirm("Tem certeza absoluta de que deseja REPROVAR este orçamento? A Ordem de Serviço será encerrada e enviada para o arquivo definitivo.");
+                if (!confirmacao) return;
+
+                const btnReprove = document.getElementById('reprove-sales-btn');
+                btnReprove.disabled = true;
+                btnReprove.textContent = 'Arquivando...';
+
+                try {
+                    const payload = {
+                        os_id: activeOSId,
+                        user_id: await getCurrentUserUID(),
+                        vendas_observacoes: document.getElementById('vendas-observacoes').value.trim()
+                    };
+
+                    const response = await fetch('https://webhook.mareflow.com.br/webhook/sales/archive', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        showActionSuccessModal("Sucesso! Orçamento reprovado e enviado para a aba de arquivados.");
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        alert("Não foi possível arquivar o orçamento. Verifique a automação do n8n.");
+                        btnReprove.disabled = false;
+                        btnReprove.textContent = 'Reprovar Orçamento';
+                    }
+                } catch (err) {
+                    console.error("Erro ao enviar arquivamento:", err);
+                    btnReprove.disabled = false;
+                    btnReprove.textContent = 'Reprovar Orçamento';
+                }
+            });
+
+            // --- 1. APROVAR VENDA (ABRE O MODAL DE Nº DE OS) ---
+            document.getElementById('sales-decision-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const { temIncompleto } = validarDivergencias();
+                
+                if (temIncompleto) {
+                    alert("Por favor, selecione pelo menos uma decisão na lista para prosseguir.");
+                    return;
+                }
+
+                const activeOrder = currentOrders.find(o => o.id === activeOSId);
+                if (!activeOrder) return;
+                
+                // Transforma ORÇ- em O.S- automaticamente
+                const numeroApenas = activeOrder.business_id.replace('ORÇ-', '');
+                const numeroOSGerado = 'O.S-' + numeroApenas;
+
+                const modalOS = document.getElementById('modal-gerar-os');
+                modalOS.classList.remove('hidden');
+                modalOS.classList.add('flex');
+
+                const inputOS = document.getElementById('input-os-oficial');
+                inputOS.value = numeroOSGerado;
+                inputOS.focus();
+            });
+
+            // --- 2. CONFIRMAR E ENVIAR PARA N8N ---
+            document.getElementById('confirm-generate-os-btn').addEventListener('click', async () => {
+                let osNumOficial = document.getElementById('input-os-oficial').value.trim().toUpperCase();
+                if (!osNumOficial) { alert("Informe o número da OS."); return; }
+                
+                if (!osNumOficial.startsWith('O.S-')) osNumOficial = 'O.S-' + osNumOficial;
+                
+                const btnConfirm = document.getElementById('confirm-generate-os-btn');
+                btnConfirm.disabled = true; 
+                btnConfirm.textContent = 'Enviando...';
+
+                try {
+                    const decisionElements = document.querySelectorAll('.decision-select-item');
+                    
+                    const payload = {
+                        os_id: activeOSId,
+                        new_os_number: osNumOficial, 
+                        is_divergent: false, // Forçado como false para evitar travamentos em banco e n8n
+                        divergence_reason: "Liberado via fluxo direto de vendas",
+                        decisions: Array.from(decisionElements).map(s => ({ 
+                            item_name: s.dataset.itemName, 
+                            decisao_vendas: s.value 
+                        })),
+                        previsao_saida: document.getElementById('previsao-saida').value,
+                        horario_corte: document.getElementById('horario-corte').value,
+                        local_despacho: document.getElementById('dispatch-location-select').value,
+                        segunda_hora: document.getElementById('segunda-hora-check').checked,
+                        vendas_observacoes: document.getElementById('vendas-observacoes').value.trim()
+                    };
+
+                    const response = await fetch(WEBHOOK_FINALIZE_SALES, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify(payload) 
+                    });
+
+                    if (response.ok) {
+                        try {
+                            const result = await response.json();
+                            
+                            // TRATAMENTO TurboSul: Aceita Array ou Objeto e os dois nomes de campo (download_url ou pdf_url)
+                            const data = Array.isArray(result) ? result[0] : result;
+                            const urlFinal = data.download_url || data.pdf_url;
+                            
+                            const shouldOpenPdf = document.getElementById('open-pdf-comercial') ? document.getElementById('open-pdf-comercial').checked : true;
+
+                            if (urlFinal && shouldOpenPdf) {
+                                const link = document.createElement('a');
+                                link.href = urlFinal;
+                                link.target = '_blank';
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            }
+                        } catch (e) {
+                            console.log("Erro ao abrir PDF Comercial:", e);
+                        }
+
+                        document.getElementById('modal-gerar-os').classList.add('hidden');
+                        showActionSuccessModal(`Sucesso! Orçamento convertido para ${osNumOficial}.`);
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        alert("Erro ao salvar. Verifique o servidor.");
+                        btnConfirm.disabled = false; btnConfirm.textContent = 'CONFIRMAR E ENVIAR';
+                    }
+                } catch (err) { 
+                    console.error("Erro no envio:", err); 
+                    btnConfirm.disabled = false;
+                }
+            });
+
+            // Inicialização Real
+            (async function init() {
+                await loadSalesOrders();
+            })();
+        });
+
+        // 5. FUNÇÃO PARA GERAR RELATÓRIO EXCEL (PADRÃO TURBOSUL)
+        function gerarRelatorioExcelComercial(payload) {
+            const data = [
+                ["RELATÓRIO DE APROVAÇÃO COMERCIAL"],
+                ["Nº ORDEM DE SERVIÇO:", payload.new_os_number],
+                ["PREVISÃO DE SAÍDA:", payload.previsao_saida || 'Não informada'],
+                ["LOCAL DESPACHO:", payload.local_despacho],
+                ["OBSERVAÇÕES:", payload.vendas_observacoes],
+                [""],
+                ["ITEM", "DECISÃO VENDAS"]
+            ];
+            payload.decisions.forEach(d => data.push([d.item_name, d.decisao_vendas]));
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Aprovacao_Comercial");
+            XLSX.writeFile(wb, `Relatorio_Comercial_${payload.new_os_number.replace(/\./g, '')}.xlsx`);
+        }
+    </script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

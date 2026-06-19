@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setor Solda | TurboSul - Controle de Produção</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-turbo-teal { background-color: #0D9488; }
+        .text-turbo-teal { color: #0D9488; }
+        .border-turbo-teal { border-color: #0D9488; }
+        .bg-turbo-blue { background-color: #2563EB; }
+        .bg-turbo-orange { background-color: #EA580C; }
+        
+        /* Custom Scrollbar para os checklists */
+        .checklist-scroll::-webkit-scrollbar { width: 5px; }
+        .checklist-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+        .checklist-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .active-routing {
+            background-color: #0D9488 !important;
+            color: white !important;
+        }
+
+        .os-card-selected {
+            border-left: 4px solid #2563EB;
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+    <!-- HEADER -->
+    <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+        <div class="flex items-center space-x-4">
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="TurboSul Logo" class="h-10">
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-slate-900 uppercase">TurboSul - Controle de Produção</h1>
+                <p class="text-xs text-slate-500 font-medium italic">Setor de Soldagem Especializada</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-6">
+            <div class="flex items-center space-x-3">
+                <div class="text-right pr-4">
+                    <p class="text-sm font-black text-slate-800 uppercase tracking-wider leading-none">Setor Solda</p>
+                </div>
+                <button onclick="window.location.href='https://mareflow.github.io/turbosul-login/'" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition">Sair</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex h-[calc(100vh-64px)] overflow-hidden">
+        
+        <!-- SIDEBAR (FILA DE OS) -->
+        <aside class="w-80 bg-white border-r border-slate-200 overflow-y-auto flex-shrink-0">
+            <div class="p-4 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
+                <h2 class="text-xs font-black uppercase tracking-widest text-slate-400">Fila de Soldagem</h2>
+            </div>
+            <div id="os-queue-container" class="divide-y divide-slate-100">
+                <div class="p-8 text-center text-slate-400 animate-pulse italic">Carregando fila...</div>
+            </div>
+        </aside>
+
+        <!-- WORKSPACE CENTRAL -->
+        <main class="flex-1 overflow-y-auto p-6 bg-slate-50">
+            
+            <!-- HEADER DO PROCESSO -->
+            <div id="workspace-header" class="hidden flex flex-col lg:flex-row justify-between gap-4 mb-6">
+                <div class="bg-turbo-blue text-white rounded-xl p-5 shadow-lg flex-1 relative overflow-hidden">
+                    <div class="relative z-10">
+                        <h2 id="current-os-id" class="text-3xl font-black italic">OS-XXXX</h2>
+                        <p id="current-os-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest">CLIENTE | MODELO</p>
+                    </div>
+                    <div class="absolute right-[-20px] top-[-20px] opacity-10">
+                        <i class="fa-solid fa-fire-burner text-8xl"></i>
+                    </div>
+                    <div class="mt-4 flex space-x-3 relative z-10">
+                        <button onclick="openSpecialServiceModal()" class="bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wider transition">
+                            + Adicionar Serviço Especial
+                        </button>
+                       <button onclick="carregarLinhaDoTempo()" class="bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wider transition">
+    <i class="fa-solid fa-clock-rotate-left mr-1"></i> Histórico OS
+</button>
+                    </div>
+                </div>
+
+                <!-- MONITOR DE PRODUTIVIDADE -->
+                <div class="bg-slate-900 text-white rounded-xl p-4 flex flex-col justify-between border-b-4 border-turbo-teal lg:w-72 shadow-xl">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2 bg-turbo-teal rounded-lg"><i class="fa-solid fa-mask-ventilator"></i></div>
+                        <div>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Monitor Solda</p>
+                            <p class="text-xs font-black text-white uppercase">Produção Ativa</p>
+                        </div>
+                    </div>
+                    <button id="btn-sector-cleaning" onclick="toggleSectorCleaning('SOLDA')" class="mt-3 w-full bg-turbo-teal hover:bg-teal-600 text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition shadow-md shadow-teal-900">
+                        Iniciar Limpeza Setor
+                    </button>
+                </div>
+            </div>
+
+            <!-- GRID DE COMPONENTES -->
+            <div id="empty-state" class="flex flex-col items-center justify-center h-full text-slate-400">
+                <i class="fa-solid fa-hand-pointer text-5xl mb-4"></i>
+                <p class="text-lg font-bold">Selecione uma Ordem de Serviço para iniciar os trabalhos.</p>
+            </div>
+
+            <div id="components-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-24">
+                <!-- Cards renderizados via JS -->
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL SERVIÇO ESPECIAL (VERSÃO FIEL AO PRINT) -->
+    <div id="modal-special" class="fixed inset-0 bg-slate-900/80 z-[100] flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
+                <h3 class="font-black text-slate-800 text-lg">Adicionar Serviço Especial</h3>
+                <button onclick="closeSpecialServiceModal()" class="text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-8 space-y-6">
+<div>
+    <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">NOME DO ITEM / PROCESSO</label>
+    <input type="text" id="special-item-name" oninput="validateSpecialModal()" placeholder="EX: SOLDAGEM ESPECIAL..." class="w-full bg-[#334155] text-white rounded-xl px-5 py-3 text-sm font-bold outline-none border-2 border-transparent focus:border-blue-500 transition-all">
+</div>
+
+<!-- Checklist Dinâmico -->
+<div>
+    <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">CHECKLIST DE SOLDAGEM</label>
+    <div id="dynamic-checklist-container" class="space-y-2 max-h-40 overflow-y-auto pr-2">
+        <div class="flex items-center space-x-2">
+            <input type="text" placeholder="Ex: Ciclo de Solda 1" class="special-checklist-input flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-blue-500">
+            <button onclick="addChecklistItemLine()" class="text-blue-600 hover:text-blue-800 p-2"><i class="fa-solid fa-circle-plus text-xl"></i></button>
+        </div>
+    </div>
+</div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 ml-1">TIPO DE PEÇA</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Card Peça Padrão -->
+                        <label onclick="toggleSpecialRadioStyle('PADRAO')" id="label-padrao" class="flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all border-blue-600 bg-blue-50/50">
+                            <input type="radio" name="special-type" value="PADRAO" checked class="hidden">
+                            <div class="w-6 h-6 rounded-full border-2 border-blue-600 flex items-center justify-center mr-3 bg-white">
+                                <div id="radio-dot-padrao" class="w-3 h-3 bg-blue-600 rounded-full"></div>
+                            </div>
+                            <span class="text-[11px] font-black text-blue-800 uppercase tracking-tighter">Peça Padrão (Produção)</span>
+                        </label>
+                        <!-- Card Retrabalho -->
+                        <label onclick="toggleSpecialRadioStyle('RETRABALHO')" id="label-retrabalho" class="flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer transition-all hover:bg-slate-50">
+                            <input type="radio" name="special-type" value="RETRABALHO" class="hidden">
+                            <div class="w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center mr-3 bg-white">
+                                <div id="radio-dot-retrabalho" class="w-3 h-3 bg-transparent rounded-full"></div>
+                            </div>
+                            <span class="text-[11px] font-black text-red-700/60 uppercase tracking-tighter">Retrabalho (Linha Parada)</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 pt-6 border-t border-slate-50">
+                    <button onclick="closeSpecialServiceModal()" class="bg-slate-500 text-white font-black px-8 py-3.5 rounded-xl uppercase text-xs tracking-widest hover:bg-slate-600 transition">Cancelar</button>
+                    <button id="btn-add-special" disabled onclick="addSpecialCard()" class="bg-blue-300 text-white font-black px-10 py-3.5 rounded-xl uppercase text-xs tracking-widest transition-all cursor-not-allowed">Adicionar Item</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMAÇÃO DE ROTEAMENTO (CUSTOM) -->
+    <div id="modal-confirm-routing" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center border-t-8 border-turbo-teal">
+            <div class="w-20 h-20 bg-teal-50 text-turbo-teal rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-paper-plane text-3xl"></i>
+            </div>
+            <h4 class="text-xl font-black text-slate-800 mb-2 uppercase italic">Encaminhar Peça?</h4>
+            <p id="routing-confirm-msg" class="text-slate-500 text-sm mb-6 font-medium">Você está prestes a enviar este item para outro setor. Esta ação é definitiva.</p>
+            <div class="flex gap-3">
+                <button onclick="closeRoutingModal()" class="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-200 transition uppercase text-xs tracking-widest">Cancelar</button>
+                <button id="btn-confirm-routing-final" class="flex-1 bg-turbo-teal text-white font-bold py-3 rounded-xl hover:bg-teal-700 transition shadow-lg shadow-teal-100 uppercase text-xs tracking-widest">Sim, Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS LOGIC -->
+<!-- Biblioteca Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+    const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const API_QUEUE = 'https://webhook.mareflow.com.br/webhook/production/welding-queue';
+        const API_ACTION = 'https://webhook.mareflow.com.br/webhook/production/component-routing';
+        
+        let selectedOS = null;
+        let queueData = []; // Declarado globalmente para suportar o filtro preventivo
+        let specialItemsList = [];
+
+        // Estrutura de Checklists Específicos para Solda
+        const COMPONENT_WELD_STRUCTURE = {
+            CT: ["SOLDAGEM EMB. CT", "SOLDAGEM TRINCAS", "SOLDAGEM ASSENT. WASTEGATE", "SOLDAGEM SAÍDA CT", "SOLDAGEM PÉ / MESA", "SOLDA WASTEGATE"],
+            CCO: ["SOLDAGEM BOCAL ADMISSÃO", "SOLDAGEM BOCAL FILTRO", "SOLDAGEM EMB. CCO", "SOLDAGEM TRINCAS"],
+            COLETOR: ["SOLDAGEM MESA COLETOR", "SOLDAGEM TRINCAS COLETOR", "SOLDA MARÍTIMA - CICLO 1", "SOLDA MARÍTIMA - CICLO 2"],
+            CCE: ["SOLDAGEM ASSENT. CCE", "SOLDAGEM BORDA QUENTE CCE", "SOLDAGEM BORDA FRIA CCE"],
+            EIXO: ["SOLDAGEM ASPERSÃO TÉRMICA (EIXO)", "SOLDAGEM PALHETA EIXO"],
+            ROTOR: ["SOLDAGEM PALHETA ROTOR"],
+            REPAROS: ["SOLDAGEM SAÍDA (FLANGE / BOTA)"],
+            GEOMETRIA: ["SOLDAGEM TRINCAS", "SERVIÇO GERAL SOLDA"],
+            ATUADOR: ["SOLDA WASTEGATE", "SERVIÇO GERAL SOLDA"],
+            ANEXOS: ["SOLDAGEM CABEÇOTE VALV. MARÍTIMA", "SERVIÇO GERAL SOLDA"]
+        };
+
+        window.addEventListener('load', fetchQueue);
+
+        async function fetchQueue() {
+            try {
+                const response = await fetch(API_QUEUE);
+                const result = await response.json();
+                
+                let rawQueue = [];
+                if (Array.isArray(result)) {
+                    rawQueue = result;
+                } else if (result && result.os_id) {
+                    rawQueue = [result];
+                } else {
+                    rawQueue = result.data || [];
+                }
+
+                // Filtro Inteligente: Remove OSs onde todas as peças já foram enviadas para fora da Solda
+                if (rawQueue.length > 0) {
+                    const osIds = rawQueue.map(os => os.service_order_id || os.os_id || os.id);
+                    
+                    const { data: trackings, error } = await supabaseClient
+                        .from('component_tracking')
+                        .select('*')
+                        .in('service_order_id', osIds);
+                        
+                    if (!error && trackings) {
+                        rawQueue = rawQueue.filter(os => {
+                            const osId = os.service_order_id || os.os_id || os.id;
+                            const osTracking = trackings.filter(t => t.service_order_id === osId);
+                            
+                            const componentsToRender = [...new Set(os.components_to_render || [])];
+                            if (componentsToRender.length === 0) return true;
+
+                            // Se ainda houver alguma peça cujo setor atual NÃO seja pós-solda, mantém na fila
+                            const hasPendingPiece = componentsToRender.some(compName => {
+                                const p = osTracking.find(t => (t.component_name || t.component || '').toUpperCase() === compName.toUpperCase());
+                                const stage = p ? (p.target_sector || p.current_stage || p.stage || '').toUpperCase().trim() : '';
+                                
+                                // Setores que indicam que a peça já passou da Solda
+                                const postSectors = ['RETIFICA', 'METROLOGIA', 'BANCADA', 'MONTAGEM', 'BALANCEAMENTO', 'BALANCEAMENTO FINAL', 'QUALIDADE', 'EXPEDICAO', 'EXPEDIÇÃO'];
+                                return !postSectors.includes(stage);
+                            });
+
+                            // Pré-carrega o tracking para o clique ficar instantâneo
+                            os.full_tracking = osTracking;
+
+                            return hasPendingPiece;
+                        });
+                    }
+                }
+
+                queueData = rawQueue;
+                renderQueue();
+            } catch (error) {
+                console.error("Erro ao carregar fila da Solda:", error);
+                document.getElementById('os-queue-container').innerHTML = '<p class="p-4 text-red-500 text-xs">Erro ao conectar com servidor.</p>';
+            }
+        }
+
+        function renderQueue() {
+            const container = document.getElementById('os-queue-container');
+            container.innerHTML = '';
+
+            queueData.forEach(os => {
+                const card = document.createElement('div');
+                const osId = os.service_order_id || os.os_id || os.id;
+                card.className = `p-4 cursor-pointer hover:bg-slate-50 transition border-l-4 border-transparent ${selectedOS?.service_order_id === osId ? 'os-card-selected' : ''}`;
+                card.onclick = () => selectOS(osId);
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-sm font-black text-slate-900">${os.business_id}</span>
+                        <span class="px-2 py-0.5 text-[9px] font-bold rounded uppercase bg-blue-100 text-blue-600">${os.urgency || 'Normal'}</span>
+                    </div>
+                    <p class="text-[10px] font-bold text-turbo-blue uppercase tracking-widest truncate">${os.client}</p>
+                    <p class="text-xs text-slate-500 font-medium">${os.model}</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function selectOS(osId) {
+            selectedOS = queueData.find(o => (o.os_id === osId || o.id === osId));
+            specialItemsList = []; 
+            
+            renderQueue();
+            
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('workspace-header').classList.remove('hidden');
+            document.getElementById('components-grid').classList.remove('hidden');
+
+            document.getElementById('current-os-id').innerText = selectedOS.business_id;
+            document.getElementById('current-os-desc').innerText = `${selectedOS.model} | ${selectedOS.client}`;
+
+            // Os dados de tracking já vêm pré-carregados da fila inicial
+            renderComponentCards();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+function renderComponentCards() {
+            const grid = document.getElementById('components-grid');
+            if (!grid || !selectedOS) return;
+
+            const baseComponentsUnicos = [...new Set(selectedOS.components_to_render || [])];
+            
+            const allComponents = [
+                ...baseComponentsUnicos.map(name => ({ name, isSpecial: false })),
+                ...specialItemsList.map(item => ({ name: item.title, isSpecial: true, type: item.type, items: item.items }))
+            ];
+
+            grid.innerHTML = allComponents.map(comp => {
+                const name = comp.name;
+                const trackingList = selectedOS.full_tracking || selectedOS.tracking || [];
+                const trk = trackingList.find(t => (t.component === name || t.component_name === name));
+                
+                const statusPeca = trk?.status || 'Aguardando';
+                const setorAtual = trk?.current_stage || trk?.stage || '';
+                
+                const setoresPosteriores = ['METROLOGIA', 'BANCADA', 'MONTAGEM', 'BALANCEAMENTO', 'BANCADA DE USINAGEM'];
+                const isSent = !!trk && setoresPosteriores.includes(setorAtual.toUpperCase().trim());
+                
+                const cardStyle = isSent ? 'opacity-40 grayscale pointer-events-none' : '';
+                
+                let badgeText = 'Solda';
+                let badgeColor = 'bg-turbo-teal';
+                if (isSent) {
+                    badgeText = `EM ${setorAtual.toUpperCase()}`;
+                    badgeColor = 'bg-slate-500';
+                }
+
+                const checklistItems = comp.isSpecial ? (comp.items || ["SERVIÇO GERAL SOLDA"]) : (COMPONENT_WELD_STRUCTURE[name] || ["SERVIÇO GERAL SOLDA"]);
+                const trackingData = trk && trk.tracking_data ? (typeof trk.tracking_data === 'string' ? JSON.parse(trk.tracking_data) : trk.tracking_data) : [];
+
+                const itemHtml = checklistItems.map(item => {
+                    const cleanItemName = item.replace(/\s+/g, '_').toLowerCase();
+                    const savedLog = Array.isArray(trackingData) ? trackingData.find(log => log.service === item) : null;
+                    
+                    const timerKey = `timer_${selectedOS.id}_${name}_${item}`;
+                    const isActive = localStorage.getItem(timerKey) !== null;
+
+                    let timeBadgeHtml = "";
+                    let actionBtnHtml = "";
+
+                    if (savedLog) {
+                        const min = Math.floor(savedLog.duration_seconds / 60);
+                        const sec = savedLog.duration_seconds % 60;
+                        timeBadgeHtml = `<span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-black uppercase border border-emerald-100"><i class="fa-solid fa-clock mr-1"></i> ${min}:${sec.toString().padStart(2, '0')} min</span>`;
+                    } else if (isActive) {
+                        timeBadgeHtml = `<span id="badge-${name}-${cleanItemName}" class="text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded font-black animate-pulse border border-orange-100">00:00</span>`;
+                        actionBtnHtml = `<button type="button" onclick="stopServiceTimer('${name}', '${item}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider">Parar</button>`;
+                    } else {
+                        actionBtnHtml = `<button type="button" onclick="startServiceTimer('${name}', '${item}')" class="text-xs bg-turbo-teal hover:bg-teal-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-play mr-1"></i> Iniciar</button>`;
+                    }
+
+                    return `
+                        <div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 px-2 rounded-lg transition">
+                            <div class="flex items-center space-x-3">
+                                <label class="flex items-center space-x-3 cursor-pointer group">
+                                    <input type="checkbox" ${isSent ? 'disabled' : ''} ${savedLog ? 'checked' : ''} class="w-5 h-5 rounded border-slate-300 text-turbo-teal focus:ring-turbo-teal transition-all" data-service="${item}">
+                                    <span class="text-xs font-bold text-slate-600 group-hover:text-slate-800 transition">${item}</span>
+                                </label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                ${timeBadgeHtml}
+                                ${!isSent ? actionBtnHtml : ''}
+                            </div>
+                        </div>`;
+                }).join('');
+
+                return `
+                    <div class="bg-white rounded-3xl shadow-sm border-2 border-slate-100 flex flex-col p-6 ${cardStyle}" id="comp-card-${name.replace(/\s+/g, '-')}">
+                        <div class="flex justify-between items-center mb-6">
+                            <h4 class="text-2xl font-black text-slate-800 tracking-tighter uppercase italic">${name}</h4>
+                            <span class="text-[10px] font-black uppercase px-4 py-1.5 ${badgeColor} text-white rounded-full tracking-widest">${badgeText}</span>
+                        </div>
+                        <div class="flex-1 flex flex-col relative">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">CHECKLIST DE SOLDAGEM:</p>
+                            <div class="checklist-scroll overflow-y-auto max-h-[200px] space-y-1 mb-8 pr-1">${itemHtml}</div>
+                            <hr class="border-slate-100 mb-6">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">ENCAMINHAR PARA:</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button class="py-3 bg-turbo-teal text-white text-[10px] font-black uppercase rounded-lg cursor-default shadow-md">Solda</button>
+                                <button onclick="sendPieceTo(this, '${name}', 'RETIFICA')" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition shadow-sm border border-slate-100">Retífica</button>
+                                <button onclick="sendPieceTo(this, '${name}', 'METROLOGIA')" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition shadow-sm border border-slate-100">Metrologia</button>
+                                <button onclick="sendPieceTo(this, '${name}', 'BANCADA')" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition shadow-sm border border-slate-100">Bancada</button>
+                                
+                                ${name.toUpperCase() === 'EIXO' ? `
+                                    <button onclick="sendPieceTo(this, '${name}', 'BALANCEAMENTO')" class="col-span-2 py-3 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black uppercase rounded-lg transition shadow-md">Enviar p/ Balanceamento Solo</button>
+                                ` : ''}
+
+                                <button onclick="sendPieceTo(this, '${name}', 'MONTAGEM')" class="col-span-2 py-4 bg-emerald-600 text-white text-[11px] font-black uppercase rounded-xl transition hover:bg-emerald-700 shadow-lg shadow-emerald-100 mt-2">Pronto p/ Montagem</button>
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        async function sendPieceTo(btn, componentName, targetSector) {
+            if (!selectedOS) return;
+
+            const modal = document.getElementById('modal-confirm-routing');
+            const msg = document.getElementById('routing-confirm-msg');
+            const confirmBtn = document.getElementById('btn-confirm-routing-final');
+            
+            modal.classList.remove('hidden');
+            msg.innerText = `Confirmar o envio de ${componentName} para o setor de ${targetSector}?`;
+
+            confirmBtn.onclick = async () => {
+                modal.classList.add('hidden');
+                
+                const card = document.getElementById(`comp-card-${componentName.replace(/\s+/g, '-')}`);
+                const checkboxes = card.querySelectorAll('input[type="checkbox"]:checked');
+                // CORREÇÃO: Alinhado para ler 'cb.dataset.service' (atributo correto) para capturar os serviços e tempos no histórico
+                const services = Array.from(checkboxes).map(cb => cb.dataset.service);
+
+                btn.disabled = true;
+                const originalText = btn.innerText;
+                btn.innerText = 'ENVIANDO...';
+
+                const payload = {
+                    os_id: selectedOS.service_order_id || selectedOS.os_id || selectedOS.id,
+                    component: componentName,
+                    target: targetSector,
+                    executed_services: services
+                };
+
+                try {
+                    const response = await fetch(API_ACTION, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        card.classList.add('opacity-40', 'grayscale', 'pointer-events-none');
+                        const sectorLabel = targetSector.toUpperCase();
+                        btn.innerHTML = `<i class="fa-solid fa-check-double mr-1"></i> ENCAMINHADO (${sectorLabel})`;
+                        btn.classList.remove('bg-slate-50', 'text-slate-600');
+                        btn.classList.add('bg-turbo-teal', 'text-white');
+                    } else {
+                        alert("Erro ao encaminhar peça.");
+                        btn.disabled = false;
+                        btn.innerText = originalText;
+                    }
+                } catch (error) {
+                    console.error("Erro no roteamento:", error);
+                    alert("Falha na conexão.");
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                }
+            };
+        }
+
+        function closeRoutingModal() {
+            document.getElementById('modal-confirm-routing').classList.add('hidden');
+        }
+
+        // --- LÓGICA DO MODAL DE SERVIÇO ESPECIAL (SOLDAGEM) ---
+
+        // --- LÓGICA DO MODAL DE SERVIÇO ESPECIAL (SOLDAGEM) ---
+        function openSpecialServiceModal() { 
+            document.getElementById('special-item-name').value = ''; 
+            document.getElementById('dynamic-checklist-container').innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <input type="text" placeholder="Ex: Ciclo de Solda 1" class="special-checklist-input flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-blue-500">
+                    <button onclick="addChecklistItemLine()" class="text-blue-600 hover:text-blue-800 p-2"><i class="fa-solid fa-circle-plus text-xl"></i></button>
+                </div>`;
+            validateSpecialModal();
+            document.getElementById('modal-special').classList.remove('hidden'); 
+        }
+
+        function addChecklistItemLine() {
+            const container = document.getElementById('dynamic-checklist-container');
+            const div = document.createElement('div');
+            div.className = 'flex items-center space-x-2';
+            div.innerHTML = `
+                <input type="text" placeholder="Novo serviço..." class="special-checklist-input flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-blue-500">
+                <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 p-2"><i class="fa-solid fa-circle-minus text-xl"></i></button>
+            `;
+            container.appendChild(div);
+        }
+
+        function closeSpecialServiceModal() { 
+            document.getElementById('modal-special').classList.add('hidden'); 
+        }
+
+        function validateSpecialModal() {
+            const name = document.getElementById('special-item-name').value;
+            const btn = document.getElementById('btn-add-special');
+            if(name.length >= 3) {
+                btn.disabled = false;
+                btn.classList.replace('bg-blue-300', 'bg-blue-600');
+                btn.classList.remove('cursor-not-allowed');
+            } else {
+                btn.disabled = true;
+                btn.classList.replace('bg-blue-600', 'bg-blue-300');
+                btn.classList.add('cursor-not-allowed');
+            }
+        }
+
+        function toggleSpecialRadioStyle(type) {
+            const lp = document.getElementById('label-padrao');
+            const lr = document.getElementById('label-retrabalho');
+            if(type === 'PADRAO') {
+                lp.className = "flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all border-blue-600 bg-blue-50/50";
+                lr.className = "flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer transition-all hover:bg-slate-50";
+            } else {
+                lr.className = "flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all border-red-500 bg-red-50/50";
+                lp.className = "flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer transition-all hover:bg-slate-50";
+            }
+        }
+
+        function addSpecialCard() {
+            const name = document.getElementById('special-item-name').value.toUpperCase();
+            const type = document.querySelector('input[name="special-type"]:checked')?.value || 'PADRAO';
+            const inputs = document.querySelectorAll('.special-checklist-input');
+            const customItems = Array.from(inputs).map(input => input.value.trim()).filter(val => val !== '');
+            if (customItems.length === 0) customItems.push("Serviço Geral Solda");
+
+            specialItemsList.push({ title: name, type: type, items: customItems, isSpecial: true });
+            closeSpecialServiceModal();
+            renderComponentCards();
+        }
+
+        // --- LÓGICA DE HISTÓRICO ---
+        async function carregarLinhaDoTempo() {
+            if (!selectedOS) { alert("Selecione uma OS primeiro."); return; }
+            const os = selectedOS;
+            document.getElementById('detail-business-id').textContent = os.business_id;
+            document.getElementById('detail-model').textContent = os.model;
+            
+            const listExtras = document.getElementById('detail-maintenance-extras');
+            try {
+                let extras = os.maintenance_extras;
+                if (typeof extras === 'string' && extras.startsWith('{')) extras = JSON.parse(extras);
+                listExtras.innerHTML = formatMaintenanceExtras(extras);
+            } catch (e) { listExtras.innerHTML = '<li>Erro ao carregar itens.</li>'; }
+
+            const timeline = document.getElementById('timeline-container');
+            timeline.innerHTML = '<p class="text-xs text-slate-400 animate-pulse text-center py-4">Buscando rastreio...</p>';
+            document.getElementById('details-modal').classList.remove('hidden');
+            document.getElementById('details-modal').classList.add('flex');
+
+            try {
+                const { data: events, error } = await supabaseClient
+                    .from('history_events')
+                    .select('*')
+                    .eq('service_order_id', os.os_id || os.id)
+                    .order('timestamp', { ascending: true });
+
+                if (events && events.length > 0) {
+                    timeline.innerHTML = events.map(ev => `
+                        <div class="relative pb-4 border-l-2 border-turbo-blue pl-4 ml-2">
+                            <div class="absolute -left-[9px] top-1 w-4 h-4 bg-turbo-blue rounded-full border-2 border-white shadow-sm"></div>
+                            <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight leading-none">${ev.action}</p>
+                            <p class="text-[10px] text-slate-500 font-medium mt-1">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
+                            ${ev.details ? `<p class="text-[9px] text-turbo-blue italic mt-1 font-semibold leading-relaxed">"${ev.details}"</p>` : ''}
+                        </div>`).join('');
+                } else {
+                    timeline.innerHTML = '<p class="text-[10px] text-slate-400 italic text-center uppercase py-4">Iniciando rastreio...</p>'; 
+                }
+            } catch (err) { timeline.innerHTML = '<p class="text-xs text-red-500 text-center">Falha na conexão.</p>'; }
+        }
+
+        function formatMaintenanceExtras(extras) {
+            if (!extras || typeof extras !== 'object') return '<li class="text-slate-400">Nenhum item.</li>';
+            const mapping = { actuator: 'Atuador', geometry: 'Geometria', geometryStem: 'Canote', geometryFlange: 'Flange' };
+            const items = Object.entries(extras).filter(([_, val]) => val === true).map(([key, _]) => `<li class="font-bold text-slate-700">${mapping[key] || key}</li>`);
+            return items.length > 0 ? items.join('') : '<li class="text-slate-400">Nenhum item.</li>';
+        }
+
+        function closeModal(id) { 
+            const el = document.getElementById(id);
+            if(el) {
+                el.classList.add('hidden'); 
+                el.classList.remove('flex'); 
+            }
+        }
+		
+		// INICIA O CRONÔMETRO DE UM SUBPROCESSO ESPECÍFICO (SOLDA)
+        function startServiceTimer(componentName, serviceName) {
+            if (!selectedOS) return;
+            const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
+            localStorage.setItem(timerKey, new Date().toISOString());
+            renderComponentCards();
+        }
+
+        // PARA O CRONÔMETRO E PERSISTE O TEMPO DECORRIDO NO SUPABASE
+        async function stopServiceTimer(componentName, serviceName) {
+            if (!selectedOS) return;
+            const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
+            const startTimeStr = localStorage.getItem(timerKey);
+            
+            if (!startTimeStr) return;
+            localStorage.removeItem(timerKey);
+
+            const startTime = new Date(startTimeStr);
+            const endTime = new Date();
+            const durationSeconds = Math.max(1, Math.floor((endTime - startTime) / 1000));
+
+            let trackingData = [];
+            const trackingList = selectedOS.full_tracking || selectedOS.tracking || [];
+            const trk = trackingList.find(t => (t.component === componentName || t.component_name === componentName));
+
+            if (trk && trk.tracking_data) {
+                trackingData = typeof trk.tracking_data === 'string' ? JSON.parse(trk.tracking_data) : trk.tracking_data;
+            }
+
+            // Remove log antigo desse serviço
+            trackingData = trackingData.filter(log => log.service !== serviceName);
+
+            // Adiciona o novo log
+            trackingData.push({
+                service: serviceName,
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                duration_seconds: durationSeconds
+            });
+
+            const osId = selectedOS.service_order_id || selectedOS.id;
+
+            try {
+                const { error } = await supabaseClient
+                    .from('component_tracking')
+                    .upsert({
+                        service_order_id: osId,
+                        component_name: componentName.toUpperCase().trim(),
+                        tracking_data: trackingData,
+                        current_stage: 'SOLDA',
+                        status: 'Finalizado'
+                    }, { onConflict: 'service_order_id,component_name' });
+
+                if (!error) {
+                    if (trk) {
+                        trk.tracking_data = trackingData;
+                        trk.status = 'Finalizado';
+                    } else {
+                        const novaPeca = {
+                            component: componentName,
+                            component_name: componentName,
+                            current_stage: 'SOLDA',
+                            status: 'Finalizado',
+                            tracking_data: trackingData
+                        };
+                        if (selectedOS.tracking) selectedOS.tracking.push(novaPeca);
+                        if (selectedOS.full_tracking) selectedOS.full_tracking.push(novaPeca);
+                    }
+                    
+                    // Preenche e abre o modal de resumo
+                    document.getElementById('resumo-peca-nome').innerText = `${componentName} - ${serviceName}`;
+                    document.getElementById('resumo-inicio').innerText = startTime.toLocaleTimeString('pt-BR');
+                    document.getElementById('resumo-fim').innerText = endTime.toLocaleTimeString('pt-BR');
+                    
+                    const min = Math.floor(durationSeconds / 60);
+                    const sec = durationSeconds % 60;
+                    document.getElementById('resumo-duracao').innerText = `${min}:${sec.toString().padStart(2, '0')} min`;
+                    
+                    document.getElementById('modal-resumo-tempo').classList.remove('hidden');
+                    document.getElementById('modal-resumo-tempo').classList.add('flex');
+                    
+                    renderComponentCards();
+                } else {
+                    alert("Erro ao salvar tempo no Supabase: " + error.message);
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Erro de conexão ao salvar tempo.");
+            }
+        }
+
+        // FUNÇÃO DE CRONÔMETRO DE LIMPEZA DE SETOR (SOLDA)
+        async function toggleSectorCleaning(sectorName) {
+            const timerKey = `timer_sector_cleaning_start_${sectorName}`;
+            const startTimeStr = localStorage.getItem(timerKey);
+            const btn = document.getElementById('btn-sector-cleaning');
+
+            if (!startTimeStr) {
+                // Iniciar contagem
+                localStorage.setItem(timerKey, new Date().toISOString());
+                btn.classList.replace('bg-turbo-teal', 'bg-red-600');
+                btn.classList.replace('hover:bg-teal-600', 'hover:bg-red-700');
+                btn.classList.add('animate-pulse');
+                btn.innerText = "Parar Limpeza (00:00)";
+            } else {
+                // Parar contagem
+                localStorage.removeItem(timerKey);
+                btn.classList.replace('bg-red-600', 'bg-turbo-teal');
+                btn.classList.replace('hover:bg-red-700', 'hover:bg-teal-600');
+                btn.classList.remove('animate-pulse');
+                btn.innerText = "Iniciar Limpeza Setor";
+
+                const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+                const min = Math.floor(elapsed / 60);
+                const sec = elapsed % 60;
+                const formattedTime = `${min}:${sec.toString().padStart(2, '0')} min`;
+
+                if (selectedOS) {
+                    const osId = selectedOS.service_order_id || selectedOS.id;
+                    try {
+                        await supabaseClient
+                            .from('history_events')
+                            .insert({
+                                service_order_id: osId,
+                                action: 'Limpeza do Setor Executada',
+                                details: `O operador realizou a limpeza do setor de ${sectorName} durante ${formattedTime}.`,
+                                timestamp: new Date().toISOString()
+                            });
+                        
+                        // Abre modal de resumo de tempo
+                        document.getElementById('resumo-peca-nome').innerText = `Limpeza Setor: ${sectorName}`;
+                        document.getElementById('resumo-inicio').innerText = new Date(startTimeStr).toLocaleTimeString('pt-BR');
+                        document.getElementById('resumo-fim').innerText = new Date().toLocaleTimeString('pt-BR');
+                        document.getElementById('resumo-duracao').innerText = formattedTime;
+                        
+                        document.getElementById('modal-resumo-tempo').classList.remove('hidden');
+                        document.getElementById('modal-resumo-tempo').classList.add('flex');
+                    } catch (e) { console.error(e); }
+                } else {
+                    alert(`Limpeza concluída: ${formattedTime}. Nenhuma OS selecionada para salvar no histórico.`);
+                }
+            }
+        }
+
+        // Loop de Atualização dos Cronômetros em tempo real (1 segundo)
+        setInterval(() => {
+            // 1. Atualização dos cronômetros das peças
+            if (selectedOS) {
+                document.querySelectorAll('[id^="badge-"]').forEach(badge => {
+                    const idParts = badge.id.split('-');
+                    const compTitle = idParts[1];
+                    const cleanItemName = idParts[2];
+                    
+                    const prefix = `timer_${selectedOS.id}_${compTitle}_`;
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith(prefix)) {
+                            const startTimeStr = localStorage.getItem(key);
+                            if (startTimeStr) {
+                                const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+                                const min = Math.floor(elapsed / 60);
+                                const sec = elapsed % 60;
+                                badge.innerText = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 2. Atualização em tempo real do cronômetro de Limpeza do Setor
+            const cleaningKey = `timer_sector_cleaning_start_SOLDA`;
+            const cleaningStart = localStorage.getItem(cleaningKey);
+            if (cleaningStart) {
+                const elapsed = Math.floor((new Date() - new Date(cleaningStart)) / 1000);
+                const min = Math.floor(elapsed / 60);
+                const sec = elapsed % 60;
+                const btn = document.getElementById('btn-sector-cleaning');
+                if (btn) btn.innerText = `Parar Limpeza (${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')})`;
+            }
+        }, 1000);
+    </script>
+	
+	<!-- MODAL RESUMO DE EXECUÇÃO (CRONÔMETRO) -->
+    <div id="modal-resumo-tempo" class="fixed inset-0 bg-slate-900/80 z-[200] flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden border-t-8 border-orange-500">
+            <div class="p-8 text-center">
+                <div class="w-20 h-20 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-stopwatch text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-black text-slate-800 uppercase tracking-tighter mb-2">Soldagem Finalizada!</h3>
+                <p id="resumo-peca-nome" class="text-orange-600 font-bold uppercase text-sm mb-2">NOME DA PEÇA</p>
+                <p class="text-[11px] text-slate-500 font-medium italic mb-6">Agora você pode direcionar a peça para o próximo setor desejado.</p>
+                <div class="grid grid-cols-2 gap-4 mb-8 bg-slate-50 p-4 rounded-2xl">
+                    <div class="text-left">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">Início</p>
+                        <p id="resumo-inicio" class="font-bold text-slate-700">--:--</p>
+                    </div>
+                    <div class="text-left border-l pl-4">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">Fim</p>
+                        <p id="resumo-fim" class="font-bold text-slate-700">--:--</p>
+                    </div>
+                    <div class="col-span-2 border-t pt-2 mt-2">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">Tempo Total</p>
+                        <p id="resumo-duracao" class="text-2xl font-black text-orange-600">--</p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('modal-resumo-tempo').classList.add('hidden')" class="w-full bg-slate-800 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-black transition shadow-lg">OK, Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE HISTÓRICO COMPLETO (TIMELINE) -->
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-[150]">
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+            <div class="flex justify-between items-center border-b pb-4 mb-4 sticky top-0 bg-white z-10">
+                <h3 class="text-xl font-black text-blue-600 uppercase tracking-tighter">Histórico da OS</h3>
+                <button onclick="closeModal('details-modal')" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 text-sm border-b pb-4 mb-4">
+                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Identificação</p><p id="detail-business-id" class="text-lg font-black text-slate-800">--</p></div>
+                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Modelo</p><p id="detail-model" class="text-slate-800 font-bold">--</p></div>
+            </div>
+
+            <div class="space-y-4 mb-6">
+                <div>
+                    <p class="text-slate-500 font-medium uppercase text-[10px] mb-1">Itens Adicionais (Checklist Entrada)</p>
+                    <ul id="detail-maintenance-extras" class="text-xs list-disc list-inside bg-slate-50 p-3 rounded-lg text-slate-800"></ul>
+                </div>
+            </div>
+
+            <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 text-center border-t pt-4">Linha do Tempo de Produção</h4>
+            <div id="timeline-container" class="space-y-4 border-l-2 border-slate-200 ml-2 pl-4">
+                </div>
+        </div>
+    </div>
+    <script src="js/auth.js"></script>
+</body>
+</html>

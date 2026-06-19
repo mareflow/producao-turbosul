@@ -1,0 +1,65 @@
+/* css/global.css */
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* SCROLLBAR CORRIGIDA PARA TEMA CLARO */
+.custom-scroll {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #A1A1AA transparent;
+}
+.custom-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+    background-color: #D4D4D8;
+    border-radius: 10px;
+    border: 2px solid #ffffff;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: #A1A1AA;
+}
+
+/* CARDS INDUSTRIAIS E FOCOS */
+.input-focus:focus {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    outline: none;
+}
+
+.os-card-admin {
+    background: #ffffff;
+    border: 1px solid #E4E4E7;
+    border-left: 4px solid #3F3F46; /* Borda lateral para dar peso */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    transition: all 0.2s ease-in-out;
+}
+.os-card-admin:hover {
+    transform: translateX(4px);
+    border-left-color: #E53E3E; /* Vermelho TurboSul no hover */
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpi-box-admin {
+    background: #ffffff;
+    border: 1px solid #E4E4E7;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Detalhe industrial na KPI */
+.kpi-box-admin::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 30px;
+    height: 30px;
+    background: linear-gradient(225deg, #F4F4F5 50%, transparent 50%);
+}
