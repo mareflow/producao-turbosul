@@ -16,7 +16,26 @@ const ROLE_REDIRECTS = {
     'CONTROLE-QUALIDADE': './qualidade.html',
     'EXPEDICAO': './expedicao.html',
     'ADMINISTRADOR': './admin.html',
-    'QUADRO-PRODUCAO': './quadro-producao.html' // Assumindo que essa é a geral
+    'QUADRO-PRODUCAO': './quadro-producao.html'
+};
+
+// Permissões de páginas por role do usuário
+const PAGE_ALLOWED_ROLES = {
+    'pre-vendas.html': ['PRE-VENDAS', 'ADMINISTRADOR'],
+    'analise-tecnica.html': ['ANALISE-TECNICA', 'ADMINISTRADOR'],
+    'comercial.html': ['VENDAS', 'ADMINISTRADOR'],
+    'triagem.html': ['TRIAGEM', 'ADMINISTRADOR'],
+    'desmontagem.html': ['DESMONTAGEM', 'ADMINISTRADOR'],
+    'retifica.html': ['RETIFICA', 'ADMINISTRADOR'],
+    'solda.html': ['SOLDA', 'ADMINISTRADOR'],
+    'metrologia.html': ['METROLOGIA', 'ADMINISTRADOR'],
+    'bancada.html': ['BANCADA', 'ADMINISTRADOR'],
+    'balanceamento.html': ['BALANCEAMENTO', 'ADMINISTRADOR'],
+    'montagem.html': ['MONTAGEM', 'ADMINISTRADOR'],
+    'qualidade.html': ['CONTROLE-QUALIDADE', 'ADMINISTRADOR'],
+    'expedicao.html': ['EXPEDICAO', 'ADMINISTRADOR'],
+    'admin.html': ['ADMINISTRADOR'],
+    'quadro-producao.html': ['QUADRO-PRODUCAO', 'ADMINISTRADOR']
 };
 
 function initLoginForm() {
@@ -102,9 +121,35 @@ async function checkAuthAndProtect() {
         try {
             const { data: { session }, error } = await supabaseClient.auth.getSession();
             if (error || !session) {
-                // Usuário não está logado, bloqueia acesso e redireciona
                 console.warn("Acesso negado: Usuário não autenticado.");
                 window.location.replace('./login.html');
+                return;
+            }
+
+            // Busca o papel (role) do usuário na sessão ou no banco
+            let role = session.user.user_metadata?.role;
+
+            if (!role) {
+                const { data: profile, error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', session.user.id)
+                    .single();
+                
+                if (!profileError && profile) {
+                    role = profile.role;
+                }
+            }
+
+            // Valida se a role do usuário tem permissão para a página atual
+            const allowedRoles = PAGE_ALLOWED_ROLES[currentPage];
+            if (allowedRoles) {
+                const hasPermission = allowedRoles.includes(role);
+                if (!hasPermission) {
+                    console.warn(`Acesso negado: Role '${role}' não tem permissão para '${currentPage}'.`);
+                    alert("Acesso negado: Seu perfil de usuário não tem permissão para acessar esta página.");
+                    window.location.replace('./login.html');
+                }
             }
         } catch (e) {
             console.error("Erro ao verificar sessão:", e);
