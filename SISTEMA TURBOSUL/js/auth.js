@@ -110,13 +110,49 @@ async function checkAuthAndProtect() {
             console.error("Erro ao verificar sessão:", e);
             window.location.replace('./login.html');
         }
-    } else {
-        // Opcional: se o usuário já estiver logado e tentar acessar login.html, redirecionar para a área interna?
-        // Neste momento, mantemos simples conforme pedido.
     }
 }
 
+// Função global e segura de logout
+async function handleLogout(e) {
+    if (e) e.preventDefault();
+    try {
+        if (typeof supabaseClient !== 'undefined') {
+            await supabaseClient.auth.signOut();
+        }
+    } catch (err) {
+        console.error("Erro ao deslogar do Supabase:", err);
+    }
+    window.location.replace('./login.html');
+}
+
+// Configura automaticamente os botões e links de logout na página
+function setupLogoutButtons() {
+    // 1. Procura pelo id "logout-button"
+    const logoutBtn = document.getElementById('logout-button');
+    if (logoutBtn) {
+        logoutBtn.removeAttribute('onclick');
+        logoutBtn.addEventListener('click', handleLogout);
+    }
+
+    // 2. Procura por qualquer botão ou link que contenha a palavra "Sair"
+    const allButtons = document.querySelectorAll('button, a');
+    allButtons.forEach(btn => {
+        if (btn.textContent.trim().toLowerCase().includes('sair')) {
+            btn.removeAttribute('onclick');
+            btn.removeEventListener('click', handleLogout);
+            btn.addEventListener('click', handleLogout);
+        }
+    });
+}
+
+// Vincula os listeners de DOM após carregamento completo
 document.addEventListener('DOMContentLoaded', () => {
-    checkAuthAndProtect();
     initLoginForm();
+    setupLogoutButtons();
 });
+
+// Executa a proteção de rotas IMEDIATAMENTE (assim que o script é carregado)
+// para evitar "flash" de conteúdo protegido e chamadas de API indesejadas
+checkAuthAndProtect();
+
