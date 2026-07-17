@@ -1205,11 +1205,12 @@
 
             try {
                 if (id) {
-                    // MODO EDIÇÃO (apenas atualiza o profile)
-                    const { error } = await supabaseClient
-                        .from('profiles')
-                        .update({ name: name, role: selectedSectors })
-                        .eq('id', id);
+                    // MODO EDIÇÃO (atualiza profile e metadados com função segura no banco)
+                    const { error } = await supabaseClient.rpc('update_employee_profile', {
+                        target_id: id,
+                        target_name: name,
+                        target_role: selectedSectors
+                    });
                     
                     if (error) throw error;
                     alert("Acessos atualizados com sucesso!");
