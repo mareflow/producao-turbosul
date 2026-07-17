@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | TurboSul</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/tailwind-cfg.js"></script>
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Global CSS -->
+    <link rel="stylesheet" href="css/global.css">
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col justify-between">
+
+    <!-- LOGIN CARD -->
+    <main class="flex-1 flex items-center justify-center p-6">
+        <div class="bg-white w-full max-w-sm rounded-3xl shadow-xl border border-slate-100 p-8">
+            
+            <div class="text-center mb-8">
+                <!-- Substituído o escudo azul pela Logo Oficial da TurboSul -->
+                <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="TurboSul Logo" class="h-16 mx-auto mb-4 object-contain">
+                <h2 class="text-2xl font-black text-slate-900 uppercase tracking-tighter">Entrar no Sistema</h2>
+                <p class="text-xs text-slate-400 font-medium mt-1">Acesse sua estação de trabalho produtiva</p>
+            </div>
+
+            <!-- Formulário de Login -->
+            <form id="login-form" class="space-y-5">
+                <!-- Campo Usuário/E-mail -->
+                <div>
+                    <label for="login-email" class="block text-xs font-black text-brand-gray uppercase tracking-widest mb-2 ml-1">Usuário de Acesso <span class="text-[10px] text-zinc-400 font-medium normal-case tracking-normal">(ou E-mail)</span></label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-400">
+                            <i class="fa-solid fa-user"></i>
+                        </span>
+                        <input type="text" id="login-email" required placeholder="Ex: joao.silva" 
+                               class="w-full bg-zinc-50 border border-zinc-200 focus:border-brand-red focus:ring-2 focus:ring-brand-red/20 rounded-xl pl-11 pr-4 py-3.5 text-sm font-semibold text-brand-gray outline-none transition-all placeholder-zinc-400 shadow-sm">
+                    </div>
+                </div>
+
+                <!-- Senha -->
+                <div>
+                    <label for="login-password" class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Senha</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+                        <input type="password" id="login-password" required placeholder="Digite sua senha" 
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 input-focus transition-all">
+                    </div>
+                </div>
+
+                <!-- Botão Submit -->
+                <button type="submit" id="btn-submit-login" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-blue-100 transition duration-150 flex items-center justify-center">
+                    <i class="fa-solid fa-right-to-bracket mr-2"></i> Conectar Estação
+                </button>
+            </form>
+
+            <!-- Seleção de Setor (Exibida pós-login se o usuário tiver múltiplos acessos) -->
+            <div id="sector-selection-container" class="hidden space-y-4">
+                <div class="border-b border-zinc-100 pb-3 mb-4 text-center">
+                    <h3 class="text-sm font-black text-brand-gray uppercase tracking-widest flex items-center justify-center">
+                        <i class="fa-solid fa-layer-group text-brand-red mr-2"></i> Múltiplos Acessos
+                    </h3>
+                    <p class="text-[10px] text-zinc-400 mt-1 uppercase font-semibold tracking-wide">Escolha o setor de destino</p>
+                </div>
+                
+                <div id="sector-buttons-grid" class="grid gap-3">
+                    <!-- Botões gerados via JS -->
+                </div>
+                
+                <button onclick="cancelSectorSelection()" class="w-full mt-4 bg-zinc-100 hover:bg-zinc-200 text-zinc-500 font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition duration-150">
+                    Cancelar e Sair
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- COMPONENTES GLOBAIS DE UI -->
+    <div id="app-toast"></div>
+    <div id="app-footer"></div>
+
+    <!-- SCRIPTS CORE -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

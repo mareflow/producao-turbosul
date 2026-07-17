@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Controle Corporativo | TurboSul</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts - Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Chart.js para Gráficos Dinâmicos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- SDK do Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+
+    <script src="js/tailwind-cfg.js"></script>
+
+    <!-- Global CSS -->
+    <link rel="stylesheet" href="css/global.css">
+
+    <style>
+        body {
+            background-color: #F4F4F5;
+            background-image: 
+                linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+    </style>
+</head>
+<body class="text-brand-gray h-screen max-h-screen flex flex-col overflow-hidden font-sans">
+
+    <!-- HEADER CORPORATIVO -->
+    <header class="bg-white border-b border-brand-border px-8 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+        <div class="flex items-center space-x-4">
+            <!-- A Logo se destaca no fundo branco -->
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="TurboSul Logo" class="h-12 w-12 object-contain drop-shadow-sm">
+            <div class="border-l-2 border-brand-red pl-4">
+                <h1 class="text-xl font-black tracking-tight text-brand-gray uppercase">TurboSul <span class="text-brand-red">M.E.S.</span></h1>
+                <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.2em]">Painel de Gestão da Diretoria</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-6">
+            <button onclick="toggleDashboard()" class="bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-300 px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider transition duration-150 shadow-sm flex items-center">
+                <i class="fa-solid fa-chart-pie mr-2"></i> BI Analytics: <span id="btn-toggle-dash-text" class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded text-[10px]">ON</span>
+            </button>
+            <div class="text-right border-r border-zinc-300 pr-6">
+                <p class="text-sm font-black text-brand-gray leading-none">Administração</p>
+                <p class="text-[10px] text-brand-red font-black uppercase tracking-wider mt-1">Nível: Diretoria</p>
+            </div>
+            <button onclick="window.location.href='./login.html'" class="bg-brand-red hover:bg-brand-darkred text-white px-5 py-2.5 rounded-md text-xs font-black uppercase tracking-widest transition duration-150 shadow-md">
+                <i class="fa-solid fa-power-off mr-1"></i> Sair
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 h-[calc(100vh-81px)] max-h-[calc(100vh-81px)] overflow-hidden p-6 gap-6">
+        
+        <!-- COLUNA ESQUERDA: LISTA GERAL DE ORDENS -->
+        <!-- BUG DO SCROLL FIXADO: container ganhou min-h-0 para o Flexbox calcular corretamente o limite da tela -->
+                <aside id="sidebar-container" class="w-[35%] flex flex-col h-full max-h-full overflow-hidden bg-white rounded-xl border border-brand-border p-5 shadow-sm min-w-[400px] transition-all duration-300">
+
+            
+            <div class="flex justify-between items-center mb-5 border-b border-brand-border pb-4">
+                <h2 class="text-sm font-black uppercase tracking-widest text-brand-gray"><i class="fa-solid fa-list-check text-brand-red mr-2"></i> Fila Operacional</h2>
+                <button onclick="loadAdminDashboard()" class="text-zinc-400 hover:text-brand-red transition-all duration-300 text-lg" title="Atualizar">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+
+            <!-- BARRA DE PESQUISA INDUSTRIAL -->
+            <div class="relative mb-5">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-400">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
+                <input type="text" id="search-queue" oninput="filterQueue()" placeholder="Buscar O.S, cliente, modelo..." 
+                       class="w-full bg-zinc-50 border border-zinc-300 focus:border-brand-red focus:ring-1 focus:ring-brand-red rounded-md pl-10 pr-4 py-2.5 text-sm font-semibold text-brand-gray outline-none transition-all placeholder-zinc-400">
+            </div>
+
+            <!-- FILTROS (TABS) -->
+            <div class="flex flex-wrap gap-2 mb-4">
+                <button onclick="setFilter('TODAS')" id="filter-all" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-brand-red text-white border border-brand-red transition-all shadow-sm">Todas</button>
+                <button onclick="setFilter('TRIAGEM')" id="filter-triage" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Triagem</button>
+                <button onclick="setFilter('PRODUCAO')" id="filter-production" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Produção</button>
+                <button onclick="setFilter('QUALIDADE')" id="filter-quality" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Qualidade</button>
+                <button onclick="setFilter('EXPEDICAO')" id="filter-dispatch" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Expedição</button>
+                <button onclick="setFilter('STANDBY')" id="filter-standby" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Standby</button>
+                <button onclick="setFilter('ARQUIVADO')" id="filter-archived" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Arquivadas</button>
+            </div>
+
+            <!-- LISTA DE O.S. (SCROLL RESOLVIDO: min-h-0) -->
+            <div id="admin-queue-list" class="flex-1 overflow-y-auto min-h-0 custom-scroll space-y-3 pr-2 pb-2">
+                <div class="py-10 text-center text-zinc-400 text-xs font-mono animate-pulse">Sincronizando Banco de Dados...</div>
+            </div>
+        </aside>
+
+        <!-- COLUNA DIREITA: KPIs, ESTEIRA E GRÁFICOS -->
+        <main id="main-container" class="flex-1 flex flex-col h-full gap-6 overflow-y-auto custom-scroll pr-2 transition-all duration-300">
+            
+            <!-- ABAS DE NAVEGAÇÃO -->
+            <div class="flex gap-6 border-b border-brand-border pb-1 shrink-0">
+                <button onclick="switchTab('geral')" id="btn-tab-geral" class="tab-btn pb-2 border-b-2 border-brand-red font-black text-brand-red uppercase tracking-widest text-xs transition-all"><i class="fa-solid fa-chart-pie mr-2"></i>Visão Geral</button>
+                <button onclick="switchTab('fluxo')" id="btn-tab-fluxo" class="tab-btn pb-2 border-b-2 border-transparent text-zinc-400 hover:text-zinc-600 font-bold uppercase tracking-widest text-xs transition-all"><i class="fa-solid fa-route mr-2"></i>Fluxo Industrial</button>
+                <button onclick="switchTab('performance')" id="btn-tab-performance" class="tab-btn pb-2 border-b-2 border-transparent text-zinc-400 hover:text-zinc-600 font-bold uppercase tracking-widest text-xs transition-all"><i class="fa-solid fa-stopwatch mr-2"></i>Performance</button>
+                <button onclick="switchTab('acessos')" id="btn-tab-acessos" class="tab-btn pb-2 border-b-2 border-transparent text-zinc-400 hover:text-zinc-600 font-bold uppercase tracking-widest text-xs transition-all"><i class="fa-solid fa-users-gear mr-2"></i>Controle de Acessos</button>
+            </div>
+
+            <!-- CONTEÚDO: VISÃO GERAL -->
+            <div id="tab-geral" class="flex flex-col gap-6 flex-1">
+                <!-- KPIs (INDICADORES INDUSTRIAIS) -->
+            <div class="grid grid-cols-4 gap-4">
+                <div class="kpi-box-admin rounded-lg p-5 border-l-4 border-l-zinc-800">
+                    <div class="flex justify-between items-start">
+                        <h3 class="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Total Ativas</h3>
+                        <i class="fa-solid fa-server text-zinc-300"></i>
+                    </div>
+                    <p id="kpi-total-active" class="text-3xl font-black text-brand-gray mt-2 font-mono">0</p>
+                </div>
+                
+                <div class="kpi-box-admin rounded-lg p-5 border-l-4 border-l-blue-600">
+                    <div class="flex justify-between items-start">
+                        <h3 class="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Em Produção</h3>
+                        <i class="fa-solid fa-gears text-blue-300"></i>
+                    </div>
+                    <p id="kpi-production" class="text-3xl font-black text-blue-600 mt-2 font-mono">0</p>
+                </div>
+                
+                <div class="kpi-box-admin rounded-lg p-5 border-l-4 border-l-green-500">
+                    <div class="flex justify-between items-start">
+                        <h3 class="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Qualidade / Exp</h3>
+                        <i class="fa-solid fa-check-double text-green-300"></i>
+                    </div>
+                    <p id="kpi-final-stages" class="text-3xl font-black text-green-600 mt-2 font-mono">0</p>
+                </div>
+                
+                <div class="kpi-box-admin rounded-lg p-5 border-l-4 border-l-brand-red bg-red-50/30">
+                    <div class="flex justify-between items-start">
+                        <h3 class="text-[10px] font-black text-brand-red uppercase tracking-widest">Cascos / Standby</h3>
+                        <i class="fa-solid fa-triangle-exclamation text-red-300"></i>
+                    </div>
+                    <p id="kpi-standby" class="text-3xl font-black text-brand-red mt-2 font-mono">0</p>
+                </div>
+            </div>
+
+            <!-- NAVEGAÇÃO DE SETORES -->
+            <div class="bg-white rounded-xl border border-brand-border p-5 shadow-sm">
+                <h3 class="text-xs font-black text-brand-gray uppercase tracking-widest mb-4 flex items-center border-b border-zinc-100 pb-3">
+                    <i class="fa-solid fa-map-location-dot mr-2 text-zinc-400"></i> Acesso Rápido aos Setores
+                </h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                    <button onclick="window.location.href='./pre-vendas.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-headset text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Pré-Vendas</span>
+                    </button>
+                    <button onclick="window.location.href='./comercial.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-hand-holding-dollar text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Vendas</span>
+                    </button>
+                    <button onclick="window.location.href='./triagem.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-clipboard-list text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Triagem</span>
+                    </button>
+                    <button onclick="window.location.href='./desmontagem.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-hammer text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Desmontagem</span>
+                    </button>
+                    <button onclick="window.location.href='./analise-tecnica.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-microscope text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Análise</span>
+                    </button>
+                    <button onclick="window.location.href='./retifica.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-gear text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Retífica</span>
+                    </button>
+                    <button onclick="window.location.href='./solda.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-fire-burner text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Solda</span>
+                    </button>
+                    <button onclick="window.location.href='./metrologia.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-ruler-combined text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Metrologia</span>
+                    </button>
+                    <button onclick="window.location.href='./bancada.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-wrench text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Bancada</span>
+                    </button>
+                    <button onclick="window.location.href='./balanceamento.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-scale-balanced text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Balancear</span>
+                    </button>
+                    <button onclick="window.location.href='./montagem.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-screwdriver-wrench text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Montagem</span>
+                    </button>
+                    <button onclick="window.location.href='./qualidade.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-check-double text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Qualidade</span>
+                    </button>
+                    <button onclick="window.location.href='./expedicao.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-50 border border-zinc-200 hover:bg-brand-red hover:text-white hover:border-brand-red transition-all text-zinc-600 group shadow-sm">
+                        <i class="fa-solid fa-box-open text-lg mb-2 text-zinc-400 group-hover:text-white"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">Expedição</span>
+                    </button>
+                    <button onclick="window.location.href='./quadro-producao.html'" class="flex flex-col items-center p-3 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-black text-white transition-all shadow-sm">
+                        <i class="fa-solid fa-tv text-lg mb-2"></i>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-center leading-tight">TV Produção</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ÁREA DE BI / GRÁFICOS -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 min-h-[300px]">
+                
+                <!-- GRÁFICO 1 -->
+                <div class="bg-white rounded-xl border border-brand-border p-5 shadow-sm flex flex-col">
+                    <h3 class="text-xs font-black text-brand-gray uppercase tracking-widest mb-4 flex items-center border-b border-zinc-100 pb-3">
+                        <i class="fa-solid fa-chart-column mr-2 text-zinc-400"></i> Volumetria por Estação
+                    </h3>
+                    <div class="relative flex-1 min-h-[220px]">
+                        <canvas id="sector-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- GRÁFICO 2 -->
+                <div class="bg-white rounded-xl border border-brand-border p-5 shadow-sm flex flex-col">
+                    <h3 class="text-xs font-black text-brand-gray uppercase tracking-widest mb-4 flex items-center border-b border-zinc-100 pb-3">
+                        <i class="fa-solid fa-fire mr-2 text-brand-red"></i> Distribuição de Urgência
+                    </h3>
+                    <div class="relative flex-1 min-h-[220px]">
+                        <canvas id="urgency-chart"></canvas>
+                    </div>
+                </div>
+
+            </div> <!-- FIM DOS GRÁFICOS -->
+            </div> <!-- FIM DA TAB GERAL -->
+
+            <!-- CONTEÚDO: FLUXO INDUSTRIAL -->
+            <div id="tab-fluxo" class="hidden flex-col gap-6 flex-1">
+                <div class="bg-white rounded-xl border border-brand-border p-5 shadow-sm flex flex-col flex-1 min-h-[400px]">
+                    <h3 class="text-xs font-black text-brand-gray uppercase tracking-widest mb-4 flex items-center border-b border-zinc-100 pb-3">
+                        <i class="fa-solid fa-route mr-2 text-zinc-400"></i> Pipeline de Processos Completo (M.E.S)
+                    </h3>
+                    <div id="production-conveyor" class="flex flex-wrap gap-4 overflow-y-auto custom-scroll items-stretch justify-start p-4 bg-zinc-50 rounded-lg flex-1">
+                        <!-- Gerado via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTEÚDO: PERFORMANCE E TEMPOS -->
+            <div id="tab-performance" class="hidden flex-col gap-6 flex-1">
+                
+                <!-- FILTROS DE PERFORMANCE -->
+                <div class="bg-white rounded-xl border border-brand-border p-4 shadow-sm flex flex-wrap items-end gap-4">
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-[10px] font-black text-brand-gray uppercase tracking-widest mb-1">Data Início</label>
+                        <input type="date" id="filter-perf-start" class="w-full bg-zinc-50 border border-zinc-300 rounded px-3 py-2 text-xs focus:border-brand-red outline-none transition">
+                    </div>
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-[10px] font-black text-brand-gray uppercase tracking-widest mb-1">Data Fim</label>
+                        <input type="date" id="filter-perf-end" class="w-full bg-zinc-50 border border-zinc-300 rounded px-3 py-2 text-xs focus:border-brand-red outline-none transition">
+                    </div>
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-[10px] font-black text-brand-gray uppercase tracking-widest mb-1">Setor</label>
+                        <select id="filter-perf-sector" class="w-full bg-zinc-50 border border-zinc-300 rounded px-3 py-2 text-xs focus:border-brand-red outline-none transition custom-scroll">
+                            <option value="">Todos os Setores</option>
+                            <option value="TRIAGEM">Triagem</option>
+                            <option value="DESMONTAGEM">Desmontagem</option>
+                            <option value="RETIFICA">Retífica</option>
+                            <option value="SOLDA">Solda</option>
+                            <option value="METROLOGIA">Metrologia</option>
+                            <option value="BANCADA">Bancada</option>
+                            <option value="BALANCEAMENTO">Balanceamento</option>
+                            <option value="MONTAGEM">Montagem</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-[10px] font-black text-brand-gray uppercase tracking-widest mb-1">Operador</label>
+                        <select id="filter-perf-operator" class="w-full bg-zinc-50 border border-zinc-300 rounded px-3 py-2 text-xs focus:border-brand-red outline-none transition custom-scroll">
+                            <option value="">Todos</option>
+                            <!-- Povoado via JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <button onclick="loadPerformanceData()" class="bg-brand-gray hover:bg-black text-white px-5 py-2 rounded text-xs font-black uppercase tracking-widest transition shadow-md h-full">
+                            <i class="fa-solid fa-filter mr-1"></i> Filtrar
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1">
+                    <!-- Performance por Operador/Login -->
+                    <div class="bg-white rounded-xl border border-brand-border p-5 shadow-sm flex flex-col min-h-[400px]">
+                        <h3 class="text-xs font-black text-brand-gray uppercase tracking-widest mb-4 flex items-center border-b border-zinc-100 pb-3">
+                            <i class="fa-solid fa-users mr-2 text-blue-600"></i> Ranking de Produtividade do Operador
+                        </h3>
+                        <div class="overflow-y-auto custom-scroll flex-1 pr-2" id="performance-users-list">
+                            <p class="text-xs text-zinc-400 animate-pulse text-center mt-10">Buscando rastreamentos...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Performance por Serviço -->
+                    <div class="bg-white rounded-xl border border-brand-border p-5 shadow-sm flex flex-col min-h-[400px]">
+                        <h3 class="text-xs font-black text-brand-gray uppercase tracking-widest mb-4 flex items-center border-b border-zinc-100 pb-3">
+                            <i class="fa-solid fa-stopwatch mr-2 text-turbo-orange"></i> Média de Tempo por Serviço
+                        </h3>
+                        <div class="overflow-y-auto custom-scroll flex-1 pr-2" id="performance-services-list">
+                            <p class="text-xs text-zinc-400 animate-pulse text-center mt-10">Calculando tempos médios...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTEÚDO: ACESSOS -->
+            <div id="tab-acessos" class="hidden flex-col gap-6 flex-1">
+                <div class="bg-white rounded-xl border border-brand-border p-5 shadow-sm flex flex-col flex-1">
+                    <div class="flex justify-between items-center border-b border-zinc-100 pb-4 mb-4">
+                        <h3 class="text-xs font-black text-brand-gray uppercase tracking-widest flex items-center">
+                            <i class="fa-solid fa-users-gear mr-2 text-brand-red"></i> Gestão de Funcionários e Acessos
+                        </h3>
+                        <button onclick="openEmployeeModal()" class="bg-brand-red hover:bg-brand-darkred text-white px-4 py-2 rounded-md text-xs font-black uppercase tracking-widest transition duration-150 shadow-md">
+                            <i class="fa-solid fa-user-plus mr-1"></i> Novo Funcionário
+                        </button>
+                    </div>
+                    <div class="overflow-y-auto custom-scroll flex-1 pr-2">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-zinc-50 border-y border-zinc-200">
+                                    <th class="px-4 py-3 text-[10px] font-black text-zinc-500 uppercase tracking-wider">Nome</th>
+                                    <th class="px-4 py-3 text-[10px] font-black text-zinc-500 uppercase tracking-wider">E-mail</th>
+                                    <th class="px-4 py-3 text-[10px] font-black text-zinc-500 uppercase tracking-wider">Acessos</th>
+                                    <th class="px-4 py-3 text-[10px] font-black text-zinc-500 uppercase tracking-wider text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employees-table-body" class="divide-y divide-zinc-100">
+                                <tr>
+                                    <td colspan="4" class="px-4 py-8 text-center text-zinc-400 text-xs animate-pulse">Carregando funcionários...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL RAIO-X (DESIGN TIPO "FICHA TÉCNICA" IMPRESSA) -->
+    <div id="details-modal" class="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm hidden items-center justify-center z-[100] p-4 transition-opacity">
+        <div class="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] border border-zinc-300">
+            
+            <!-- HEADER MODAL (Faixa vermelha superior) -->
+            <div class="bg-brand-gray text-white px-8 py-5 flex justify-between items-center border-b-4 border-brand-red">
+                <div class="flex items-center gap-4">
+                    <div class="bg-brand-red p-3 rounded-lg shadow-inner">
+                        <i class="fa-solid fa-file-signature text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 id="modal-display-os" class="text-2xl font-black font-mono tracking-tight leading-none mb-1">O.S-XXXX</h3>
+                        <p id="modal-display-desc" class="text-xs font-bold text-zinc-300 uppercase tracking-widest">CLIENTE | MODELO</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('details-modal')" class="text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 w-10 h-10 rounded-full transition-colors flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- CONTEÚDO MODAL -->
+            <div class="p-8 overflow-y-auto custom-scroll grid grid-cols-1 lg:grid-cols-12 gap-10 bg-zinc-50 flex-1">
+                
+                <!-- LADO ESQUERDO: COMPONENTES (7 Cols) -->
+                <div class="lg:col-span-7 space-y-6">
+                    
+                    <!-- DADOS PRINCIPAIS -->
+                    <div class="bg-white p-5 rounded-lg border border-zinc-200 shadow-sm flex flex-col gap-4">
+                        <h4 class="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] border-b border-zinc-100 pb-2">Informações Base</h4>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p class="text-zinc-500 font-semibold text-[10px] uppercase mb-1">Part Number</p>
+                                <p id="modal-part-number" class="font-black text-brand-gray font-mono bg-zinc-100 px-2 py-1 rounded inline-block">---</p>
+                            </div>
+                            <div>
+                                <p class="text-zinc-500 font-semibold text-[10px] uppercase mb-1">Natureza da Operação</p>
+                                <p id="modal-trade-in" class="font-bold text-brand-gray">---</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PDFs E DOCUMENTOS -->
+                    <div class="bg-white p-5 rounded-lg border border-zinc-200 shadow-sm flex flex-col gap-4">
+                        <h4 class="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] border-b border-zinc-100 pb-2">Documentos e Laudos</h4>
+                        <div id="modal-pdfs-container" class="flex flex-wrap gap-2">
+                            <!-- Injetado via JS -->
+                            <span class="text-xs text-zinc-400 italic">Carregando documentos...</span>
+                        </div>
+                    </div>
+
+                    <!-- GRID DE PEÇAS (Estilo Painel de Máquina) -->
+                    <div>
+                        <h4 class="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-3 ml-1">Status Físico dos Componentes</h4>
+                        <div id="modal-pieces-grid" class="grid grid-cols-2 gap-3">
+                            <!-- Injetado via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LADO DIREITO: LOG DE AUDITORIA (5 Cols) -->
+                <div class="lg:col-span-5 bg-white border border-zinc-200 rounded-lg p-5 shadow-sm flex flex-col">
+                    <h4 class="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4 flex items-center border-b border-zinc-100 pb-3">
+                        <i class="fa-solid fa-clock-rotate-left mr-2"></i> Log de Auditoria de Produção
+                    </h4>
+                    <div id="modal-timeline" class="space-y-0 overflow-y-auto pr-2 custom-scroll flex-1 relative">
+                        <!-- Linha contínua no fundo -->
+                        <div class="absolute left-[11px] top-2 bottom-0 w-0.5 bg-zinc-200"></div>
+                        <!-- Injetado via JS -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIC SCRIPT -->
+    <script>
+
+        let allOrders = [];
+        let filteredOrders = [];
+        let currentFilterSection = 'TODAS';
+        let isDashboardVisible = true;
+        
+        let sectorChartInstance = null;
+        let urgencyChartInstance = null;
+
+        // Estágios adaptados para o novo layout claro
+        const STATIONS = [
+            { key: 'PRE_VENDAS', label: '1. Pré-Venda', color: 'border-zinc-300 bg-white text-zinc-600' },
+            { key: 'ANALISE_TECNICA', label: '2. Análise', color: 'border-zinc-300 bg-white text-zinc-600' },
+            { key: 'VENDAS', label: '3. Comercial', color: 'border-zinc-300 bg-white text-zinc-600' },
+            { key: 'TRIAGEM', label: '4. Triagem', color: 'border-blue-200 bg-blue-50 text-blue-700' },
+            { key: 'DESMONTAGEM', label: '5. Desmonte', color: 'border-amber-200 bg-amber-50 text-amber-700' },
+            { key: 'RETIFICA', label: '6. Retífica', color: 'border-orange-200 bg-orange-50 text-orange-700' },
+            { key: 'SOLDA', label: '7. Solda', color: 'border-orange-200 bg-orange-50 text-orange-700' },
+            { key: 'METROLOGIA', label: '8. Metrologia', color: 'border-purple-200 bg-purple-50 text-purple-700' },
+            { key: 'BANCADA', label: '9. Bancada', color: 'border-indigo-200 bg-indigo-50 text-indigo-700' },
+            { key: 'BALANCEAMENTO', label: '10. Balancem.', color: 'border-cyan-200 bg-cyan-50 text-cyan-700' },
+            { key: 'MONTAGEM', label: '11. Montagem', color: 'border-sky-200 bg-sky-50 text-sky-700' },
+            { key: 'QUALIDADE', label: '12. Qualidade', color: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+            { key: 'EXPEDICAO', label: '13. Expedição', color: 'border-green-300 bg-green-100 text-green-800 border-2' }
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAdminDashboard();
+        });
+
+        async function loadAdminDashboard() {
+            const listContainer = document.getElementById('admin-queue-list');
+            try {
+                const { data: orders, error: ordersError } = await supabaseClient.from('service_orders').select('*').order('created_at', { ascending: false });
+                if (ordersError) throw ordersError;
+
+                const { data: trackings, error: trackingsError } = await supabaseClient.from('component_tracking').select('*');
+                if (trackingsError) throw trackingsError;
+
+                allOrders = (orders || []).map(os => {
+                    os.tracking = (trackings || []).filter(t => t.service_order_id === os.id);
+                    return os;
+                });
+
+                filterQueue();
+                updateKPIs();
+                updateCharts();
+                renderConveyorBelt();
+
+            } catch (e) {
+                console.error("Erro banco de dados:", e);
+                listContainer.innerHTML = '<div class="p-10 text-center text-red-500 text-xs font-bold uppercase">Falha na conexão DB.</div>';
+            }
+        }
+
+        function toggleDashboard() {
+            isDashboardVisible = !isDashboardVisible;
+            const sidebar = document.getElementById('sidebar-container');
+            const main = document.getElementById('main-container');
+            const btnText = document.getElementById('btn-toggle-dash-text');
+
+            if (isDashboardVisible) {
+                sidebar.className = "w-[35%] flex flex-col h-full bg-white rounded-xl border border-brand-border p-5 shadow-sm min-w-[400px] transition-all duration-300";
+                main.classList.remove('hidden');
+                btnText.innerText = 'ON';
+                btnText.className = 'ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold';
+                setTimeout(updateCharts, 310); 
+            } else {
+                sidebar.className = "w-full flex flex-col h-full bg-white rounded-xl border border-brand-border p-5 shadow-sm transition-all duration-300";
+                main.classList.add('hidden');
+                btnText.innerText = 'OFF';
+                btnText.className = 'ml-2 px-2 py-0.5 bg-zinc-200 text-zinc-600 rounded text-[10px] font-bold';
+            }
+        }
+
+        function getOSActiveStations(os) {
+            const status = (os.status || '').toUpperCase().trim();
+            const activeStations = [];
+
+            if (status.includes('TRIAGEM')) activeStations.push('TRIAGEM');
+            else if (status.includes('ANÁLISE') || status.includes('ANALISE')) activeStations.push('ANALISE_TECNICA');
+            else if (status.includes('VENDAS') || status.includes('COMERCIAL')) activeStations.push('VENDAS');
+            else if (status.includes('DESMONTAGEM')) activeStations.push('DESMONTAGEM');
+            else if (status.includes('QUALIDADE')) activeStations.push('QUALIDADE');
+            else if (status.includes('EXPEDIÇÃO') || status.includes('EXPEDICAO') || status.includes('CONCLUÍDA')) activeStations.push('EXPEDICAO');
+            else if (status === 'EM PRODUÇÃO') {
+                const tracking = os.tracking || [];
+                tracking.forEach(t => {
+                    const stage = (t.current_stage || t.stage || '').toUpperCase().trim();
+                    if (stage === 'RETIFICA') activeStations.push('RETIFICA');
+                    else if (stage === 'SOLDA') activeStations.push('SOLDA');
+                    else if (stage === 'METROLOGIA') activeStations.push('METROLOGIA');
+                    else if (stage === 'BANCADA') activeStations.push('BANCADA');
+                    else if (stage === 'BALANCEAMENTO') activeStations.push('BALANCEAMENTO');
+                    else if (stage === 'MONTAGEM') activeStations.push('MONTAGEM');
+                });
+            }
+            if (activeStations.length === 0 && (status.includes('PENDENTE') || status.includes('ENTRADA'))) activeStations.push('PRE_VENDAS');
+            return [...new Set(activeStations)];
+        }
+
+        // Renderiza a esteira como um fluxograma
+        function renderConveyorBelt() {
+            const container = document.getElementById('production-conveyor');
+            if (!container) return;
+            container.innerHTML = '';
+
+            STATIONS.forEach((station, index) => {
+                const activeOSs = allOrders.filter(os => {
+                    if (os.status === 'Concluída' || os.status === 'Cancelada' || os.status === 'Arquivado') return false;
+                    return getOSActiveStations(os).includes(station.key);
+                });
+
+                const osTags = activeOSs.map(os => `
+                    <div onclick="openDeepDiveModal('${os.id}')" 
+                         class="px-2 py-1.5 bg-white border border-zinc-200 hover:border-brand-red rounded text-[10px] font-black font-mono uppercase text-center cursor-pointer transition-all shadow-sm text-zinc-700">
+                        ${os.business_id}
+                    </div>
+                `).join('');
+
+                container.innerHTML += `
+                    <div class="flex-shrink-0 w-44 rounded-lg p-3 flex flex-col border border-dashed ${station.color} relative">
+                        ${index !== STATIONS.length - 1 ? '<div class="absolute -right-3 top-1/2 -translate-y-1/2 text-zinc-300 z-10"><i class="fa-solid fa-chevron-right text-[10px]"></i></div>' : ''}
+                        
+                        <div class="flex justify-between items-center mb-3 border-b border-inherit pb-2">
+                            <span class="text-[10px] font-black uppercase tracking-widest">${station.label}</span>
+                            <span class="text-[9px] font-black px-1.5 py-0.5 rounded bg-black/5">${activeOSs.length}</span>
+                        </div>
+                        <div class="flex flex-col gap-1.5 overflow-y-auto max-h-32 pr-1 custom-scroll min-h-[40px]">
+                            ${osTags || '<span class="text-[9px] text-black/30 font-bold uppercase text-center py-2">Vazio</span>'}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function setFilter(section) {
+            currentFilterSection = section;
+            const buttons = ['filter-all', 'filter-triage', 'filter-production', 'filter-quality', 'filter-dispatch', 'filter-standby', 'filter-archived'];
+            
+            buttons.forEach(id => {
+                const btn = document.getElementById(id);
+                if(btn) btn.className = "px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all";
+            });
+
+            const btnId = section === 'ARQUIVADO' ? 'filter-archived' : `filter-${section.toLowerCase()}`;
+            const activeBtn = document.getElementById(btnId) || document.getElementById('filter-all');
+            if (activeBtn) {
+                activeBtn.className = "px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-brand-red text-white border border-brand-red transition-all shadow-sm";
+            }
+
+            filterQueue();
+        }
+
+        function filterQueue() {
+            const searchQuery = document.getElementById('search-queue').value.trim().toUpperCase();
+            filteredOrders = allOrders.filter(os => {
+                const matchesSearch = os.business_id.toUpperCase().includes(searchQuery) || (os.client || '').toUpperCase().includes(searchQuery) || (os.model || '').toUpperCase().includes(searchQuery);
+                if (!matchesSearch) return false;
+
+                const status = (os.status || '').toUpperCase().trim();
+                
+                // Oculta os arquivados de todas as abas, exibindo apenas na aba "Arquivadas"
+                if (currentFilterSection !== 'ARQUIVADO' && status === 'ARQUIVADO') return false;
+
+                switch (currentFilterSection) {
+                    case 'TRIAGEM': return status.includes('TRIAGEM');
+                    case 'STANDBY': return status.includes('STANDBY') || status.includes('CASCO');
+                    case 'QUALIDADE': return status.includes('QUALIDADE');
+                    case 'EXPEDICAO': return status.includes('EXPEDIÇÃO') || status.includes('EXPEDICAO') || status.includes('CONCLUÍDA');
+                    case 'PRODUCAO': return !status.includes('TRIAGEM') && !status.includes('STANDBY') && !status.includes('QUALIDADE') && !status.includes('EXPED') && !status.includes('CONCLUÍDA') && status !== 'ARQUIVADO';
+                    case 'ARQUIVADO': return status === 'ARQUIVADO';
+                    default: return true;
+                }
+            });
+            renderQueue();
+        }
+
+        function renderQueue() {
+            const container = document.getElementById('admin-queue-list');
+            if (filteredOrders.length === 0) {
+                container.innerHTML = '<div class="py-10 text-center text-zinc-400 text-xs font-bold">Nenhum registro encontrado.</div>';
+                return;
+            }
+
+            container.innerHTML = filteredOrders.map(os => {
+                const urgencyText = os.urgency || 'Normal';
+                let urgencyColor = 'bg-zinc-100 text-zinc-500 border border-zinc-200';
+                if (urgencyText === 'Urgente' || urgencyText === 'Alta') {
+                    urgencyColor = 'bg-red-50 text-brand-red border border-red-200';
+                }
+
+                let currentPos = os.status || 'Desmontagem';
+                if (currentPos === 'Em Produção' && os.tracking && os.tracking.length > 0) {
+                    const lastPiece = os.tracking.find(t => t.current_stage);
+                    if (lastPiece) currentPos = `Em: ${lastPiece.current_stage}`;
+                }
+
+                return `
+                    <div onclick="openDeepDiveModal('${os.id}')" class="os-card-admin rounded-lg p-4 cursor-pointer flex flex-col justify-between">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-black text-brand-gray font-mono">${os.business_id}</span>
+                                <span class="text-[8px] font-black uppercase px-2 py-0.5 rounded ${urgencyColor}">${urgencyText}</span>
+                            </div>
+                            <span class="text-[9px] font-black uppercase text-blue-600 tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-100">${currentPos}</span>
+                        </div>
+                        <p class="text-xs font-bold text-zinc-700 uppercase mb-0.5">${os.model}</p>
+                        <p class="text-[10px] font-semibold text-zinc-500 uppercase truncate"><i class="fa-regular fa-user mr-1"></i> ${os.client}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateKPIs() {
+            document.getElementById('kpi-total-active').innerText = allOrders.filter(o => o.status !== 'Concluída' && o.status !== 'Cancelada').length;
+            document.getElementById('kpi-production').innerText = allOrders.filter(o => o.status === 'Em Produção').length;
+            document.getElementById('kpi-final-stages').innerText = allOrders.filter(o => o.status.includes('Qualidade') || o.status.includes('Expedição')).length;
+            document.getElementById('kpi-standby').innerText = allOrders.filter(o => o.status.includes('Standby') || o.status.includes('Casco')).length;
+        }
+
+        function updateCharts() {
+            if (typeof Chart === 'undefined') return;
+
+            // Tema Claro Chart.js
+            Chart.defaults.color = '#71717A'; 
+            Chart.defaults.font.family = "'JetBrains Mono', monospace";
+
+            let [triage, desmonte, producao, qualidade, expedicao] = [0,0,0,0,0];
+            let [normal, alta, urgente] = [0,0,0];
+
+            allOrders.forEach(os => {
+                const s = (os.status || '').toUpperCase().trim();
+                if (s.includes('TRIAGEM')) triage++;
+                else if (s.includes('DESMONTAGEM')) desmonte++;
+                else if (s.includes('QUALIDADE')) qualidade++;
+                else if (s.includes('EXPEDIÇÃO') || s.includes('CONCLUÍDA')) expedicao++;
+                else if (s === 'EM PRODUÇÃO') producao++;
+
+                const urg = (os.urgency || 'Normal').toUpperCase().trim();
+                if (urg === 'URGENTE') urgente++;
+                else if (urg === 'ALTA') alta++;
+                else normal++;
+            });
+
+            const ctxSector = document.getElementById('sector-chart');
+            if (ctxSector) {
+                if (sectorChartInstance) sectorChartInstance.destroy();
+                sectorChartInstance = new Chart(ctxSector, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Triagem', 'Desmonte', 'Produção', 'Qualidade', 'Exped.'],
+                        datasets: [{
+                            data: [triage, desmonte, producao, qualidade, expedicao],
+                            backgroundColor: '#3F3F46', /* Zinc 700 */
+                            borderRadius: 4,
+                            barPercentage: 0.5
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: '#E4E4E7' }, border: { display: false }, ticks: { stepSize: 1 } },
+                            x: { grid: { display: false }, border: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            const ctxUrgency = document.getElementById('urgency-chart');
+            if (ctxUrgency) {
+                if (urgencyChartInstance) urgencyChartInstance.destroy();
+                urgencyChartInstance = new Chart(ctxUrgency, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Normal', 'Alta', 'Urgente'],
+                        datasets: [{
+                            data: [normal, alta, urgente],
+                            backgroundColor: ['#A1A1AA', '#F59E0B', '#E53E3E'],
+                            borderWidth: 0,
+                            cutout: '75%'
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11, family: 'Inter' } } }
+                        }
+                    }
+                });
+            }
+        }
+
+        async function openDeepDiveModal(osId) {
+            const os = allOrders.find(o => o.id === osId);
+            if (!os) return;
+
+            document.getElementById('modal-display-os').innerText = os.business_id;
+            document.getElementById('modal-display-desc').innerText = `${os.client} | ${os.model}`;
+            document.getElementById('modal-part-number').innerText = os.part_number || 'Não Informado';
+            document.getElementById('modal-trade-in').innerText = os.is_trade_in ? `Troca (Casco: ${os.trade_in_option || 'N/A'})` : 'Venda Simples';
+
+            const pecasGrid = document.getElementById('modal-pieces-grid');
+            const pecasObrigatorias = ['CCO', 'CCE', 'CT', 'EIXO', 'ROTOR', 'REPAROS'];
+            
+            pecasGrid.innerHTML = pecasObrigatorias.map(nome => {
+                const p = os.tracking.find(t => (t.component_name || t.component || '').toUpperCase() === nome.toUpperCase());
+                const stage = p ? (p.current_stage || p.stage || 'Desmontagem').toUpperCase() : 'DESMONTAGEM';
+                const status = p ? (p.status || 'Pendente').toUpperCase() : 'AGUARDANDO';
+
+                let bgClass = 'bg-white border-zinc-200';
+                let tagClass = 'bg-zinc-100 text-zinc-500';
+                
+                if (status === 'FINALIZADO' || stage === 'EXPEDIÇÃO') {
+                    bgClass = 'bg-green-50/50 border-green-200';
+                    tagClass = 'bg-green-100 text-green-700';
+                } else if (stage !== 'DESMONTAGEM') {
+                    bgClass = 'bg-blue-50/50 border-blue-200';
+                    tagClass = 'bg-blue-100 text-blue-700';
+                }
+
+                return `
+                    <div class="flex flex-col p-3 border rounded-lg ${bgClass}">
+                        <span class="text-[10px] font-black uppercase text-zinc-800 mb-2">${nome}</span>
+                        <div class="flex justify-between items-end mt-auto">
+                            <span class="text-[11px] font-bold text-zinc-600 font-mono leading-none">${stage}</span>
+                            <span class="text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${tagClass}">${status}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const pdfContainer = document.getElementById('modal-pdfs-container');
+            pdfContainer.innerHTML = '<span class="text-xs text-zinc-400 italic">Nenhum documento gerado ainda.</span>';
+            if (os.sector_pdfs) {
+                let pdfLinks = '';
+                if (os.sector_pdfs.pre_vendas) {
+                    pdfLinks += `<a href="${os.sector_pdfs.pre_vendas}" target="_blank" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-xs font-bold uppercase shadow-sm"><i class="fa-solid fa-file-pdf mr-1"></i> Pré-Vendas</a>`;
+                }
+                if (os.sector_pdfs.analise_tecnica) {
+                    pdfLinks += `<a href="${os.sector_pdfs.analise_tecnica}" target="_blank" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-xs font-bold uppercase shadow-sm"><i class="fa-solid fa-file-pdf mr-1"></i> Laudo Técnico</a>`;
+                }
+                if (os.sector_pdfs.vendas) {
+                    pdfLinks += `<a href="${os.sector_pdfs.vendas}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-bold uppercase shadow-sm"><i class="fa-solid fa-file-pdf mr-1"></i> Orçamento Comercial</a>`;
+                }
+                if (pdfLinks !== '') {
+                    pdfContainer.innerHTML = pdfLinks;
+                }
+            }
+
+            const timelineContainer = document.getElementById('modal-timeline');
+            timelineContainer.innerHTML = '<p class="text-xs text-zinc-400 font-mono mt-4 ml-8 animate-pulse">Consultando logs do sistema...</p>';
+
+            try {
+                const { data: events, error } = await supabaseClient
+                    .from('history_events')
+                    .select('*')
+                    .eq('service_order_id', osId)
+                    .order('timestamp', { ascending: true });
+
+                // Mantendo a linha decorativa do fundo
+                let htmlStr = '<div class="absolute left-[11px] top-2 bottom-0 w-0.5 bg-zinc-200"></div>';
+
+                if (!error && events && events.length > 0) {
+                    htmlStr += events.map(ev => {
+                        const date = new Date(ev.timestamp);
+                        return `
+                            <div class="relative pl-8 py-3 group">
+                                <!-- Dot da linha do tempo -->
+                                <div class="absolute left-[7px] top-[16px] w-2.5 h-2.5 bg-white rounded-full border-2 border-brand-red shadow-sm group-hover:scale-125 transition-transform z-10"></div>
+                                
+                                <div class="bg-white p-3 rounded border border-zinc-100 shadow-sm group-hover:border-zinc-300 transition-colors">
+                                    <div class="flex justify-between items-start mb-1">
+                                        <p class="text-[11px] font-black text-brand-gray uppercase tracking-tight">${ev.action}</p>
+                                        <p class="text-[9px] text-zinc-400 font-mono bg-zinc-50 px-1 rounded border border-zinc-100">${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</p>
+                                    </div>
+                                    ${ev.details ? `<p class="text-[10px] text-zinc-500 font-medium leading-relaxed italic border-l-2 border-zinc-200 pl-2 mt-2">${ev.details}</p>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    htmlStr += '<p class="text-[10px] text-zinc-400 font-bold ml-8 mt-4 uppercase">Registro de eventos não iniciado.</p>';
+                }
+                timelineContainer.innerHTML = htmlStr;
+            } catch (e) {
+                timelineContainer.innerHTML = '<div class="absolute left-[11px] top-2 bottom-0 w-0.5 bg-zinc-200"></div><p class="text-xs text-brand-red font-bold mt-4 ml-8">Erro de sincronização de Log.</p>';
+            }
+
+            const modal = document.getElementById('details-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // Pequeno delay para a transição de opacidade funcionar
+            setTimeout(() => { modal.style.opacity = '1'; }, 10);
+        }
+
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.style.opacity = '0';
+                setTimeout(() => {
+                    el.classList.add('hidden');
+                    el.classList.remove('flex');
+                }, 200); // tempo do fade-out
+            }
+        }
+
+        // ====== LÓGICA DE ABAS (TABS) ======
+        function switchTab(tabName) {
+            // Arrays com as abas e botões
+            const tabs = ['geral', 'fluxo', 'performance', 'acessos'];
+            
+            tabs.forEach(t => {
+                const tabEl = document.getElementById(`tab-${t}`);
+                const btnEl = document.getElementById(`btn-tab-${t}`);
+                
+                if (t === tabName) {
+                    tabEl.classList.remove('hidden');
+                    tabEl.classList.add('flex');
+                    
+                    // Estilo Ativo
+                    btnEl.classList.remove('border-transparent', 'text-zinc-400', 'font-bold');
+                    btnEl.classList.add('border-brand-red', 'text-brand-red', 'font-black');
+
+                    if (t === 'acessos') {
+                        loadEmployees();
+                    }
+                } else {
+                    tabEl.classList.add('hidden');
+                    tabEl.classList.remove('flex');
+                    
+                    // Estilo Inativo
+                    btnEl.classList.add('border-transparent', 'text-zinc-400', 'font-bold');
+                    btnEl.classList.remove('border-brand-red', 'text-brand-red', 'font-black');
+                }
+            });
+
+            // Se for performance, carrega os dados
+            if (tabName === 'performance') {
+                loadPerformanceData();
+            }
+        }
+
+        // ====== LÓGICA DE PERFORMANCE E TEMPOS ======
+        async function loadPerformanceData() {
+            const srvList = document.getElementById('performance-services-list');
+            const usrList = document.getElementById('performance-users-list');
+            
+            // Filtros
+            const startDate = document.getElementById('filter-perf-start').value;
+            const endDate = document.getElementById('filter-perf-end').value;
+            const sectorFilter = document.getElementById('filter-perf-sector').value.toUpperCase();
+            const operatorFilter = document.getElementById('filter-perf-operator').value;
+
+            srvList.innerHTML = '<p class="text-xs text-zinc-400 animate-pulse text-center mt-10">Calculando tempos médios...</p>';
+            usrList.innerHTML = '<p class="text-xs text-zinc-400 animate-pulse text-center mt-10">Processando métricas...</p>';
+
+            try {
+                // Puxa perfis para preencher nomes caso falte e para o select de operadores
+                const { data: profiles } = await supabaseClient.from('profiles').select('id, name, email');
+                let profileMap = {};
+                if (profiles) {
+                    profiles.forEach(p => profileMap[p.id] = p.name || p.email);
+                    
+                    // Preenche o Select de Operador se estiver vazio
+                    const opSelect = document.getElementById('filter-perf-operator');
+                    if (opSelect.options.length <= 1) {
+                        opSelect.innerHTML = '<option value="">Todos</option>' + profiles.map(p => `<option value="${p.id}">${p.name || p.email}</option>`).join('');
+                        opSelect.value = operatorFilter; // Mantem o valor se já tinha
+                    }
+                }
+
+                // DADOS DE TEMPO POR SERVIÇO E OPERADOR (component_tracking)
+                const { data: trackData, error: errTrack } = await supabaseClient
+                    .from('component_tracking')
+                    .select('tracking_data')
+                    .not('tracking_data', 'is', null);
+
+                let serviceMap = {};
+                let userPerfMap = {};
+                
+                if (trackData) {
+                    trackData.forEach(row => {
+                        if (Array.isArray(row.tracking_data)) {
+                            row.tracking_data.forEach(item => {
+                                if (item.service && item.duration_seconds && item.user_id) {
+                                    
+                                    // Validações de Filtro
+                                    let pass = true;
+                                    
+                                    // Filtro Data
+                                    if (startDate || endDate) {
+                                        const itemDate = new Date(item.start_time);
+                                        itemDate.setHours(0,0,0,0);
+                                        if (startDate) {
+                                            const sDate = new Date(startDate + 'T00:00:00');
+                                            // Correção de timezone simples
+                                            sDate.setMinutes(sDate.getMinutes() + sDate.getTimezoneOffset());
+                                            if (itemDate < sDate) pass = false;
+                                        }
+                                        if (endDate) {
+                                            const eDate = new Date(endDate + 'T00:00:00');
+                                            eDate.setMinutes(eDate.getMinutes() + eDate.getTimezoneOffset());
+                                            if (itemDate > eDate) pass = false;
+                                        }
+                                    }
+
+                                    // Filtro Setor
+                                    if (sectorFilter && item.sector !== sectorFilter) pass = false;
+
+                                    // Filtro Operador
+                                    if (operatorFilter && item.user_id !== operatorFilter) pass = false;
+
+                                    if (pass) {
+                                        // Acumula para Serviço
+                                        if (!serviceMap[item.service]) {
+                                            serviceMap[item.service] = { totalSecs: 0, count: 0 };
+                                        }
+                                        serviceMap[item.service].totalSecs += item.duration_seconds;
+                                        serviceMap[item.service].count++;
+
+                                        // Acumula para Operador
+                                        if (!userPerfMap[item.user_id]) {
+                                            userPerfMap[item.user_id] = { 
+                                                name: item.user_name || profileMap[item.user_id] || 'Desconhecido', 
+                                                totalSecs: 0, 
+                                                actionsCount: 0 
+                                            };
+                                        }
+                                        userPerfMap[item.user_id].totalSecs += item.duration_seconds;
+                                        userPerfMap[item.user_id].actionsCount++;
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+
+                // Renderiza Serviços
+                let srvHtml = '';
+                const srvKeys = Object.keys(serviceMap);
+                if (srvKeys.length === 0) {
+                    srvHtml = '<p class="text-xs text-zinc-400 font-medium text-center mt-6">Nenhum serviço registrado nos filtros selecionados.</p>';
+                } else {
+                    const sortedSrv = srvKeys.map(k => ({
+                        name: k,
+                        avg: serviceMap[k].totalSecs / serviceMap[k].count,
+                        count: serviceMap[k].count
+                    })).sort((a,b) => b.avg - a.avg);
+
+                    srvHtml = sortedSrv.map((s, idx) => {
+                        const m = Math.floor(s.avg / 60);
+                        const sec = Math.floor(s.avg % 60);
+                        const timeStr = m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+                        
+                        return `
+                            <div class="flex justify-between items-center py-3 border-b border-zinc-100 last:border-0 hover:bg-zinc-50 transition px-2 rounded">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs font-bold text-zinc-400 w-4 text-center">${idx + 1}</span>
+                                    <div>
+                                        <p class="text-xs font-black text-brand-gray uppercase">${s.name}</p>
+                                        <p class="text-[9px] text-zinc-500 font-medium">Amostra: ${s.count} execuções</p>
+                                    </div>
+                                </div>
+                                <div class="bg-orange-50 text-turbo-orange font-mono text-xs px-2 py-1 rounded font-bold border border-orange-100">
+                                    ~ ${timeStr}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+                srvList.innerHTML = srvHtml;
+
+                // Renderiza Operadores
+                let usrHtml = '';
+                const usrKeys = Object.keys(userPerfMap);
+                if (usrKeys.length === 0) {
+                    usrHtml = '<p class="text-xs text-zinc-400 font-medium text-center mt-6">Nenhum operador com tempo medido nos filtros selecionados.</p>';
+                } else {
+                    const sortedUsr = usrKeys.map(k => ({
+                        id: k,
+                        ...userPerfMap[k]
+                    })).sort((a,b) => b.totalSecs - a.totalSecs); // Mais tempo produtivo primeiro
+
+                    usrHtml = sortedUsr.map((u, idx) => {
+                        const m = Math.floor(u.totalSecs / 60);
+                        const h = Math.floor(m / 60);
+                        const min = m % 60;
+                        const timeStr = h > 0 ? `${h}h ${min}m` : `${m}m`;
+
+                        return `
+                        <div class="flex justify-between items-center py-3 border-b border-zinc-100 last:border-0 hover:bg-zinc-50 transition px-2 rounded">
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs font-bold text-zinc-400 w-4 text-center">${idx + 1}</span>
+                                <div class="w-8 h-8 rounded bg-blue-100 text-blue-600 flex items-center justify-center font-black text-xs uppercase shadow-inner">
+                                    ${u.name.substring(0, 2)}
+                                </div>
+                                <div>
+                                    <p class="text-[11px] font-black text-brand-gray uppercase truncate max-w-[150px]">${u.name}</p>
+                                    <p class="text-[9px] text-zinc-500 font-medium">${u.actionsCount} serviços entregues</p>
+                                </div>
+                            </div>
+                            <div class="bg-blue-50 text-blue-600 font-mono text-xs px-2 py-1 rounded font-bold border border-blue-100 text-center">
+                                ${timeStr} <span class="text-[9px] uppercase font-sans">Produtivos</span>
+                            </div>
+                        </div>
+                    `}).join('');
+                }
+                usrList.innerHTML = usrHtml;
+
+            } catch (e) {
+                console.error(e);
+                srvList.innerHTML = '<p class="text-xs text-brand-red text-center mt-6">Erro ao carregar tempos.</p>';
+                usrList.innerHTML = '<p class="text-xs text-brand-red text-center mt-6">Erro ao processar produtividade.</p>';
+            }
+        }
+
+        // ====== GESTÃO DE FUNCIONÁRIOS ======
+        const SECTORS_LIST = [
+            'PRE-VENDAS', 'ANALISE-TECNICA', 'VENDAS', 'TRIAGEM', 'DESMONTAGEM', 
+            'RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'BALANCEAMENTO', 
+            'MONTAGEM', 'CONTROLE-QUALIDADE', 'EXPEDICAO', 'ADMINISTRADOR', 'QUADRO-PRODUCAO'
+        ];
+
+        // Cliente secundário para não deslogar o admin atual
+        const supabaseAdminClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { persistSession: false, autoRefreshToken: false }
+        });
+
+        let currentEmployees = [];
+
+        async function loadEmployees() {
+            const tbody = document.getElementById('employees-table-body');
+            tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-zinc-400 text-xs animate-pulse">Carregando...</td></tr>';
+            
+            try {
+                const { data, error } = await supabaseClient.from('profiles').select('*').order('name');
+                if (error) throw error;
+
+                currentEmployees = data || [];
+                
+                if (currentEmployees.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-zinc-400 text-xs">Nenhum funcionário encontrado.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = currentEmployees.map(emp => {
+                    // Trata as roles (que podem estar em string separada por vírgula)
+                    let roles = [];
+                    if (emp.role) {
+                        try {
+                            if (emp.role.startsWith('[')) roles = JSON.parse(emp.role);
+                            else roles = emp.role.split(',').map(r => r.trim());
+                        } catch (e) { roles = [emp.role]; }
+                    }
+
+                    const rolesHtml = roles.map(r => `<span class="inline-block bg-blue-50 text-blue-600 border border-blue-100 rounded px-2 py-0.5 text-[9px] font-black uppercase mr-1 mb-1 shadow-sm">${r}</span>`).join('');
+
+                    return `
+                        <tr class="hover:bg-zinc-50 transition-colors">
+                            <td class="px-4 py-3 text-xs font-bold text-brand-gray uppercase">${emp.name || 'Sem nome'}</td>
+                            <td class="px-4 py-3 text-xs font-medium text-zinc-500">${emp.email || '---'}</td>
+                            <td class="px-4 py-3">${rolesHtml || '<span class="text-xs text-zinc-400">Sem acessos</span>'}</td>
+                            <td class="px-4 py-3 text-right space-x-2">
+                                <button onclick='openEmployeeModal(${JSON.stringify(emp).replace(/'/g, "&apos;")})' class="text-brand-red hover:bg-red-50 p-2 rounded transition" title="Editar">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="deleteEmployee('${emp.id}')" class="text-zinc-400 hover:text-red-600 hover:bg-red-50 p-2 rounded transition" title="Excluir Acesso">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error(err);
+                tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-brand-red text-xs">Erro ao carregar funcionários.</td></tr>';
+            }
+        }
+
+        function renderSectorsCheckboxes(selectedRoles = []) {
+            const grid = document.getElementById('emp-sectors-grid');
+            grid.innerHTML = SECTORS_LIST.map(sector => {
+                const isChecked = selectedRoles.includes(sector) ? 'checked' : '';
+                return `
+                    <label class="flex items-center space-x-2 bg-zinc-50 p-2 border border-zinc-200 rounded cursor-pointer hover:bg-zinc-100 transition">
+                        <input type="checkbox" value="${sector}" class="emp-sector-checkbox w-4 h-4 text-brand-red border-zinc-300 rounded focus:ring-brand-red" ${isChecked}>
+                        <span class="text-[9px] font-black text-brand-gray uppercase tracking-widest">${sector}</span>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function openEmployeeModal(employee = null) {
+            const modal = document.getElementById('employee-modal');
+            const title = document.getElementById('employee-modal-title');
+            
+            // Reset form
+            document.getElementById('employee-form').reset();
+            document.getElementById('emp-id').value = '';
+            
+            if (employee) {
+                title.innerHTML = '<i class="fa-solid fa-user-pen mr-2"></i> Editar Funcionário';
+                document.getElementById('emp-id').value = employee.id;
+                document.getElementById('emp-name').value = employee.name || '';
+                
+                // Exibe só a parte do nome de usuário, escondendo o @turbosul se existir
+                let displayEmail = employee.email || '';
+                if (displayEmail.endsWith('@turbosul.local')) {
+                    displayEmail = displayEmail.replace('@turbosul.local', '');
+                }
+                document.getElementById('emp-email').value = displayEmail;
+                document.getElementById('emp-email').disabled = true; // Não permite alterar email existente facilmente sem backend de admin real
+                document.getElementById('emp-email').classList.add('opacity-50', 'cursor-not-allowed');
+                
+                document.getElementById('emp-password-container').classList.add('hidden'); // Oculta senha na edição
+
+                let roles = [];
+                if (employee.role) {
+                    try {
+                        if (employee.role.startsWith('[')) roles = JSON.parse(employee.role);
+                        else roles = employee.role.split(',').map(r => r.trim());
+                    } catch (e) { roles = [employee.role]; }
+                }
+                renderSectorsCheckboxes(roles);
+            } else {
+                title.innerHTML = '<i class="fa-solid fa-user-plus mr-2"></i> Novo Funcionário';
+                document.getElementById('emp-email').disabled = false;
+                document.getElementById('emp-email').classList.remove('opacity-50', 'cursor-not-allowed');
+                document.getElementById('emp-password-container').classList.remove('hidden');
+                document.getElementById('emp-password').required = true;
+                
+                renderSectorsCheckboxes();
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeEmployeeModal() {
+            const modal = document.getElementById('employee-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        async function saveEmployee() {
+            const btn = document.getElementById('btn-save-employee');
+            const id = document.getElementById('emp-id').value;
+            const name = document.getElementById('emp-name').value.trim();
+            let rawEmail = document.getElementById('emp-email').value.trim();
+            const password = document.getElementById('emp-password').value;
+
+            if (!name || !rawEmail) {
+                alert("Preencha o nome e o usuário.");
+                return;
+            }
+            
+            // Format email to avoid Auth errors
+            if (!rawEmail.includes('@')) {
+                rawEmail = rawEmail + '@turbosul.local';
+            }
+
+            const checkboxes = document.querySelectorAll('.emp-sector-checkbox:checked');
+            const selectedSectors = Array.from(checkboxes).map(cb => cb.value).join(',');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-2"></i> Salvando...';
+
+            try {
+                if (id) {
+                    // MODO EDIÇÃO (apenas atualiza o profile)
+                    const { error } = await supabaseClient
+                        .from('profiles')
+                        .update({ name: name, role: selectedSectors })
+                        .eq('id', id);
+                    
+                    if (error) throw error;
+                    alert("Acessos atualizados com sucesso!");
+                } else {
+                    // MODO CRIAÇÃO (cria Auth e depois Profile)
+                    if (!password || password.length < 6) {
+                        alert("A senha deve ter pelo menos 6 caracteres.");
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Salvar';
+                        return;
+                    }
+
+                    const { data: authData, error: authErr } = await supabaseAdminClient.auth.signUp({
+                        email: rawEmail,
+                        password: password,
+                        options: {
+                            data: { name: name, role: selectedSectors }
+                        }
+                    });
+
+                    if (authErr) throw authErr;
+
+                    // Na maioria das vezes a trigger no Postgres cria o profile.
+                    // Vamos atualizar ou inserir no profile para garantir.
+                    if (authData && authData.user) {
+                        const { error: upsertErr } = await supabaseClient
+                            .from('profiles')
+                            .upsert({ id: authData.user.id, email: rawEmail, name: name, role: selectedSectors });
+                        
+                        if (upsertErr) console.error("Aviso upsert profile:", upsertErr);
+                    }
+                    
+                    alert("Funcionário cadastrado com sucesso!");
+                }
+
+                closeEmployeeModal();
+                loadEmployees();
+            } catch (e) {
+                console.error(e);
+                alert("Erro ao salvar: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Salvar';
+            }
+        }
+
+        async function deleteEmployee(id) {
+            if (!confirm("Tem certeza que deseja EXCLUIR este funcionário? Essa ação é permanente e ele perderá todo o acesso ao sistema.")) return;
+
+            try {
+                // Usa a função segura do banco (SECURITY DEFINER) que apaga tanto de
+                // public.profiles quanto de auth.users, sem depender de RLS
+                const { error } = await supabaseClient.rpc('delete_profile', { target_id: id });
+                if (error) throw error;
+                
+                // Remove da lista local imediatamente sem precisar recarregar
+                currentEmployees = currentEmployees.filter(e => e.id !== id);
+                const btn = document.querySelector(`[onclick="deleteEmployee('${id}')"]`);
+                if (btn) btn.closest('tr').remove();
+                
+                // Recarrega para garantir sincronização
+                await loadEmployees();
+            } catch (e) {
+                console.error(e);
+                alert("Erro ao excluir funcionário: " + e.message);
+            }
+        }
+    </script>
+
+    <!-- MODAL DE FUNCIONÁRIOS -->
+    <div id="employee-modal" class="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm hidden items-center justify-center z-[110] p-4 transition-opacity">
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col border border-zinc-300">
+            <!-- Header -->
+            <div class="bg-brand-gray text-white px-6 py-4 flex justify-between items-center border-b-4 border-brand-red">
+                <h3 id="employee-modal-title" class="text-lg font-black uppercase tracking-widest"><i class="fa-solid fa-user-plus mr-2"></i> Novo Funcionário</h3>
+                <button onclick="closeEmployeeModal()" class="text-zinc-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- Body -->
+            <div class="p-6 overflow-y-auto max-h-[75vh] custom-scroll">
+                <form id="employee-form" class="space-y-4">
+                    <input type="hidden" id="emp-id">
+                    
+                    <div>
+                        <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Nome Completo</label>
+                        <input type="text" id="emp-name" required class="w-full bg-zinc-50 border border-zinc-300 rounded px-3 py-2 text-sm focus:border-brand-red outline-none transition">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Nome de Usuário <span class="text-zinc-400 normal-case font-normal">(Ex: joao.silva)</span></label>
+                        <input type="text" id="emp-email" required class="w-full bg-zinc-50 border border-zinc-300 rounded px-3 py-2 text-sm focus:border-brand-red outline-none transition">
+                        <p class="text-[9px] text-zinc-400 mt-1">Este é o nome que ele usará para fazer o login no sistema.</p>
+                    </div>
+
+                    <div id="emp-password-container">
+                        <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Senha <span class="text-zinc-400 font-normal normal-case">(mínimo 6 caracteres)</span></label>
+                        <input type="password" id="emp-password" class="w-full bg-zinc-50 border border-zinc-300 rounded px-3 py-2 text-sm focus:border-brand-red outline-none transition">
+                    </div>
+
+                    <div class="pt-2">
+                        <label class="block text-[10px] font-black text-brand-gray uppercase tracking-widest mb-3 border-b pb-1">Setores de Acesso</label>
+                        <div class="grid grid-cols-2 gap-2" id="emp-sectors-grid">
+                            <!-- Checkboxes gerados via JS -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-zinc-50 border-t border-zinc-200 px-6 py-4 flex justify-end gap-3">
+                <button onclick="closeEmployeeModal()" class="px-4 py-2 text-xs font-bold text-zinc-500 hover:bg-zinc-200 rounded uppercase tracking-wider transition">Cancelar</button>
+                <button id="btn-save-employee" onclick="saveEmployee()" class="px-4 py-2 bg-brand-red hover:bg-brand-darkred text-white text-xs font-black rounded uppercase tracking-widest shadow-md transition flex items-center">
+                    <i class="fa-solid fa-floppy-disk mr-2"></i> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

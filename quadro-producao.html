@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadro de Produção | TurboSul</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .kanban-board {
+            display: flex;
+            overflow-x: auto;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            height: calc(100vh - 80px);
+        }
+        .kanban-column {
+            background-color: #e2e8f0;
+            border-radius: 0.75rem;
+            min-width: 320px;
+            max-width: 320px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .kanban-header {
+            padding: 1rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            color: #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #cbd5e1;
+        }
+        .kanban-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .os-card {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border-left: 4px solid #3b82f6;
+        }
+        .os-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .os-card.urgente { border-left-color: #ef4444; }
+        .os-card.alta { border-left-color: #f97316; }
+        .os-card.normal { border-left-color: #3b82f6; }
+        .os-card.baixa { border-left-color: #94a3b8; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- HEADER -->
+    <header class="bg-white border-b px-8 py-4 flex items-center justify-between z-50 shadow-sm h-[80px]">
+        <div class="flex items-center space-x-4">
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="Logo TurboSul" class="h-10">
+            <div>
+                <h1 class="text-slate-800 font-black text-xl leading-tight uppercase tracking-tight">Quadro de Produção</h1>
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Kanban Geral - Status das OSs</p>
+            </div>
+        </div>
+        <button onclick="window.history.back()" class="bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold py-2 px-6 rounded-lg uppercase text-xs tracking-widest transition">Voltar</button>
+    </header>
+
+    <!-- BOARD -->
+    <main class="kanban-board custom-scrollbar" id="kanban-board">
+        <!-- Colunas geradas dinamicamente -->
+    </main>
+
+    <!-- MODAL DE RASTREIO -->
+    <div id="modal-rastreio" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-[100]">
+        <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <div>
+                    <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tighter" id="modal-os-id">OS ---</h2>
+                    <p class="text-xs text-slate-500 font-bold uppercase tracking-widest" id="modal-os-model">Modelo ---</p>
+                </div>
+                <button onclick="fecharModalRastreio()" class="text-slate-400 hover:text-slate-600 text-3xl font-light">&times;</button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 bg-white">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Rastreio de Componentes</h3>
+                
+                <div id="loading-components" class="text-center py-8">
+                    <i class="fa-solid fa-circle-notch fa-spin text-blue-500 text-3xl mb-3"></i>
+                    <p class="text-xs text-slate-500 font-bold uppercase tracking-widest">Buscando rastreio...</p>
+                </div>
+
+                <div id="components-list" class="space-y-3 hidden">
+                    <!-- Componentes gerados aqui -->
+                </div>
+                
+                <div id="no-components" class="hidden text-center py-8">
+                    <p class="text-xs text-slate-400 font-bold uppercase tracking-widest border border-slate-200 bg-slate-50 p-4 rounded-xl">A peça ainda não foi desmembrada para a Produção.</p>
+                </div>
+            </div>
+            
+            <div class="p-6 border-t border-slate-100 bg-slate-50 flex justify-end">
+                <button onclick="fecharModalRastreio()" class="bg-slate-800 text-white font-bold py-3 px-8 rounded-xl uppercase text-xs tracking-widest hover:bg-slate-900 transition shadow-lg shadow-slate-200">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script> <!-- usa client exportado globalmente como supabaseClient se possivel -->
+    <script>
+        const COLUMNS = [
+            { id: 'pre_vendas', title: 'Pré-Vendas', statuses: ['Aguardando Desmontagem OS'] },
+            { id: 'analise', title: 'Análise Técnica', statuses: ['Aguardando Análise Técnica'] },
+            { id: 'vendas', title: 'Vendas Comercial', statuses: ['Aguardando Vendas Comercial'] },
+            { id: 'triagem', title: 'Triagem / Standby', statuses: ['Aguardando Triagem', 'Standby'] },
+            { id: 'producao', title: 'Em Produção', statuses: ['Em Produção'] },
+            { id: 'qualidade', title: 'Qualidade', statuses: ['Controle de Qualidade', 'Aguardando Qualidade'] },
+            { id: 'expedicao', title: 'Expedição', statuses: ['Aguardando Expedição'] },
+            { id: 'concluida', title: 'Concluídas', statuses: ['Concluída', 'concluida'] }
+        ];
+
+        let allOrders = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            renderColumns();
+            await loadOrders();
+        });
+
+        function renderColumns() {
+            const board = document.getElementById('kanban-board');
+            board.innerHTML = COLUMNS.map(col => `
+                <div class="kanban-column">
+                    <div class="kanban-header">
+                        <span>${col.title}</span>
+                        <span class="bg-slate-300 text-slate-700 py-1 px-2 rounded-lg text-[10px] shadow-inner" id="count-${col.id}">0</span>
+                    </div>
+                    <div class="kanban-body custom-scrollbar" id="col-${col.id}">
+                        <!-- cards -->
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadOrders() {
+            try {
+                // Para carregar todas as OSs ativas, pegamos as mais recentes
+                const { data, error } = await supabaseClient
+                    .from('service_orders')
+                    .select('id, business_id, client, model, urgency, status')
+                    .order('created_at', { ascending: false })
+                    .limit(500);
+
+                if (error) throw error;
+                
+                // Buscar dados de rastreio para posicionar OS em múltiplas colunas
+                const osIds = (data || []).map(o => o.id);
+                let trackingData = [];
+                if (osIds.length > 0) {
+                    const { data: trackData, error: trackError } = await supabaseClient
+                        .from('component_tracking')
+                        .select('service_order_id, current_stage, current_sector, status')
+                        .in('service_order_id', osIds);
+                    if (!trackError && trackData) {
+                        trackingData = trackData;
+                    }
+                }
+
+                allOrders = (data || []).map(o => {
+                    o.tracking = trackingData.filter(t => t.service_order_id === o.id);
+                    return o;
+                });
+                
+                distributeOrders();
+            } catch (err) {
+                console.error("Erro ao buscar OSs", err);
+            }
+        }
+
+        function distributeOrders() {
+            COLUMNS.forEach(col => {
+                const container = document.getElementById(`col-${col.id}`);
+                const counter = document.getElementById(`count-${col.id}`);
+                
+                const columnOrders = allOrders.filter(o => {
+                    let belongsToCol = col.statuses.includes(o.status) || (col.id === 'concluida' && o.status && o.status.toLowerCase() === 'concluída');
+                    
+                    // Se não pertence originalmente, mas é a coluna "Em Produção", verifica se tem peças ativas na produção
+                    if (!belongsToCol && col.id === 'producao') {
+                        const excludedFinishedStatuses = ['Aguardando Qualidade', 'Controle de Qualidade', 'Aguardando Expedição', 'Concluída', 'concluida', 'Cancelada', 'Arquivado'];
+                        if (!excludedFinishedStatuses.includes(o.status)) {
+                            const prodStages = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'BALANCEAMENTO', 'MONTAGEM'];
+                            if (o.tracking && o.tracking.some(t => {
+                                const stage = (t.current_stage || t.current_sector || '').toUpperCase();
+                                return prodStages.includes(stage);
+                            })) {
+                                belongsToCol = true;
+                            }
+                        }
+                    }
+                    
+                    return belongsToCol;
+                });
+                
+                counter.innerText = columnOrders.length;
+                
+                if (columnOrders.length === 0) {
+                    container.innerHTML = `<div class="text-center py-4 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-2 border-dashed border-slate-300 rounded-lg">Vazio</div>`;
+                    return;
+                }
+
+                container.innerHTML = columnOrders.map(o => {
+                    const urgencyClass = (o.urgency || 'normal').toLowerCase();
+                    return `
+                        <div class="os-card ${urgencyClass}" onclick="abrirRastreio('${o.id}', '${o.business_id}', '${o.model}')">
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="font-black text-slate-800 uppercase tracking-tighter text-sm">${o.business_id}</span>
+                                <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-500">${o.urgency || 'Normal'}</span>
+                            </div>
+                            <p class="text-xs font-bold text-slate-600 truncate mb-1">${o.model}</p>
+                            <p class="text-[10px] font-medium text-slate-400 truncate">${o.client}</p>
+                        </div>
+                    `;
+                }).join('');
+            });
+        }
+
+        async function abrirRastreio(osId, businessId, model) {
+            document.getElementById('modal-os-id').innerText = businessId;
+            document.getElementById('modal-os-model').innerText = model;
+            
+            const modal = document.getElementById('modal-rastreio');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            const loading = document.getElementById('loading-components');
+            const list = document.getElementById('components-list');
+            const empty = document.getElementById('no-components');
+            
+            loading.classList.remove('hidden');
+            list.classList.add('hidden');
+            empty.classList.add('hidden');
+
+            try {
+                const { data: components, error } = await supabaseClient
+                    .from('component_tracking')
+                    .select('*')
+                    .eq('service_order_id', osId);
+
+                loading.classList.add('hidden');
+
+                if (error || !components || components.length === 0) {
+                    empty.classList.remove('hidden');
+                    return;
+                }
+
+                list.innerHTML = components.map(c => {
+                    let statusColor = "bg-slate-100 text-slate-600";
+                    if (c.status === 'Concluído' || c.status === 'Finalizado') statusColor = "bg-green-100 text-green-700 border border-green-200";
+                    if (c.status === 'Em Processo' || c.status === 'Na Fila' || !c.status) statusColor = "bg-blue-100 text-blue-700 border border-blue-200";
+                    if (c.status === 'Pausado') statusColor = "bg-amber-100 text-amber-700 border border-amber-200";
+
+                    return `
+                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400 shadow-sm">
+                                    <i class="fa-solid fa-gear"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-black text-slate-800 text-sm uppercase">${c.component_name}</h4>
+                                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1"><i class="fa-solid fa-location-dot mr-1 text-slate-400"></i> Setor: <span class="text-blue-600">${c.current_stage || c.current_sector || 'Aguardando'}</span></p>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full ${statusColor}">${c.status || 'Pendente'}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                list.classList.remove('hidden');
+
+            } catch (err) {
+                console.error("Erro rastreio", err);
+                loading.classList.add('hidden');
+                empty.classList.remove('hidden');
+            }
+        }
+
+        function fecharModalRastreio() {
+            const modal = document.getElementById('modal-rastreio');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    </script>
+</body>
+</html>

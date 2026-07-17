@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setor de Desmontagem | TurboSul</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-turbo-teal { background-color: #0D9488; }
+        .text-turbo-teal { color: #0D9488; }
+        .border-turbo-teal { border-color: #0D9488; }
+        .bg-turbo-orange { background-color: #EA580C; }
+        .os-selected { border-left: 4px solid #0D9488 !important; background-color: #f0fdfa !important; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #0D9488; border-radius: 10px; }
+        .input-clean { background-color: #ffffff; border: 1px solid #d1d5db; color: #111827; transition: all 0.2s; }
+        .input-clean:focus { border-color: #0D9488; outline: none; box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.1); }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen overflow-hidden">
+
+    <!-- MODAL SUCESSO -->
+    <div id="modalSuccess" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl text-center">
+            <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-check text-3xl"></i>
+            </div>
+            <h4 class="text-xl font-black text-slate-800 mb-2">Ação Realizada!</h4>
+            <p id="successMsg" class="text-slate-500 text-sm mb-6 font-medium italic">Operação concluída com sucesso.</p>
+            <button onclick="closeModal('modalSuccess')" class="w-full bg-slate-800 text-white font-bold py-3 rounded-xl uppercase text-xs tracking-widest transition hover:bg-black">Continuar</button>
+        </div>
+    </div>
+
+    <!-- HEADER -->
+    <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+        <div class="flex items-center space-x-4">
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="TurboSul Logo" class="h-10">
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-slate-900 uppercase">TurboSul - Controle de Produção</h1>
+                <p class="text-xs text-slate-500 font-medium italic">Gerenciamento de Ordens de Serviço</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-6">
+            <div class="text-right pr-4">
+                <p class="text-sm font-black text-slate-800 uppercase tracking-wider leading-none">Desmontagem</p>
+            </div>
+            
+            <a href="./quadro-producao.html" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-sm font-bold uppercase tracking-widest shadow-sm transition flex items-center mr-2">
+                Quadro de Produção
+            </a>
+            <button onclick="window.location.href='https://mareflow.github.io/turbosul-login/'" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-bold transition">Sair</button>
+        </div>
+    </header>
+
+    <div class="flex h-[calc(100vh-64px)]">
+        <!-- SIDEBAR -->
+        <aside class="w-80 bg-white border-r border-slate-200 overflow-y-auto flex-shrink-0">
+            <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center sticky top-0 z-20">
+                <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 italic">Ordens em Desmonte</h2>
+                <button onclick="loadDisassemblyQueue()" class="text-turbo-teal hover:rotate-180 transition-all duration-500">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+            <div id="os-list" class="divide-y divide-slate-100">
+                <div class="p-8 text-center text-slate-400 text-xs italic animate-pulse">Carregando fila...</div>
+            </div>
+        </aside>
+
+        <!-- MAIN -->
+        <main class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50">
+            
+            <!-- HEADER DO PROCESSO -->
+            <div id="workspace-header" class="flex flex-col lg:flex-row justify-between gap-4 mb-6">
+                <!-- DETALHES DA OS -->
+                <div id="os-details-header" class="hidden flex-1 bg-turbo-teal rounded-2xl shadow-lg text-white p-6 min-h-[120px] flex-col justify-center relative overflow-hidden">
+                    <div class="relative z-10 ml-4 flex justify-between items-center w-full pr-8">
+                        <div>
+                            <h2 id="display-os" class="text-3xl font-black mb-1 italic tracking-tighter uppercase">OS-XXXX</h2>
+                            <p id="display-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest italic">CLIENTE | MODELO</p>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="carregarLinhaDoTempo(currentSelection?.id)" class="bg-slate-800 hover:bg-black text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg">
+                                <i class="fa-solid fa-clock-rotate-left mr-2"></i> Histórico Completo
+                            </button>
+                            <button type="button" onclick="openSpecialModal()" class="bg-white/20 hover:bg-white/30 text-white border border-white/40 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                + Adicionar Serviço Especial
+                            </button>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-gear absolute right-[-20px] bottom-[-20px] text-white opacity-10 text-9xl"></i>
+                </div>
+
+                <!-- MONITOR DE PRODUTIVIDADE (DESMONTAGEM) -->
+                <div class="bg-slate-900 text-white rounded-xl p-4 flex flex-col justify-between border-b-4 border-turbo-teal lg:w-72 shadow-xl">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2 bg-turbo-teal rounded-lg"><i class="fa-solid fa-clock"></i></div>
+                        <div>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Monitor Desmont.</p>
+                            <p class="text-xs font-black text-white uppercase">Produção Ativa</p>
+                        </div>
+                    </div>
+                    <button id="btn-sector-cleaning" onclick="toggleSectorCleaning('DESMONTAGEM')" class="mt-3 w-full bg-turbo-teal hover:bg-teal-600 text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition shadow-md shadow-teal-900">
+                        Iniciar Limpeza Setor
+                    </button>
+                    <button id="btn-other-activities" onclick="toggleOtherActivities('DESMONTAGEM')" class="mt-2 w-full bg-slate-500 hover:bg-slate-600 text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition shadow-md shadow-slate-900">
+                        Outras Atividades
+                    </button>
+                </div>
+            </div>
+
+            <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-slate-400">
+                <i class="fa-solid fa-screwdriver-wrench text-6xl mb-4 opacity-10"></i>
+                <p class="uppercase tracking-widest font-bold text-sm">Selecione uma Ordem de Serviço</p>
+            </div>
+
+            <div id="main-workspace" class="hidden space-y-6">
+
+
+
+<!-- CONFERÊNCIA TÉCNICA (VISTORIAR AVARIAS) -->
+<div id="panel-conferencia-tecnica" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    
+    <!-- Painel de Inputs (Abas de Preenchimento) -->
+    <div id="checklist-inputs-container">
+        <!-- Abas de Navegação -->
+        <div class="p-4 border-b flex space-x-8 bg-slate-50 overflow-x-auto">
+            <button type="button" class="tab-button-disassembly text-turbo-teal border-b-2 border-turbo-teal font-bold text-[11px] uppercase tracking-tight whitespace-nowrap" data-tab="tab1">1. Anexos (Itens Externos do Cliente)</button>
+            <button type="button" class="tab-button-disassembly text-gray-500 hover:text-gray-700 font-medium text-[11px] uppercase tracking-tight whitespace-nowrap" data-tab="tab2">2. Reparos Gerais (Interno)</button>
+            <button type="button" class="tab-button-disassembly text-gray-500 hover:text-gray-700 font-medium text-[11px] uppercase tracking-tight whitespace-nowrap" data-tab="tab3">3. Checklist do Caracol (Caixa Quente)</button>
+        </div>
+
+        <!-- Conteúdo das Abas -->
+        <div class="p-6">
+            <div id="tab1" class="tab-content-disassembly space-y-1"></div>
+            <div id="tab2" class="tab-content-disassembly hidden space-y-1"></div>
+            <div id="tab3" class="tab-content-disassembly hidden space-y-1"></div>
+
+            <!-- Área de Ações Unificadas do Checklist (Desmontagem) -->
+            <div class="flex justify-between items-center pt-6 border-t border-slate-100 mt-4">
+                <!-- Botão 1: Salvar Checklist (Amber) -->
+                <button type="button" id="btn-salvar-checklist" onclick="saveChecklistDisassembly()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-6 rounded-xl transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center">
+                    <i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist
+                </button>
+
+                <!-- Botão 2: Concluir Limpeza e Liberar OS (Orange, habilitado apenas quando todas as peças forem enviadas) -->
+                <button type="button" id="btn-concluir-desmontagem" disabled onclick="handleAction('FINISH')" class="bg-gray-300 text-slate-400 cursor-not-allowed font-bold py-3 px-6 rounded-xl transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center">
+                    2. Concluir Limpeza e Liberar OS
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Painel de Resumo Estático (Oculto por padrão, visível após salvar) -->
+    <div id="checklist-summary-container" class="hidden p-6 bg-slate-50/50">
+        <div class="flex justify-between items-center mb-4">
+            <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center">
+                <i class="fa-solid fa-circle-check text-emerald-600 mr-2 text-sm"></i> Resumo do Checklist Gravado (Leitura)
+            </h4>
+            <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Laudo Salvo</span>
+        </div>
+        <div id="checklist-summary-list" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <!-- Injetado via JS -->
+        </div>
+    </div>
+</div>
+
+                <!-- CARDS COMPONENTES -->
+                <div id="component-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-32">
+                    <!-- Gerado via JS -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL SERVIÇO ESPECIAL -->
+    <div id="modalSpecial" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center hidden">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border-t-8 border-turbo-teal">
+            <div class="px-8 py-6 border-b flex justify-between items-center bg-slate-50">
+                <h3 class="font-black text-slate-800 uppercase text-lg tracking-tighter">Adicionar Serviço Especial</h3>
+                <button onclick="closeModal('modalSpecial')" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+            </div>
+            <div class="p-8 space-y-6">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Nome do Item / Processo</label>
+                    <input type="text" id="special-item-name" oninput="validateSpecialModal()" placeholder="EX: CARCAÇA EXTRA..." class="w-full bg-slate-100 border-2 border-transparent focus:border-turbo-teal rounded-2xl px-5 py-3 text-sm font-bold outline-none transition-all">
+                </div>
+
+                <!-- NOVO: Checklist Dinâmico no Modal -->
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Checklist Customizado</label>
+                    <div id="dynamic-checklist-container" class="space-y-2 max-h-40 overflow-y-auto pr-2">
+                        <div class="flex items-center space-x-2">
+                            <input type="text" placeholder="Ex: Lavagem Química" class="special-checklist-input flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-turbo-teal">
+                            <button onclick="addChecklistItemLine()" class="text-turbo-teal hover:text-teal-700 p-2"><i class="fa-solid fa-circle-plus text-xl"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Tipo de Peça</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- PEÇA PADRÃO -->
+                        <label for="radio-padrao" id="label-padrao" class="flex items-center p-4 border-2 border-turbo-teal bg-teal-50 rounded-2xl cursor-pointer transition-all">
+                            <input type="radio" id="radio-padrao" name="special-type" value="PADRAO" checked class="hidden" onchange="toggleRadioStyle()">
+                            <i class="fa-solid fa-circle-check mr-2"></i>
+                            <span class="text-[10px] font-black uppercase tracking-tighter">Peça Padrão</span>
+                        </label>
+                        <!-- RETRABALHO -->
+                        <label for="radio-retrabalho" id="label-retrabalho" class="flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer transition-all text-slate-400">
+                            <input type="radio" id="radio-retrabalho" name="special-type" value="RETRABALHO" class="hidden" onchange="toggleRadioStyle()">
+                            <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                            <span class="text-[10px] font-black uppercase tracking-tighter">Retrabalho</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex space-x-3 pt-6 border-t">
+                    <button onclick="closeModal('modalSpecial')" class="flex-1 bg-slate-100 text-slate-400 font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-slate-200">Cancelar</button>
+                    <button id="btn-add-special" disabled onclick="addSpecialCard()" class="flex-[2] bg-turbo-teal/40 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest cursor-not-allowed shadow-lg transition-all">Adicionar Card</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- MODAL DE HISTÓRICO COMPLETO -->
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-[110]">
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+            <div class="flex justify-between items-center border-b pb-4 mb-4 sticky top-0 bg-white z-10">
+                <h3 class="text-xl font-black text-turbo-teal uppercase tracking-tighter">Histórico da OS</h3>
+                <button onclick="closeModal('details-modal')" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 text-sm border-b pb-4 mb-4">
+                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Identificação</p><p id="detail-business-id" class="text-lg font-black text-slate-800">--</p></div>
+                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Modelo</p><p id="detail-model" class="text-slate-800 font-bold">--</p></div>
+            </div>
+
+            <div class="space-y-4 mb-6">
+                <div>
+                    <p class="text-slate-500 font-medium uppercase text-[10px] mb-1">Itens Adicionais (Checklist)</p>
+                    <ul id="detail-maintenance-extras" class="text-xs list-disc list-inside bg-slate-50 p-3 rounded-lg text-slate-800"></ul>
+                </div>
+            </div>
+
+            <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 text-center border-t pt-4">Linha do Tempo de Produção</h4>
+            <div id="timeline-container" class="space-y-4 border-l-2 border-slate-200 ml-2 pl-4">
+                <!-- Histórico injetado aqui -->
+            </div>
+        </div>
+    </div>
+
+<script>
+        // 1. CONFIGURAÇÕES E CONEXÕES
+        const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const API_QUEUE = 'https://webhook.mareflow.com.br/webhook/production/disassembly-queue';
+        const API_ACTION = 'https://webhook.mareflow.com.br/webhook/production/disassembly-action';
+        const API_ROUTING = 'https://webhook.mareflow.com.br/webhook/production/component-routing';
+        const USER_ID = '8ab0d7ed-055c-4480-a1af-eb0b08894682';
+
+        let currentSelection = null;
+        let queueData = [];
+        let specialItemsList = [];
+
+        // 2. BANCO DE DADOS DE ITENS (SINCRO TOTAL COM ANÁLISE TÉCNICA)
+        const ANALYSIS_ITEMS = {
+            'tab1': ['Travas CCO', 'Travas CT', 'Parafuso CT Flangeado', 'Parafuso CCO Flangeado', 'Cano Retorno Parafusos', 'Adaptador Lubrificação', 'Nipel de Lubrificação', 'Cano Lubrificação com Nipel', 'Atuador Pressão', 'Atuador Vácuo', 'Atuador Vácuo Eletrônico', 'Atuador Eletrônico com Haste', 'Suporte Atuador Eletrônico', 'Calço Atuador', 'Chapa de Proteção Atuador', 'Parafusos Suporte Atuador', 'Parafusos Chapa Proteção', 'Mangueira na CCO', 'Prisioneiro Saída', 'Prisioneiro Pé Mesa CT', 'Prisioneiro CCE', 'Parafuso CCE', 'Prisioneiro CCO', 'Prisioneiro Especial Longo', 'Saída de Escape', 'Flange Saída CT', 'Chapa de Proteção CT', 'Freio Motor', 'Chapa de Proteção Saída', 'Nipel Fixo na CCO', 'Nipel Roscado na CCO', 'Nipel com Parafuso OCO', 'Olhal', 'Parafuso OCO', 'Coletor', 'Cinta CT CCE', 'Cinta CCO', 'Cinta Saída', 'Flange Pé Mesa CT', 'Cano Admissão CCO', 'Cano Admissão Motor', 'Cano de Água', 'Valvula Prioritária', 'Valvula Solenóide', 'Sonda Temp Pressão', 'Sensor PVF', 'Bocal Plástico Biturbo', 'Tampão CT', 'Arruela Plástica Biturbo', 'Bocal Alumínio Biturbo', 'Luva Borracha Biturbo', 'Cano Ligação Alumínio', 'Capa Alumínio Biturbo', 'Peça Alumínio com Mola', 'Juntas', 'Almofada Amianto Saída', 'Mangueira Atuador', 'Conexão T', 'Defletor Admissão com Trava', 'Abraçadeiras', 'Capa Protetiva Alumínio', 'Nipel de Retorno', 'Mangueira de Retorno', 'Suporte CT', 'Anel Cano Retorno', 'Parafuso União Biturbo', 'Valvula Pressão Partida', 'Oring', 'Valvula Sensor Partida', 'Mangueira Bocal Alumínio'],
+            'tab2': ['Mancal Radial', 'Mancal Encosto', 'Flange', 'Colar', 'Espaçador', 'Calço Arruela', 'Defletor de Óleo', 'Protetor Térmico', 'Travas de Mancal CCE', 'Trava Aranha Mancal', 'Trava de Flange', 'Calço de Altura no Rotor', 'Porca do Eixo', 'Almofada Vedação Eixo', 'Almofada Vedação Caracol', 'Arruela Metálica Vedação', 'Geometria Variável TGV', 'Flange da TGV', 'Viton', 'Aneis Vedação Flange TGV', 'Anel Assentamento Valvula Biturbo'],
+            'tab3': ['Trinca Base Face ou Gases', 'Quebra Base Face', 'Espessura da Base Minima 9mm', 'Embuchamento da CT', 'Desgaste Saida Escape Flangeada', 'Desgaste Face Encaixe CCE', 'Trinca Face Assentamento CCE', 'Trinca Parede Lateral Protetor', 'Trinca ou Quebra da Voluta', 'Borboleta ou Moeda Folga', 'Bucha Guia Borboleta', 'Braco Wastegate', 'Pino de Centro', 'Assentamento Borboleta Moeda', 'Coletor Anexo', 'Plaina Coletor Uniao Biturbo', 'Empenamento Faces Alojamento', 'Necessita Gabarito Usinagem', 'Tipo de Solda']
+        };
+
+        const MASTER_COMPONENTS = [
+            {title: 'CCO', items: ["Jateamento", "Queima", "Química", "Tamboreamento", "Lavagem Diesel"]},
+            {title: 'CCE', items: ["Jateamento", "Queima", "Química", "Tamboreamento", "Lavagem Diesel"]},
+            {title: 'CT', items: ["Jateamento", "Queima", "Química", "Tamboreamento", "Lavagem Diesel"]},
+            {title: 'EIXO', items: ["Jateamento", "Queima", "Química", "Tamboreamento", "Lavagem Diesel"]},
+            {title: 'ROTOR', items: ["Jateamento", "Queima", "Química", "Tamboreamento", "Lavagem Diesel"]},
+            {title: 'REPAROS', items: ["Jateamento", "Queima", "Química", "Tamboreamento", "Lavagem Diesel"]}
+        ];
+
+        // 3. INICIALIZAÇÃO
+        document.addEventListener('DOMContentLoaded', loadDisassemblyQueue);
+
+       async function loadDisassemblyQueue() {
+            const listContainer = document.getElementById('os-list');
+            listContainer.innerHTML = '<div class="p-8 text-center text-slate-400 text-xs italic animate-pulse">Carregando fila...</div>';
+            try {
+                // 🔄 Busca direto do Supabase (sem dependência de webhook externo)
+                // Aceita OSs com status "Em Produção" (vindo da Triagem) OU "Aguardando Desmontagem OS"
+                const { data: orders, error } = await supabaseClient
+                    .from('service_orders')
+                    .select('*')
+                    .in('status', ['Em Produção', 'Aguardando Desmontagem OS'])
+                    .eq('is_blocked', false)
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+                
+                let rawQueue = orders || [];
+
+                // Filtro Inteligente: Remove OSs onde todas as peças já foram enviadas para fora da Desmontagem
+                if (rawQueue.length > 0) {
+                    const osIds = rawQueue.map(os => os.id);
+                    
+                    const { data: trackings, trackError } = await supabaseClient
+                        .from('component_tracking')
+                        .select('*')
+                        .in('service_order_id', osIds);
+                        
+                    if (!trackError && trackings) {
+                        rawQueue = rawQueue.filter(os => {
+                            const osTracking = trackings.filter(t => t.service_order_id === os.id);
+                            const componentsToCheck = MASTER_COMPONENTS.map(c => c.title);
+                            
+                            // Se ainda houver alguma peça cujo setor atual NÃO seja pós-desmontagem, mantém na fila
+                            const hasPendingPiece = componentsToCheck.some(compName => {
+                                const p = osTracking.find(t => (t.component_name || t.component || '').toUpperCase() === compName.toUpperCase());
+                                const stage = p ? (p.target_sector || p.current_stage || p.stage || '').toUpperCase().trim() : '';
+                                const postSectors = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'MONTAGEM', 'BALANCEAMENTO', 'BANCADA DE USINAGEM'];
+                                return !postSectors.includes(stage);
+                            });
+
+                            // Pré-carrega o tracking para o clique ficar instantâneo
+                            os.tracking = osTracking;
+
+                            return hasPendingPiece;
+                        });
+                    }
+                }
+
+                queueData = rawQueue;
+                listContainer.innerHTML = '';
+                if (queueData.length === 0) {
+                    listContainer.innerHTML = '<div class="p-10 text-center text-slate-400 text-xs italic">Fila Vazia.</div>';
+                    return;
+                }
+                queueData.forEach(os => {
+                    const card = document.createElement('div');
+                    card.className = 'os-card p-5 cursor-pointer hover:bg-slate-50 transition border-l-4 border-transparent bg-white rounded-xl shadow-sm mb-3 mx-4 mt-4';
+                    card.id = `card-${os.id}`;
+                    card.onclick = () => selectOS(os);
+                    card.innerHTML = `<div class="flex justify-between items-start mb-2"><span class="text-sm font-black text-slate-900">${os.business_id}</span><span class="px-2 py-0.5 text-[9px] font-black uppercase rounded-md bg-blue-100 text-blue-600">${os.urgency || 'Normal'}</span></div><p class="text-xs font-bold text-slate-700 uppercase mb-1">${os.model}</p><p class="text-[10px] font-medium text-slate-500 uppercase truncate">${os.client}</p>`;
+                    listContainer.appendChild(card);
+                });
+            } catch (e) { 
+                console.error("Erro Fila:", e);
+                listContainer.innerHTML = '<div class="p-10 text-center text-red-500 text-xs italic">Erro ao carregar a fila de desmontagem.</div>';
+            }
+        }
+
+        async function selectOS(os) {
+            currentSelection = os;
+            specialItemsList = []; 
+            document.querySelectorAll('#os-list > div').forEach(c => c.classList.remove('os-selected'));
+            document.getElementById(`card-${os.id}`)?.classList.add('os-selected');
+            document.getElementById('welcome-screen').classList.add('hidden');
+            document.getElementById('os-details-header').classList.remove('hidden');
+            document.getElementById('os-details-header').classList.add('flex');
+            document.getElementById('main-workspace').classList.remove('hidden');
+
+            document.getElementById('display-os').innerText = os.business_id;
+
+            // Busca direta dos dados completos e atualizados da OS no Supabase (bypass da View)
+            try {
+                const { data: osFresh, error: osError } = await supabaseClient
+                    .from('service_orders')
+                    .select('*')
+                    .eq('id', os.id)
+                    .single();
+                
+                if (!osError && osFresh) {
+                    os.part_number = osFresh.part_number;
+                    os.trade_in_option = osFresh.trade_in_option;
+                    os.status = osFresh.status;
+                    os.identificacao_e_marcacao_code = osFresh.identificacao_e_marcacao_code;
+                    os.identificacao_e_marcacao_type = osFresh.identificacao_e_marcacao_type;
+                }
+            } catch (e) {
+                console.error("Erro ao carregar OS fresca do Supabase:", e);
+            }
+            
+            // Exibe a identificação salva no banner do topo de forma isolada
+            const displayDesc = `${os.client} | ${os.model} | P.N: ${os.part_number || '---'}` + (os.identificacao_e_marcacao_code ? ` | ${os.identificacao_e_marcacao_type || ''} [ ${os.identificacao_e_marcacao_code} ]` : '');
+            document.getElementById('display-desc').innerText = displayDesc;
+            
+
+
+            // Busca direta das peças ativas no Supabase para sincronizar em tempo real
+            try {
+                const { data: trackingData, error } = await supabaseClient
+                    .from('component_tracking')
+                    .select('*')
+                    .eq('service_order_id', os.id);
+                
+                if (!error && trackingData) {
+                    currentSelection.tracking = trackingData;
+                }
+            } catch (e) {
+                console.error("Erro ao carregar rastreio na Desmontagem:", e);
+            }
+
+            // Remove bloqueios de divergência da tela, se houver
+            const compGrid = document.getElementById('component-grid');
+            if(compGrid) compGrid.classList.remove('opacity-40', 'pointer-events-none', 'grayscale');
+
+            // Resetador do contêiner de inputs e resumo do checklist
+            const inputContainer = document.getElementById('checklist-inputs-container');
+            const summaryContainer = document.getElementById('checklist-summary-container');
+            if (inputContainer) inputContainer.classList.remove('hidden');
+            if (summaryContainer) summaryContainer.classList.add('hidden');
+
+            // Inicializa as abas de checklist limpas para que o desmontador realize uma vistoria independente
+            renderChecklists(); 
+
+            // Reseta o estado visual do Botão de Salvar Checklist
+            const btnSalvar = document.getElementById('btn-salvar-checklist');
+            if (btnSalvar) {
+                btnSalvar.disabled = false;
+                btnSalvar.className = "bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-6 rounded-xl transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center";
+                btnSalvar.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist';
+            }
+
+            // Busca do checklist salvo especificamente por esta OS na tabela isolada de Desmontagem
+            try {
+                const { data: checklistData, error } = await supabaseClient
+                    .from('checklist_desmontagem')
+                    .select('*')
+                    .eq('service_order_id', os.id);
+                
+                // Se o desmontador já preencheu e salvou anteriormente, exibe apenas a visualização de leitura estática
+                if (!error && checklistData && checklistData.length > 0) {
+                    if (inputContainer) inputContainer.classList.add('hidden');
+                    if (summaryContainer) {
+                        summaryContainer.classList.remove('hidden');
+                        renderChecklistSummary(checklistData);
+                    }
+                }
+            } catch (e) { console.error("Erro ao conferir checklist na seleção:", e); }
+
+            renderComponentGrid(); 
+        }
+
+        // 4. RENDERIZAÇÃO
+        function renderChecklists() {
+            Object.keys(ANALYSIS_ITEMS).forEach(tabId => {
+                const container = document.getElementById(tabId);
+                if (!container) return;
+                let html = '';
+                if (tabId === 'tab3') {
+                    html += `<div class="p-3 mb-3 border border-red-200 rounded-xl bg-red-50/50 flex items-center space-x-3"><input type="checkbox" id="condenar-caracol-global" onchange="condenarTudoCaracol(this)" class="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500"><label for="condenar-caracol-global" class="text-[10px] font-black text-red-700 uppercase tracking-tighter">CONDENAR CARACOL COMPLETO (TROCAR)</label></div>`;
+                }
+                html += ANALYSIS_ITEMS[tabId].map(item => {
+                    const cleanName = item.replace(/\s+/g, '_').toLowerCase();
+                    return `
+                    <div class="grid grid-cols-12 gap-3 items-center bg-white p-2 border-b border-slate-50 hover:bg-slate-50 transition">
+                        <div class="col-span-5 text-[10px] font-bold text-slate-600 uppercase tracking-tighter ml-2">${item}</div>
+                        <div class="col-span-3">
+                            <select id="status-${cleanName}" data-item-name="${item}" onchange="updateSelectColor(this)" class="status-select-disassembly w-full bg-slate-400 text-white text-[9px] font-black py-2 rounded-lg uppercase text-center outline-none">
+                                <option value="NÃO INFORMADO">NÃO INFORMADO</option>
+                                <option value="PEÇA OK">PEÇA OK</option>
+                                <option value="RECONDICIONAR">RECONDICIONAR</option>
+                                <option value="TROCAR">TROCAR</option>
+                            </select>
+                        </div>
+                        <div class="col-span-4"><input type="text" id="obs-${cleanName}" placeholder="Obs..." class="w-full bg-slate-100 text-slate-500 text-[10px] rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-turbo-teal border border-transparent"></div>
+                    </div>`;
+                }).join('');
+                container.innerHTML = html;
+            });
+            // Re-bind do clique das abas
+            document.querySelectorAll('.tab-button-disassembly').forEach(btn => {
+                btn.onclick = () => switchTab(btn, btn.dataset.tab);
+            });
+        }
+
+        function renderComponentGrid() {
+            const grid = document.getElementById('component-grid');
+            if (!grid || !currentSelection) return;
+            const allToRender = [...MASTER_COMPONENTS, ...specialItemsList];
+            
+            let todasPecasEnviadas = true;
+
+            grid.innerHTML = allToRender.map(comp => {
+                // Busca o rastreio da peça
+                const trk = (currentSelection.tracking || []).find(t => 
+                    (t.component_name || t.component || '').toUpperCase() === comp.title.toUpperCase()
+                );
+                
+                // --- LÓGICA DE BLOQUEIO CORRIGIDA ---
+                // 1. Verifica se a peça já foi enviada para outro setor
+                const stageAtual = trk ? (trk.current_stage || trk.stage || '').toUpperCase() : '';
+                const setoresPosteriores = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'MONTAGEM', 'BALANCEAMENTO', 'BANCADA DE USINAGEM'];
+                const isSent = !!trk && setoresPosteriores.includes(stageAtual);
+
+                // 2. Verifica se a peça está aguardando compra, baseado no status do rastreador
+                const statusPeca = trk ? (trk.status || '').toUpperCase().trim() : 'AGUARDANDO';
+                const isPendingOrder = (statusPeca === 'AGUARDANDO_COMPRA');
+                
+                // 3. A peça é bloqueada se já foi enviada OU se está aguardando compra
+                const isBlocked = isSent || isPendingOrder;
+                const cardStyle = isBlocked ? 'opacity-40 grayscale pointer-events-none' : '';
+                
+                // Atualiza o contador de peças pendentes
+                if (!isSent && !isPendingOrder) {
+                    todasPecasEnviadas = false; 
+                }
+
+                // --- CONFIGURAÇÃO DAS BADGES ---
+                let badgeText = 'Desmontagem';
+                let badgeColor = 'bg-turbo-teal';
+
+                if (isPendingOrder) {
+                    badgeText = 'AGUARDANDO COMPRA';
+                    badgeColor = 'bg-amber-500 animate-pulse';
+                } else if (comp.isSpecial) {
+                    if (comp.type === 'RETRABALHO') {
+                        badgeText = 'RETRABALHO';
+                        badgeColor = 'bg-red-600';
+                    } else {
+                        badgeText = 'ESPECIAL';
+                        badgeColor = 'bg-turbo-teal';
+                    }
+                } else if (isSent) {
+                    const destino = stageAtual
+                                     .replace('BANCADA DE USINAGEM', 'BANCADA')
+                                     .replace('TRIAGEM DE PRODUÇÃO', 'TRIAGEM');
+                    badgeText = `EM ${destino}`;
+                    badgeColor = 'bg-slate-500';
+                }
+
+                const trackingData = trk && trk.tracking_data ? (typeof trk.tracking_data === 'string' ? JSON.parse(trk.tracking_data) : trk.tracking_data) : [];
+
+                const itemHtml = comp.items.map(item => {
+                    const cleanItemName = item.replace(/\s+/g, '_').toLowerCase();
+                    const savedLog = Array.isArray(trackingData) ? trackingData.find(log => log.service === item) : null;
+                    
+                    const timerKey = `timer_${currentSelection.id}_${comp.title}_${item}`;
+                    const isActive = localStorage.getItem(timerKey) !== null;
+
+                    let timeBadgeHtml = "";
+                    let actionBtnHtml = "";
+
+                    if (savedLog) {
+                        const min = Math.floor(savedLog.duration_seconds / 60);
+                        const sec = savedLog.duration_seconds % 60;
+                        timeBadgeHtml = `<span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-black uppercase border border-emerald-100"><i class="fa-solid fa-clock mr-1"></i> ${min}:${sec.toString().padStart(2, '0')} min</span>`;
+                    } else if (isActive) {
+                        timeBadgeHtml = `<span id="badge-${comp.title}-${cleanItemName}" class="text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded font-black animate-pulse border border-orange-100">00:00</span>`;
+                        actionBtnHtml = `<button type="button" onclick="stopServiceTimer('${comp.title}', '${item}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider">Parar</button>`;
+                    } else {
+                        actionBtnHtml = `<button type="button" onclick="startServiceTimer('${comp.title}', '${item}')" class="text-xs bg-turbo-teal hover:bg-teal-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-play mr-1"></i> Iniciar</button>`;
+                    }
+
+                    return `
+                        <div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 px-2 rounded-lg transition">
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" ${isBlocked ? 'disabled' : ''} ${savedLog ? 'checked' : ''} class="w-5 h-5 rounded border-slate-300 text-turbo-teal focus:ring-turbo-teal" data-service="${item}">
+                                <span class="text-xs font-bold text-slate-600">${item} ${isPendingOrder ? '<span class="text-[9px] font-black text-amber-600 italic">(EM COMPRA)</span>' : ''}</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                ${timeBadgeHtml}
+                                ${!isBlocked ? actionBtnHtml : ''}
+                            </div>
+                        </div>`;
+                }).join('');
+
+                return `<div class="bg-white rounded-3xl shadow-sm border-2 border-slate-100 flex flex-col p-6 ${cardStyle}" id="card-comp-${comp.title.replace(/\s+/g, '-')}"><div class="flex justify-between items-center mb-6"><h4 class="text-2xl font-black text-slate-800 tracking-tighter uppercase">${comp.title}</h4><span class="text-[10px] font-black uppercase px-4 py-1.5 ${badgeColor} text-white rounded-full tracking-widest">${badgeText}</span></div><div class="flex-1 flex flex-col"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 italic">EXCUTAR PROCESSOS:</p><div class="space-y-1 mb-8">${itemHtml}</div><hr class="border-slate-100 mb-6"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">ENCAMINHAR PARA:</p><div class="grid grid-cols-2 gap-2"><button onclick="sendPieceToSector('${comp.title}', 'RETIFICA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Retífica</button><button onclick="sendPieceToSector('${comp.title}', 'SOLDA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Solda</button><button onclick="sendPieceToSector('${comp.title}', 'METROLOGIA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Metrologia</button><button onclick="sendPieceToSector('${comp.title}', 'BANCADA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Bancada</button>${comp.title.toUpperCase() === 'EIXO' ? `
+                                <button onclick="sendPieceToSector('${comp.title}', 'BALANCEAMENTO', this)" class="col-span-2 py-3 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black uppercase rounded-lg transition shadow-md">Enviar p/ Balanceamento Solo</button>
+                            ` : ''}
+
+                            <button onclick="sendPieceToSector('${comp.title}', 'MONTAGEM', this)" class="col-span-2 py-4 bg-emerald-600 text-white text-[11px] font-black uppercase rounded-xl transition hover:bg-emerald-700 shadow-lg shadow-emerald-100 mt-2">Pronto p/ Montagem</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            const btnConcluir = document.getElementById('btn-concluir-desmontagem');
+            if (btnConcluir) {
+                if (todasPecasEnviadas) {
+                    btnConcluir.disabled = false;
+                    btnConcluir.className = "bg-turbo-orange hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center cursor-pointer";
+                    
+                    // Remove a OS da barra lateral esquerda, evitando OS fantasma
+                    const sidebarCard = document.getElementById(`card-${currentSelection.id}`);
+                    if (sidebarCard) sidebarCard.style.display = 'none';
+                } else {
+                    btnConcluir.disabled = true;
+                    btnConcluir.className = "bg-gray-300 text-slate-400 cursor-not-allowed font-bold py-3 px-6 rounded-xl transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center";
+                }
+            }
+        }
+
+        // 5. AÇÕES E MODAIS
+function openSpecialModal() { 
+            document.getElementById('special-item-name').value = ''; 
+            // Reseta o container para apenas uma linha vazia
+            document.getElementById('dynamic-checklist-container').innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <input type="text" placeholder="Ex: Lavagem Química" class="special-checklist-input flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-turbo-teal">
+                    <button onclick="addChecklistItemLine()" class="text-turbo-teal hover:text-teal-700 p-2"><i class="fa-solid fa-circle-plus text-xl"></i></button>
+                </div>`;
+            validateSpecialModal(); 
+            document.getElementById('modalSpecial').classList.remove('hidden'); 
+        }
+
+        function addChecklistItemLine() {
+            const container = document.getElementById('dynamic-checklist-container');
+            const div = document.createElement('div');
+            div.className = 'flex items-center space-x-2';
+            div.innerHTML = `
+                <input type="text" placeholder="Novo item..." class="special-checklist-input flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-turbo-teal">
+                <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 p-2"><i class="fa-solid fa-circle-minus text-xl"></i></button>
+            `;
+            container.appendChild(div);
+        }
+
+        function validateSpecialModal() {
+            const name = document.getElementById('special-item-name').value;
+            const btn = document.getElementById('btn-add-special');
+            if(name.length >= 3) { 
+                btn.disabled = false; 
+                btn.className = 'flex-[2] bg-turbo-teal text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest shadow-lg cursor-pointer'; 
+            } else { 
+                btn.disabled = true; 
+                btn.className = 'flex-[2] bg-turbo-teal/40 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest cursor-not-allowed'; 
+            }
+        }
+		
+		function toggleRadioStyle() {
+            const selectedType = document.querySelector('input[name="special-type"]:checked').value;
+            const isRework = selectedType === 'RETRABALHO';
+            
+            const lblPadrao = document.getElementById('label-padrao');
+            const lblRetrabalho = document.getElementById('label-retrabalho');
+
+            if (isRework) {
+                // Estilo Retrabalho (Vermelho)
+                lblRetrabalho.className = 'flex items-center p-4 border-2 rounded-2xl cursor-pointer bg-red-50 border-red-500 text-red-600 transition-all';
+                lblPadrao.className = 'flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer text-slate-400 transition-all';
+            } else {
+                // Estilo Padrão (Teal)
+                lblPadrao.className = 'flex items-center p-4 border-2 rounded-2xl cursor-pointer bg-teal-50 border-turbo-teal text-turbo-teal transition-all';
+                lblRetrabalho.className = 'flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer text-slate-400 transition-all';
+            }
+        }
+
+        function addSpecialCard() {
+            const name = document.getElementById('special-item-name').value.toUpperCase();
+            const type = document.querySelector('input[name="special-type"]:checked').value;
+            
+            // Coleta os itens do checklist dinâmico
+            const inputs = document.querySelectorAll('.special-checklist-input');
+            const customItems = Array.from(inputs)
+                .map(input => input.value.trim())
+                .filter(val => val !== '');
+
+            // Se o cara não digitou nada no checklist, usa um padrão ou avisa
+            if (customItems.length === 0) customItems.push("Serviço Geral");
+
+            specialItemsList.push({ 
+                title: name, 
+                type: type, 
+                items: customItems, 
+                isSpecial: true 
+            });
+
+            closeModal('modalSpecial');
+            renderComponentGrid();
+        }
+
+        async function sendPieceToSector(pieceName, sector, btnElement) {
+            const cardId = 'card-comp-' + pieceName.replace(/\s+/g, '-');
+            const card = document.getElementById(cardId);
+            const services = Array.from(card.querySelectorAll('input:checked')).map(c => c.dataset.service);
+            
+            const originalText = btnElement.innerHTML;
+            btnElement.disabled = true;
+            btnElement.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i>`;
+
+            try {
+                const { data: existing } = await supabaseClient
+                    .from('component_tracking')
+                    .select('id, executed_services')
+                    .eq('service_order_id', currentSelection.id)
+                    .eq('component_name', pieceName.toUpperCase().trim())
+                    .maybeSingle();
+
+                const prevServices = existing?.executed_services || [];
+                const mergedServices = [...new Set([...prevServices, ...services])];
+
+                const { error: upsertErr } = await supabaseClient
+                    .from('component_tracking')
+                    .upsert({
+                        service_order_id: currentSelection.id,
+                        component_name: pieceName.toUpperCase().trim(),
+                        current_stage: sector.toUpperCase(),
+                        executed_services: mergedServices,
+                        last_update: new Date().toISOString()
+                    }, { onConflict: 'service_order_id,component_name' });
+
+                if (upsertErr) throw upsertErr;
+
+                const { data: sessionData } = await supabaseClient.auth.getSession();
+                const userId = sessionData?.session?.user?.id || null;
+                await supabaseClient.from('history_events').insert({
+                    service_order_id: currentSelection.id,
+                    user_id: userId,
+                    action: 'ROTEAMENTO DESMONTAGEM',
+                    description: `Peça "${pieceName}" encaminhada para ${sector}. Serviços: ${mergedServices.join(', ')}`
+                });
+
+                if (true) { // keeping response.ok block working
+                    // ATUALIZAÇÃO DE ESTADO EM TEMPO REAL:
+                    // Adiciona ou atualiza a peça no rastreio da OS na memória do navegador
+                    if (!currentSelection.tracking) currentSelection.tracking = [];
+                    
+                    let trk = currentSelection.tracking.find(t => 
+                        (t.component_name || t.component || '').toUpperCase() === pieceName.toUpperCase()
+                    );
+                    if (trk) {
+                        trk.current_stage = sector;
+                        trk.stage = sector;
+                    } else {
+                        currentSelection.tracking.push({ 
+                            component_name: pieceName, 
+                            component: pieceName, 
+                            current_stage: sector, 
+                            stage: sector 
+                        });
+                    }
+
+                    // Redesenha o grid de componentes para aplicar o novo badge e as cores
+                    renderComponentGrid();
+                    
+                    console.log(`${pieceName} movido para ${sector}`);
+                } else {
+                    throw new Error("Erro no servidor");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Falha ao rotear peça. Tente novamente.");
+                btnElement.disabled = false;
+                btnElement.innerHTML = originalText;
+            }
+        }
+
+        
+
+        // FUNÇÃO PARA PERSISTIR TODAS AS ABAS DO CHECKLIST EXCLUSIVO DA DESMONTAGEM (UPSERT)
+        // FUNÇÃO PARA RENDERIZAR O RESUMO DO LAUDO DE FORMA ESTÁTICA (LEITURA)
+        function renderChecklistSummary(checklistData) {
+            const list = document.getElementById('checklist-summary-list');
+            if (!list) return;
+            
+            if (!checklistData || checklistData.length === 0) {
+                list.innerHTML = `<p class="text-slate-400 italic font-medium">Nenhum detalhe técnico foi respondido no checklist.</p>`;
+                return;
+            }
+
+            list.innerHTML = checklistData.map(item => {
+                let badgeColor = "bg-slate-100 text-slate-700";
+                if (item.status === 'PEÇA OK') badgeColor = "bg-emerald-500 text-white";
+                if (item.status === 'RECONDICIONAR') badgeColor = "bg-yellow-500 text-white";
+                if (item.status === 'TROCAR') badgeColor = "bg-red-600 text-white";
+
+                return `
+                    <div class="flex items-center justify-between p-3.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                        <span class="font-extrabold text-slate-700 uppercase text-[11px] tracking-tight">${item.item_name}</span>
+                        <div class="flex items-center space-x-3">
+                            <span class="px-3 py-1 rounded-lg text-[9px] font-black uppercase ${badgeColor} tracking-wider">${item.status}</span>
+                            ${item.observation ? `<span class="text-[10px] text-slate-400 italic max-w-[150px] truncate font-medium">Obs: "${item.observation}"</span>` : ''}
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        // FUNÇÃO PARA PERSISTIR O CHECKLIST DA DESMONTAGEM COM AUDITORIA DE DIVERGÊNCIA E SENHA
+        async function saveChecklistDisassembly() {
+            if (!currentSelection) return false;
+            
+            const btn = document.getElementById('btn-salvar-checklist');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Verificando Divergências...`;
+
+            const rows = [];
+            document.querySelectorAll('.status-select-disassembly').forEach(select => {
+                const itemName = select.dataset.itemName;
+                const cleanName = itemName.replace(/\s+/g, '_').toLowerCase();
+                const obsInput = document.getElementById(`obs-${cleanName}`);
+                const statusValue = select.value;
+                
+                if (statusValue !== 'NÃO INFORMADO') {
+                    rows.push({
+                        service_order_id: currentSelection.id,
+                        item_name: itemName.toUpperCase().trim(),
+                        status: statusValue,
+                        observation: obsInput ? obsInput.value.trim() : ''
+                    });
+                }
+            });
+
+            if (rows.length === 0) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist';
+                alert('Preencha ao menos um item do checklist antes de salvar.');
+                return false;
+            }
+
+            try {
+                // 1. Busca os vereditos originais da Análise Técnica no Supabase para comparação
+                const { data: baseline, error: baselineError } = await supabaseClient
+                    .from('checklist_analysis_general')
+                    .select('item_name, status')
+                    .eq('service_order_id', currentSelection.id);
+
+                if (baselineError) throw baselineError;
+
+                // 2. Compara os valores para detectar divergências (LÓGICA CORRIGIDA)
+                let hasDivergence = false;
+                const divergentItems = [];
+
+                rows.forEach(item => {
+                    // Busca se a peça foi avaliada na Análise Técnica
+                    const baseItem = baseline && baseline.find(b => b.item_name.toUpperCase().trim() === item.item_name.toUpperCase().trim());
+                    
+                    // Se não achou na Análise, o status base assumido é 'NÃO INFORMADO'
+                    const baseStatus = baseItem ? baseItem.status.toUpperCase().trim() : 'NÃO INFORMADO';
+                    const newStatus = item.status.toUpperCase().trim();
+
+                    // Se o status da Desmontagem for diferente da Análise Técnica
+                    if (baseStatus !== newStatus) {
+                        // Ignora divergência apenas se a Análise não avaliou e a Desmontagem marcou como "PEÇA OK" (pois não gera custo extra/imprevisto)
+                        if (baseStatus === 'NÃO INFORMADO' && newStatus === 'PEÇA OK') {
+                            // Não faz nada, é aceitável
+                        } else {
+                            // Qualquer outra diferença acusa divergência (Ex: Análise não viu e Desmontador quer trocar, ou Análise deu OK e Desmontador quer recondicionar)
+                            hasDivergence = true;
+                            divergentItems.push(`${item.item_name} (Análise: ${baseStatus} | Desmontagem: ${newStatus})`);
+                        }
+                    }
+                });
+
+                const executeSave = async (isAuthorized = false, supervisorName = "") => {
+                    const { error } = await supabaseClient
+                        .from('checklist_desmontagem')
+                        .upsert(rows, { onConflict: 'service_order_id,item_name' });
+                    
+                    if (error) throw error;
+
+                    if (isAuthorized) {
+                        // Grava log detalhado de divergência no histórico geral da OS
+                        const detailsMsg = `Supervisor ${supervisorName} autorizou divergências na Desmontagem: ${divergentItems.join(', ')}`;
+                        await supabaseClient
+                            .from('history_events')
+                            .insert({
+                                service_order_id: currentSelection.id,
+                                action: 'Divergência de Checklist Autorizada',
+                                details: detailsMsg,
+                                timestamp: new Date().toISOString()
+                            });
+                    } else {
+                        // Grava o log padrão de sucesso de checklist de desmontagem finalizado na timeline
+                        await supabaseClient
+                            .from('history_events')
+                            .insert({
+                                service_order_id: currentSelection.id,
+                                action: 'Checklist de Desmontagem Salvo',
+                                details: `Checklist de desmontagem preenchido com sucesso e integrado ao laudo técnico.`,
+                                timestamp: new Date().toISOString()
+                            });
+                    }
+
+                    const inputContainer = document.getElementById('checklist-inputs-container');
+                    const summaryContainer = document.getElementById('checklist-summary-container');
+                    if (inputContainer) inputContainer.classList.add('hidden');
+                    if (summaryContainer) {
+                        summaryContainer.classList.remove('hidden');
+                        renderChecklistSummary(rows);
+                    }
+
+                    document.getElementById('successMsg').innerText = "Checklist da Desmontagem salvo com sucesso!";
+                    document.getElementById('modalSuccess').classList.remove('hidden');
+                    return true;
+                };
+
+                // 3. Se houver divergência técnica, aciona a trava por senha
+                if (hasDivergence) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist';
+
+                    // Abre o modal de senha e configura o aviso
+                    const modal = document.getElementById('modal-supervisor');
+                    document.getElementById('modal-supervisor-desc').innerHTML = `<b>Divergências detectadas:</b><br>${divergentItems.join('<br>')}<br><br>Digite a senha do líder para autorizar o salvamento.`;
+                    document.getElementById('input-supervisor-password').value = '';
+                    modal.style.display = 'flex';
+
+                    // Configura o evento do botão de autorização (Validando senha + observação obrigatória)
+                    document.getElementById('btn-confirm-supervisor').onclick = async () => {
+                        const pass = document.getElementById('input-supervisor-password').value.trim();
+                        const obs = document.getElementById('input-supervisor-observation').value.trim();
+
+                        if (!obs) {
+                            alert("❌ Digite uma observação/justificativa para autorizar a divergência.");
+                            return;
+                        }
+
+                        if (pass === 'TURBOSUL2026') {
+                            closeSupervisorModal(true); // <-- Avisa que foi autorizado para não bloquear
+                            
+                            // Garante forçadamente que a tela dos cards está livre
+                            const compGrid = document.getElementById('component-grid');
+                            if(compGrid) compGrid.classList.remove('opacity-40', 'pointer-events-none', 'grayscale');
+
+                            btn.disabled = true;
+                            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Gravando...`;
+                            await executeSave(true, `Líder Desmontagem (Obs: "${obs}")`);
+                        } else {
+                            alert("❌ Senha incorreta! Autorização negada.");
+                        }
+                    };
+                    return false;
+                } else {
+                    // Sem divergência, salva direto
+                    await executeSave(false);
+                    return true;
+                }
+
+            } catch (e) {
+                console.error(e);
+                alert("Falha de conexão ou erro ao processar o salvamento.");
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist';
+                return false;
+            }
+        }
+
+        async function handleAction(type) {
+            const btn = type === 'START' ? document.getElementById('btn-start') : document.querySelector('.bg-turbo-orange');
+            btn.disabled = true;
+            
+            if (type === 'FINISH') {
+                btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Salvando Checklist...`;
+                const saved = await saveChecklistDisassembly();
+                if (!saved) {
+                    alert("Erro ao salvar checklist. A liberação foi cancelada.");
+                    btn.disabled = false;
+                    btn.innerText = "Concluir Limpeza e Liberar OS";
+                    return;
+                }
+            }
+
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Processando...`;
+
+            try {
+                let targetStatus = type === 'START' ? 'Em Desmontagem' : 'Aguardando Orçamento';
+                const { error } = await supabaseClient
+                    .from('service_orders')
+                    .update({ status: targetStatus })
+                    .eq('id', currentSelection.id);
+
+                if (!error) {
+                    await supabaseClient.from('history_events').insert({
+                        service_order_id: currentSelection.id,
+                        user_id: USER_ID,
+                        action: type === 'START' ? 'INÍCIO DESMONTAGEM' : 'FIM DESMONTAGEM',
+                        description: type === 'START' ? 'Desmontagem iniciada.' : 'Desmontagem concluída, OS enviada para orçamento.'
+                    });
+                    document.getElementById('modalSuccess').classList.remove('hidden'); 
+                    if(type === 'FINISH') window.location.reload(); 
+                }
+            } catch (e) { console.error(e); }
+            finally { btn.disabled = false; btn.innerText = type === 'START' ? "Iniciar Desmontagem" : "Concluir Limpeza e Liberar OS"; }
+        }
+
+        function updateSelectColor(el) {
+            const val = el.value;
+            el.classList.remove('bg-slate-400', 'bg-emerald-500', 'bg-yellow-500', 'bg-red-600', 'text-white');
+            if (val === 'NÃO INFORMADO') el.classList.add('bg-slate-400', 'text-white');
+            else if (val === 'PEÇA OK') el.classList.add('bg-emerald-500', 'text-white');
+            else if (val === 'RECONDICIONAR') el.classList.add('bg-yellow-500', 'text-white');
+            else if (val === 'TROCAR') el.classList.add('bg-red-600', 'text-white');
+        }
+
+        function switchTab(btn, tabId) {
+            document.querySelectorAll('.tab-content-disassembly').forEach(c => c.classList.add('hidden'));
+            document.querySelectorAll('.tab-button-disassembly').forEach(b => {
+                b.classList.remove('text-turbo-teal', 'border-b-2', 'border-turbo-teal', 'font-bold');
+                b.classList.add('text-gray-500', 'font-medium');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+            btn.classList.add('text-turbo-teal', 'border-b-2', 'border-turbo-teal', 'font-bold');
+        }
+
+        function condenarTudoCaracol(check) {
+            const selects = document.getElementById('tab3').querySelectorAll('select');
+            selects.forEach(sel => { sel.value = check.checked ? 'TROCAR' : 'NÃO INFORMADO'; updateSelectColor(sel); });
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+		
+		// FUNÇÃO PARA BUSCAR E RENDERIZAR O HISTÓRICO
+        async function carregarLinhaDoTempo(osId) {
+            if (!osId) return;
+            const os = currentSelection;
+            
+            // Preenche dados básicos no modal
+            document.getElementById('detail-business-id').textContent = os.business_id;
+            document.getElementById('detail-model').textContent = os.model;
+            
+            const extras = typeof os.maintenance_extras === 'string' ? JSON.parse(os.maintenance_extras) : os.maintenance_extras;
+            document.getElementById('detail-maintenance-extras').innerHTML = formatMaintenanceExtras(extras);
+
+            const timeline = document.getElementById('timeline-container');
+            timeline.innerHTML = '<p class="text-xs text-slate-400 animate-pulse text-center">Buscando rastreio...</p>';
+            
+            document.getElementById('details-modal').classList.remove('hidden');
+            document.getElementById('details-modal').classList.add('flex');
+
+            try {
+                const { data: events, error } = await supabaseClient
+                    .from('history_events')
+                    .select('*')
+                    .eq('service_order_id', osId)
+                    .order('timestamp', { ascending: true });
+
+                if (!error && events && events.length > 0) {
+                    timeline.innerHTML = events.map(ev => `
+                        <div class="relative pb-3">
+                            <div class="absolute -left-[21px] top-1 w-3 h-3 bg-turbo-teal rounded-full border-2 border-white"></div>
+                            <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight">${ev.action}</p>
+                            <p class="text-[10px] text-slate-500 font-medium">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
+                            ${ev.details ? `<p class="text-[9px] text-slate-400 italic">"${ev.details}"</p>` : ''}
+                        </div>`).join('');
+                } else { 
+                    timeline.innerHTML = '<p class="text-xs text-slate-400 italic text-center">Nenhum evento registrado ainda.</p>'; 
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        // FORMATADOR DE ITENS ADICIONAIS
+        function formatMaintenanceExtras(extras) {
+            if (!extras || typeof extras !== 'object') return '<li class="text-slate-400">Nenhum item adicional.</li>';
+            const mapping = { actuator: 'Atuador', geometry: 'Geometria', geometryStem: 'Canote', geometryFlange: 'Flange' };
+            const items = Object.entries(extras)
+                .filter(([_, val]) => val === true)
+                .map(([key, _]) => `<li class="font-bold text-slate-700">${mapping[key] || key}</li>`);
+            return items.length > 0 ? items.join('') : '<li class="text-slate-400">Nenhum item adicional.</li>';
+        }
+		
+		// INICIA O CRONÔMETRO DE UM SERVIÇO ESPECÍFICO (SALVA INÍCIO NO LOCALSTORAGE)
+        function startServiceTimer(componentName, serviceName) {
+            if (!currentSelection) return;
+            const timerKey = `timer_${currentSelection.id}_${componentName}_${serviceName}`;
+            localStorage.setItem(timerKey, new Date().toISOString());
+            renderComponentGrid();
+        }
+
+        // PARA O CRONÔMETRO E PERSISTE O TEMPO DECORRIDO NO SUPABASE (USANDO UPSERT PARA SEGURANÇA)
+        async function stopServiceTimer(componentName, serviceName) {
+            if (!currentSelection) return;
+            const timerKey = `timer_${currentSelection.id}_${componentName}_${serviceName}`;
+            const startTimeStr = localStorage.getItem(timerKey);
+            
+            if (!startTimeStr) return;
+            localStorage.removeItem(timerKey);
+
+            const startTime = new Date(startTimeStr);
+            const endTime = new Date();
+            const durationSeconds = Math.max(1, Math.floor((endTime - startTime) / 1000));
+
+            // Busca o registro de rastreio atual para atualizar o JSONB tracking_data
+            let trackingData = [];
+            const trk = (currentSelection.tracking || []).find(t => 
+                (t.component_name || t.component || '').toUpperCase() === componentName.toUpperCase()
+            );
+
+            if (trk && trk.tracking_data) {
+                trackingData = typeof trk.tracking_data === 'string' ? JSON.parse(trk.tracking_data) : trk.tracking_data;
+            }
+
+            // Remove o log antigo desse serviço se houver
+            trackingData = trackingData.filter(log => log.service !== serviceName);
+
+            // Adiciona o novo log de cronometragem
+            trackingData.push({
+                service: serviceName,
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                duration_seconds: durationSeconds,
+                user_id: (await supabaseClient.auth.getSession()).data?.session?.user?.id || null,
+                user_name: (await supabaseClient.auth.getSession()).data?.session?.user?.user_metadata?.name || null,
+                sector: window.location.pathname.split('/').pop().replace('.html', '').toUpperCase()
+            });
+
+            // 🌟 CORREÇÃO: Usa UPSERT com chave de conflito para criar a linha caso ela ainda não exista no rastreador
+            try {
+                const { error } = await supabaseClient
+                    .from('component_tracking')
+                    .upsert({
+                        service_order_id: currentSelection.id,
+                        component_name: componentName.toUpperCase().trim(),
+                        tracking_data: trackingData,
+                        current_stage: 'DESMONTAGEM', // Estágio padrão inicial
+                        status: 'Pendente' // Status padrão inicial
+                    }, { onConflict: 'service_order_id,component_name' });
+
+                if (!error) {
+                    if (trk) {
+                        trk.tracking_data = trackingData;
+                    } else {
+                        if (!currentSelection.tracking) currentSelection.tracking = [];
+                        currentSelection.tracking.push({
+                            component_name: componentName,
+                            component: componentName,
+                            current_stage: 'DESMONTAGEM',
+                            status: 'Pendente',
+                            tracking_data: trackingData
+                        });
+                    }
+                    renderComponentGrid();
+                } else {
+                    alert("Erro ao salvar tempo de serviço no Supabase: " + error.message);
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Erro de conexão ao salvar tempo.");
+            }
+        }
+
+        
+        // FUNÇÃO DE CRONÔMETRO PARA OUTRAS ATIVIDADES (PRODUTIVIDADE EXTRA)
+        
+        async function toggleOtherActivities(sectorName) {
+            const timerKey = `timer_other_activities_start_${sectorName}`;
+            const descKey = `desc_other_activities_${sectorName}`;
+            const startTimeStr = localStorage.getItem(timerKey);
+            const btn = document.getElementById('btn-other-activities');
+
+            if (!startTimeStr) {
+                const desc = prompt("Descreva qual atividade você vai iniciar (Produtividade Extra):");
+                if (!desc) return;
+                localStorage.setItem(timerKey, new Date().toISOString());
+                localStorage.setItem(descKey, desc);
+                if(btn) {
+                    btn.classList.replace('bg-slate-500', 'bg-red-600');
+                    btn.classList.replace('hover:bg-slate-600', 'hover:bg-red-700');
+                    btn.classList.remove('shadow-slate-900');
+                    btn.classList.add('animate-pulse');
+                    btn.innerText = "Parar Atividade (00:00)";
+                }
+            } else {
+                const desc = localStorage.getItem(descKey) || "Atividade Extra";
+                localStorage.removeItem(timerKey);
+                localStorage.removeItem(descKey);
+                if(btn) {
+                    btn.classList.replace('bg-red-600', 'bg-slate-500');
+                    btn.classList.replace('hover:bg-red-700', 'hover:bg-slate-600');
+                    btn.classList.add('shadow-slate-900');
+                    btn.classList.remove('animate-pulse');
+                    btn.innerText = "Outras Atividades";
+                }
+
+                const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+                const min = Math.floor(elapsed / 60);
+                const sec = elapsed % 60;
+                const formattedTime = `${min}:${sec.toString().padStart(2, '0')} min`;
+
+                let osId = null;
+                if (typeof selectedOS !== 'undefined' && selectedOS) {
+                    osId = selectedOS.service_order_id || selectedOS.os_id || selectedOS.id;
+                }
+
+                try {
+                    const insertData = {
+                        action: `Atividade Extra: ${desc}`,
+                        details: `O operador realizou uma atividade fora do escopo no setor de ${sectorName} durante ${formattedTime}.`,
+                        timestamp: new Date().toISOString()
+                    };
+                    if (osId) insertData.service_order_id = osId;
+
+                    
+                    let res = await supabaseClient.from('history_events').insert(insertData);
+                    
+                    if (res.error) {
+                        if (res.error.code === '23502' && !osId) {
+                            console.warn("Aviso: Banco de dados exige OS para salvar no histórico.");
+                        } else if (res.error.code === '23503' && res.error.message.includes('user_id')) {
+                            // Foreign key violation for user_id! Try again without it.
+                            delete insertData.user_id;
+                            res = await supabaseClient.from('history_events').insert(insertData);
+                            if (res.error) throw res.error;
+                        } else {
+                            throw res.error;
+                        }
+                    }
+
+                    if (document.getElementById('resumo-peca-nome')) {
+                        document.getElementById('resumo-peca-nome').innerText = `Atividade Extra: ${desc}`;
+                        document.getElementById('resumo-inicio').innerText = new Date(startTimeStr).toLocaleTimeString('pt-BR');
+                        document.getElementById('resumo-fim').innerText = new Date().toLocaleTimeString('pt-BR');
+                        document.getElementById('resumo-duracao').innerText = formattedTime;
+                        
+                        const modalResumo = document.getElementById('modal-resumo-tempo');
+                        if(modalResumo) {
+                            modalResumo.classList.remove('hidden');
+                            modalResumo.classList.add('flex');
+                        }
+                    } else {
+                        alert(`Atividade Extra (${desc}) finalizada. Duração: ${formattedTime}`);
+                    }
+                } catch (e) {
+                    console.error("Erro ao salvar atividade:", e);
+                    alert(`Erro Atividade: ` + (e.message || JSON.stringify(e)));
+                }
+            }
+        }
+
+    // FUNÇÃO DE CRONÔMETRO DE LIMPEZA DE SETOR (DESMONTAGEM)
+        
+        async function toggleSectorCleaning(sectorName) {
+            const timerKey = `timer_sector_cleaning_start_${sectorName}`;
+            const startTimeStr = localStorage.getItem(timerKey);
+            const btn = document.getElementById('btn-sector-cleaning');
+
+            if (!startTimeStr) {
+                // Iniciar contagem
+                localStorage.setItem(timerKey, new Date().toISOString());
+                if(btn) {
+                    btn.classList.replace('bg-turbo-teal', 'bg-red-600');
+                    btn.classList.replace('hover:bg-teal-600', 'hover:bg-red-700');
+                    btn.classList.add('animate-pulse');
+                    btn.innerText = "Parar Limpeza (00:00)";
+                }
+            } else {
+                // Parar contagem
+                localStorage.removeItem(timerKey);
+                if(btn) {
+                    btn.classList.replace('bg-red-600', 'bg-turbo-teal');
+                    btn.classList.replace('hover:bg-red-700', 'hover:bg-teal-600');
+                    btn.classList.remove('animate-pulse');
+                    btn.innerText = "Iniciar Limpeza Setor";
+                }
+
+                const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+                const min = Math.floor(elapsed / 60);
+                const sec = elapsed % 60;
+                const formattedTime = `${min}:${sec.toString().padStart(2, '0')} min`;
+
+                let osId = null;
+                if (typeof selectedOS !== 'undefined' && selectedOS) {
+                    osId = selectedOS.service_order_id || selectedOS.os_id || selectedOS.id;
+                }
+
+                try {
+                    const insertData = {
+                        action: 'Limpeza do Setor Executada',
+                        details: `O operador realizou a limpeza do setor de ${sectorName} durante ${formattedTime}.`,
+                        timestamp: new Date().toISOString()
+                    };
+                    if (osId) insertData.service_order_id = osId;
+
+                    
+                    let res = await supabaseClient.from('history_events').insert(insertData);
+                    
+                    if (res.error) {
+                        if (res.error.code === '23502' && !osId) {
+                            console.warn("Aviso: Banco de dados exige OS para salvar no histórico.");
+                        } else if (res.error.code === '23503' && res.error.message.includes('user_id')) {
+                            // Foreign key violation for user_id! Try again without it.
+                            delete insertData.user_id;
+                            res = await supabaseClient.from('history_events').insert(insertData);
+                            if (res.error) throw res.error;
+                        } else {
+                            throw res.error;
+                        }
+                    }
+
+                    if (document.getElementById('resumo-peca-nome')) {
+                        document.getElementById('resumo-peca-nome').innerText = `Limpeza Setor: ${sectorName}`;
+                        document.getElementById('resumo-inicio').innerText = new Date(startTimeStr).toLocaleTimeString('pt-BR');
+                        document.getElementById('resumo-fim').innerText = new Date().toLocaleTimeString('pt-BR');
+                        document.getElementById('resumo-duracao').innerText = formattedTime;
+                        
+                        const modalResumo = document.getElementById('modal-resumo-tempo');
+                        if(modalResumo) {
+                            modalResumo.classList.remove('hidden');
+                            modalResumo.classList.add('flex');
+                        }
+                    } else {
+                        alert(`Limpeza concluída: ${formattedTime}`);
+                    }
+                } catch (e) {
+                    console.error("Erro ao salvar limpeza:", e);
+                    alert(`Erro Limpeza: ` + (e.message || JSON.stringify(e)));
+                }
+            }
+        }
+
+        // Intervalo de Atualização dos Cronômetros Pulsando na Tela (A cada 1 segundo)
+        setInterval(() => {
+            // 1. Atualização dos cronômetros das peças
+            if (currentSelection) {
+                document.querySelectorAll('[id^="badge-"]').forEach(badge => {
+                    const idParts = badge.id.split('-');
+                    const compTitle = idParts[1];
+                    const cleanItemName = idParts[2];
+                    
+                    const prefix = `timer_${currentSelection.id}_${compTitle}_`;
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith(prefix)) {
+                            const startTimeStr = localStorage.getItem(key);
+                            if (startTimeStr) {
+                                const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+                                const min = Math.floor(elapsed / 60);
+                                const sec = elapsed % 60;
+                                badge.innerText = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 2. Atualização em tempo real do cronômetro de Limpeza do Setor
+            const cleaningKey = `timer_sector_cleaning_start_DESMONTAGEM`;
+            const cleaningStart = localStorage.getItem(cleaningKey);
+            if (cleaningStart) {
+                const elapsed = Math.floor((new Date() - new Date(cleaningStart)) / 1000);
+                const min = Math.floor(elapsed / 60);
+                const sec = elapsed % 60;
+                const btn = document.getElementById('btn-sector-cleaning');
+                if (btn) btn.innerText = `Parar Limpeza (${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')})`;
+            }
+
+            // 3. Atualização em tempo real do cronômetro de Outras Atividades
+            const otherKey = `timer_other_activities_start_DESMONTAGEM`;
+            const otherStart = localStorage.getItem(otherKey);
+            if (otherStart) {
+                const elapsed = Math.floor((new Date() - new Date(otherStart)) / 1000);
+                const min = Math.floor(elapsed / 60);
+                const sec = elapsed % 60;
+                const btnO = document.getElementById('btn-other-activities');
+                if (btnO) btnO.innerText = `Parar Atividade (${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')})`;
+            }
+
+        }, 1000);
+		
+    </script>
+<!-- MODAL: SENHA DO SUPERVISOR PARA LIBERAÇÃO DE DIVERGÊNCIA -->
+    <div id="modal-supervisor" style="display: none;" class="fixed inset-0 bg-slate-900/80 z-[300] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center border-t-8 border-red-500">
+            <div class="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-key text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-black text-slate-800 uppercase tracking-tighter mb-2">Divergência Detectada!</h3>
+            <p id="modal-supervisor-desc" class="text-[11px] text-slate-500 font-medium italic mb-4">Os vereditos selecionados divergem da Análise Técnica original. Digite a senha do líder para autorizar.</p>
+            
+            <!-- Novo campo de Observação/Justificativa do Líder -->
+            <textarea id="input-supervisor-observation" placeholder="Escreva a justificativa/observação..." rows="2" class="w-full bg-slate-100 border-2 border-transparent focus:border-red-500 rounded-2xl px-5 py-3 text-xs font-bold outline-none mb-3 resize-none"></textarea>
+            
+            <input type="password" id="input-supervisor-password" placeholder="Digite a senha..." class="w-full bg-slate-100 border-2 border-transparent focus:border-red-500 rounded-2xl px-5 py-3 text-sm font-bold text-center outline-none mb-6">
+            
+            <div class="flex space-x-3">
+                <button type="button" onclick="closeSupervisorModal()" class="flex-1 bg-slate-100 text-slate-400 font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-slate-200">Cancelar</button>
+                <button type="button" id="btn-confirm-supervisor" class="flex-[2] bg-red-600 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest shadow-lg hover:bg-red-700">Autorizar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function closeSupervisorModal(isAuthorized = false) {
+            document.getElementById('modal-supervisor').style.display = 'none';
+            
+            // Só bloqueia a tela se o fechamento NÃO foi autorizado (ex: clicou em Cancelar)
+            if (!isAuthorized) {
+                const compGrid = document.getElementById('component-grid');
+                if(compGrid) {
+                    compGrid.classList.add('opacity-40', 'pointer-events-none', 'grayscale');
+                }
+                alert("⚠️ Divergência não autorizada. As operações desta OS foram bloqueadas.");
+            }
+        }
+    </script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

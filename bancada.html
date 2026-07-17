@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setor Bancada | TurboSul</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-turbo-indigo { background-color: #4F46E5; }
+        .text-turbo-indigo { color: #4F46E5; }
+        .bg-turbo-teal { background-color: #0D9488; }
+        .text-turbo-teal { color: #0D9488; }
+        .os-selected { border-left: 4px solid #4F46E5 !important; background-color: #f8fafc !important; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #4F46E5; border-radius: 10px; }
+        .input-measure { background-color: #f1f5f9; border: 1px solid #e2e8f0; transition: all 0.2s; }
+        .input-measure:focus { border-color: #4F46E5; outline: none; background-color: #fff; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen overflow-hidden">
+
+    <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+        <div class="flex items-center space-x-4">
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="TurboSul Logo" class="h-10">
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-slate-900 uppercase">TurboSul - Controle de Produção</h1>
+                <p class="text-xs text-slate-500 font-medium italic">Bancada / Usinagem / Reparos</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-6">
+            <div class="text-right pr-4">
+                <p class="text-sm font-black text-slate-800 uppercase tracking-wider leading-none">Setor Bancada</p>
+            </div>
+            
+            <a href="./quadro-producao.html" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-sm font-bold uppercase tracking-widest shadow-sm transition flex items-center mr-2">
+                Quadro de Produção
+            </a>
+            <button onclick="window.location.href='https://mareflow.github.io/turbosul-login/'" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-bold transition">Sair</button>
+        </div>
+    </header>
+
+    <div class="flex h-[calc(100vh-64px)]">
+        <aside class="w-80 bg-white border-r border-slate-200 overflow-y-auto flex-shrink-0">
+            <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center sticky top-0 z-20">
+                <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 italic">Fila de Trabalho</h2>
+                <button onclick="fetchQueue()" class="text-turbo-indigo hover:rotate-180 transition-all duration-500">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+            <div id="os-list" class="divide-y divide-slate-100">
+                <div class="p-8 text-center text-slate-400 text-xs italic animate-pulse">Carregando fila...</div>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
+            <!-- HEADER GLOBAL DE PRODUTIVIDADE E OS -->
+            <div id="workspace-header" class="flex flex-col lg:flex-row gap-4 mb-6">
+                <div id="os-details-header" class="hidden bg-indigo-600 text-white rounded-3xl p-6 shadow-lg flex-1 relative overflow-hidden">
+                    <div class="relative z-10 ml-4">
+                        <h2 id="display-os" class="text-3xl font-black mb-1 italic tracking-tighter uppercase">OS-XXXX</h2>
+                        <p id="display-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest italic">CLIENTE | MODELO</p>
+                    </div>
+                    <div class="mt-4 flex space-x-3 relative z-10">
+                        <button type="button" onclick="openSpecialModal()" class="bg-white/20 hover:bg-white/30 text-white border border-white/40 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                            + Adicionar Serviço Especial
+                        </button>
+                        <button type="button" onclick="carregarLinhaDoTempo()" class="bg-white/20 hover:bg-white/30 text-white border border-white/40 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                            <i class="fa-solid fa-clock-rotate-left mr-1"></i> Histórico OS
+                        </button>
+                    </div>
+                    <i class="fa-solid fa-screwdriver-wrench absolute right-[-20px] bottom-[-20px] text-white opacity-10 text-9xl"></i>
+                </div>
+
+                <div class="bg-slate-900 text-white rounded-3xl p-5 flex flex-col justify-between border-b-4 border-turbo-teal lg:w-72 shadow-xl">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2 bg-turbo-teal rounded-lg"><i class="fa-solid fa-clock"></i></div>
+                        <div>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Monitor de Produtividade</p>
+                            <p class="text-xs font-black text-white uppercase">Setor em Produção Ativa</p>
+                        </div>
+                    </div>
+                    <button id="btn-sector-cleaning" onclick="toggleSectorCleaning('BANCADA')" class="mt-3 w-full bg-turbo-teal hover:bg-teal-600 text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition shadow-md shadow-teal-900">
+                        Iniciar Limpeza Setor
+                    </button>
+                    <button id="btn-other-activities" onclick="toggleOtherActivities('BANCADA')" class="mt-2 w-full bg-slate-500 hover:bg-slate-600 text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition shadow-md shadow-slate-900">
+                        Outras Atividades
+                    </button>
+                </div>
+            </div>
+
+            <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-slate-400">
+                <i class="fa-solid fa-screwdriver-wrench text-6xl mb-4 opacity-10"></i>
+                <p class="uppercase tracking-widest font-bold text-sm">Selecione uma Ordem de Serviço</p>
+            </div>
+
+            <div id="main-workspace" class="hidden space-y-6">
+
+                <div id="metrology-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-32"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL ADICIONAR SERVIÇO ESPECIAL -->
+    <div id="modalSpecial" class="fixed inset-0 bg-slate-900/80 z-[100] flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
+                <h3 class="font-black text-slate-800 text-lg uppercase">Adicionar Serviço Especial</h3>
+                <button onclick="closeModal('modalSpecial')" class="text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-8 space-y-6">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">NOME DO ITEM / PROCESSO</label>
+                    <input type="text" id="special-name" oninput="validateSpecialModal()" placeholder="EX: AJUSTE DE FLANGE..." class="w-full bg-[#334155] text-white rounded-2xl px-5 py-4 text-sm font-bold outline-none border-2 border-transparent focus:border-indigo-500 transition-all">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">CHECKLIST DE EXECUÇÃO (BANCADA)</label>
+                    <div id="dynamic-checklist-container" class="space-y-2 max-h-40 overflow-y-auto pr-2">
+                        <div class="flex items-center space-x-2">
+                            <input type="text" placeholder="Ex: Ajuste de canal" class="special-checklist-input flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-indigo-500">
+                            <button onclick="addChecklistItemLine()" class="text-indigo-600 hover:text-indigo-800 p-2"><i class="fa-solid fa-circle-plus text-xl"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 ml-1">TIPO DE PEÇA</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <label onclick="toggleSpecialRadioStyle('PADRAO')" id="label-padrao" class="flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all border-indigo-600 bg-indigo-50/50">
+                            <input type="radio" name="special-type" value="PADRAO" checked class="hidden">
+                            <div class="w-6 h-6 rounded-full border-2 border-indigo-600 flex items-center justify-center mr-3 bg-white">
+                                <div id="radio-dot-padrao" class="w-3 h-3 bg-indigo-600 rounded-full"></div>
+                            </div>
+                            <span class="text-[11px] font-black text-indigo-800 uppercase tracking-tighter">Peça Padrão</span>
+                        </label>
+                        <label onclick="toggleSpecialRadioStyle('RETRABALHO')" id="label-retrabalho" class="flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer transition-all hover:bg-slate-50">
+                            <input type="radio" name="special-type" value="RETRABALHO" class="hidden">
+                            <div class="w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center mr-3 bg-white">
+                                <div id="radio-dot-retrabalho" class="w-3 h-3 bg-transparent rounded-full"></div>
+                            </div>
+                            <span class="text-[11px] font-black text-red-700/60 uppercase tracking-tighter">Retrabalho</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 pt-6 border-t border-slate-50">
+                    <button onclick="closeModal('modalSpecial')" class="bg-slate-500 text-white font-black px-8 py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-slate-600 transition">Cancelar</button>
+                    <button id="btn-add-special" disabled onclick="addSpecialCard()" class="bg-indigo-300 text-white font-black px-10 py-4 rounded-2xl uppercase text-xs tracking-widest transition-all cursor-not-allowed">Adicionar Item</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETALHES / HISTÓRICO -->
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-[150]">
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+            <div class="flex justify-between items-center border-b pb-4 mb-4 sticky top-0 bg-white z-10">
+                <h3 class="text-xl font-black text-turbo-indigo uppercase tracking-tighter">Histórico da OS</h3>
+                <button onclick="document.getElementById('details-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+            </div>
+            <div class="grid grid-cols-2 gap-4 text-sm border-b pb-4 mb-4">
+                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Identificação</p><p id="detail-business-id" class="text-lg font-black text-slate-800">--</p></div>
+                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Modelo</p><p id="detail-model" class="text-slate-800 font-bold">--</p></div>
+            </div>
+            <div class="space-y-4 mb-6">
+                <div>
+                    <p class="text-slate-500 font-medium uppercase text-[10px] mb-1">Itens Adicionais (Checklist Entrada)</p>
+                    <ul id="detail-maintenance-extras" class="text-xs list-disc list-inside bg-slate-50 p-3 rounded-lg text-slate-800"></ul>
+                </div>
+            </div>
+            <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 text-center border-t pt-4">Linha do Tempo de Produção</h4>
+            <div id="timeline-container" class="space-y-4 border-l-2 border-slate-200 ml-2 pl-4"></div>
+        </div>
+    </div>
+
+    <!-- MODAL RESUMO DO TEMPO -->
+    <div id="modal-resumo-tempo" class="fixed inset-0 bg-slate-900/80 z-[200] flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden border-t-8 border-indigo-600">
+            <div class="p-8 text-center">
+                <div class="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-stopwatch text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-black text-slate-800 uppercase tracking-tighter mb-2">Serviço de Bancada Finalizado!</h3>
+                <p id="resumo-peca-nome" class="text-indigo-600 font-bold uppercase text-sm mb-2">NOME DA PEÇA</p>
+                <p class="text-[11px] text-slate-500 font-medium italic mb-6">Agora você pode direcionar a peça para o próximo setor desejado.</p>
+                
+                <div class="grid grid-cols-2 gap-4 mb-8 bg-slate-50 p-4 rounded-2xl">
+                    <div class="text-left">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">Início</p>
+                        <p id="resumo-inicio" class="font-bold text-slate-700">--:--</p>
+                    </div>
+                    <div class="text-left border-l pl-4">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">Fim</p>
+                        <p id="resumo-fim" class="font-bold text-slate-700">--:--</p>
+                    </div>
+                    <div class="col-span-2 border-t pt-2 mt-2">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">Tempo Total na Bancada</p>
+                        <p id="resumo-duracao" class="text-2xl font-black text-indigo-600">--</p>
+                    </div>
+                </div>
+
+                <button onclick="document.getElementById('modal-resumo-tempo').classList.add('hidden')" class="w-full bg-slate-800 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-black transition shadow-lg">OK, Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUPABASE E LÓGICA DE PROGRAMAÇÃO INTEGRADA -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const API_QUEUE = 'https://webhook.mareflow.com.br/webhook/production/workbench-queue';
+        const API_ACTION = 'https://webhook.mareflow.com.br/webhook/production/component-routing';
+        
+        let selectedOS = null;
+        let queueData = []; // Declarado globalmente para suportar o filtro preventivo
+        let specialItems = [];
+
+        // LISTA TÉCNICA INTEGRAL (TRANSCRIÇÃO DAS IMAGENS)
+        const STRUCTURE = {
+            'CT': ['ANÁLISE', 'ROSCAS', 'ROSCAS POSTIÇAS', 'FACEAMENTO PÉ/ MESA', 'FACEAMENTO SAÍDA', 'EMBUCHAMENTO', 'SOB MEDIDA', 'ABERTURA DE TRINCAS', 'RETIRAR PRISIONEIROS', 'REMOVER WASTEGATES', 'MONTAR WASTEGATE', 'FRESAMENTO DA MOEDA', 'ACENTAMENTO DA CCE', 'ADAPTAÇÃO DE BORDA', 'EMBUCHAMENTO SAÍDA'],
+            'CCO': ['ANÁLISE', 'ROSCAS', 'ROSCAS POSTIÇAS', 'EMBUCHAMENTO', 'SOB MEDIDA', 'ABERTURA DE TRINCAS', 'RETIRAR PARAFUSOS', 'ADAPTAÇÃO ENCAIXE PRATO', 'ADAPTAÇÃO BOCAL ADMISSÃO', 'ADAPTAÇÃO BOCAL FILTRO', 'BOCAL ADMISSÃO', 'BOCAL FILTRO'],
+            'COLETOR': ['ANÁLISE', 'RETIRAR PRISIONEIROS', 'ROSCAS', 'ROSCAS POSTIÇAS', 'FRESAMENTO', 'ABERTURA DE TRINCAS', 'FRESAMENTO DE COLETOR - FACE 1', 'FRESAMENTO DE COLETOR - FACE 2', 'FRESAMENTO FACE EGR'],
+            'CCE': ['ANÁLISE', 'USINAR Borda Quente', 'USINAR Borda Fria', 'lixar', 'Concent.', 'Colo Mancal', 'Embuchar', 'Canal Viton', 'STEPBOARD', 'ADAPTAÇÃO', 'ROSCAS', 'TRANSFORMAÇÃO ROSCAS', 'ROSCAS POSTIÇAS', 'FRESAMENTO'],
+            'EIXO': ['ANÁLISE', 'DESEMPENO', 'ABERTURA CAVA', 'USINAGEM', 'ABERTURA ANEL', 'RETIFICA', 'ROSCA EIXO', 'FACEAMENTO', 'FURO CENTRO', 'TRANSFORMAR', 'DESEMPENO DE PALHETA', 'TIRAR REBARBA EIXO', 'POLIMENTO EIXO'],
+            'ROTOR': ['ANÁLISE', 'FACEAMENTO / PORCA', 'TRANSFORMAÇÃO', 'EMBUCHAMENTO ROTOR', 'FACEAMENTO DE PALHETA'],
+            'REPAROS': ['FABRICAÇÃO MANCAL R.', 'FABRICAÇÃO MANCAL A.', 'PASSE EXTERNO M. RADIAL', 'PASSE INTERNO M. RADIAL', 'FACEAMENTO M. RADIAL', 'PASSE NA FLANGE', 'ADAPTAÇÃO DE FLANGE', 'SOLDA PROT. TÉRMICO', 'PRODUZIR PROT. TÉRMICO', 'FABRICAÇÃO ESPAÇADOR R', 'FABRICAÇÃO COLAR', 'CALÇO DE ALTURA']
+        };
+
+        // BUSCA FILA DIRETO DO SUPABASE - SEM WEBHOOK n8n
+        async function fetchQueue() {
+            try {
+                // 🔄 Peças com current_stage = BANCADA
+                const { data: trackings, error: tErr } = await supabaseClient
+                    .from('component_tracking')
+                    .select('service_order_id')
+                    .eq('current_stage', 'BANCADA');
+                if (tErr) throw tErr;
+
+                const osIds = [...new Set((trackings || []).map(t => t.service_order_id))];
+                if (osIds.length === 0) { queueData = []; renderSidebar(); return; }
+
+                const { data: orders, error: oErr } = await supabaseClient
+                    .from('service_orders').select('*').in('id', osIds)
+                    .order('created_at', { ascending: true });
+                if (oErr) throw oErr;
+
+                const { data: allTrackings } = await supabaseClient
+                    .from('component_tracking').select('*').in('service_order_id', osIds);
+
+                queueData = (orders || []).map(os => {
+                    os.full_tracking = (allTrackings || []).filter(t => t.service_order_id === os.id);
+                    os.components_to_render = os.full_tracking.map(t => t.component_name || t.component).filter(Boolean);
+                    return os;
+                });
+
+                renderSidebar();
+            } catch (e) {
+                console.error("Erro ao carregar fila da Bancada:", e);
+            }
+        }
+
+        function renderSidebar() {
+            const list = document.getElementById('os-list');
+            if (queueData.length === 0) {
+                list.innerHTML = '<div class="p-8 text-center text-slate-400 text-xs italic">Fila Vazia.</div>';
+                return;
+            }
+            list.innerHTML = queueData.map(os => {
+                const osId = os.service_order_id || os.os_id || os.id;
+                const isSelected = selectedOS && (selectedOS.os_id === osId || selectedOS.id === osId || selectedOS.service_order_id === osId) ? 'os-selected' : '';
+                return `
+                    <div onclick="selectOS('${osId}')" class="p-5 cursor-pointer bg-white border-l-4 border-transparent hover:bg-slate-50 mb-2 mx-4 mt-2 rounded-xl shadow-sm ${isSelected}" id="card-${osId}">
+                        <div class="flex justify-between font-black text-sm"><span>${os.business_id}</span><span class="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded">${os.urgency || 'Normal'}</span></div>
+                        <p class="text-xs font-bold text-slate-700 mt-1">${os.model}</p>
+                        <p class="text-[10px] text-slate-500 truncate">${os.client}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectOS(id) {
+            selectedOS = queueData.find(o => (o.os_id === id || o.id === id || o.service_order_id === id));
+            
+            if (!selectedOS) {
+                console.error("❌ Erro: OS não foi encontrada no array queueData para o ID:", id);
+                return;
+            }
+
+            specialItems = [];
+            
+            document.querySelectorAll('#os-list > div').forEach(c => c.classList.remove('os-selected'));
+            const cardEl = document.getElementById(`card-${id}`);
+            if (cardEl) cardEl.classList.add('os-selected');
+            
+            document.getElementById('welcome-screen').classList.add('hidden');
+            document.getElementById('os-details-header').classList.remove('hidden');
+            document.getElementById('os-details-header').classList.add('flex');
+            document.getElementById('main-workspace').classList.remove('hidden');
+            document.getElementById('display-os').innerText = selectedOS.business_id;
+            document.getElementById('display-desc').innerText = `${selectedOS.client} | ${selectedOS.model}`;
+            
+            renderComponents();
+        }
+
+        function renderComponents() {
+            const grid = document.getElementById('metrology-grid');
+            if (!grid || !selectedOS) return;
+
+            const baseComponentsUnicos = [...new Set(selectedOS.components_to_render || [])];
+            const listToRender = [
+                ...baseComponentsUnicos.map(name => ({ name, isSpecial: false })),
+                ...specialItems
+            ];
+            
+            grid.innerHTML = listToRender.map(comp => {
+                const name = comp.name;
+                const trackingList = selectedOS.full_tracking || selectedOS.tracking || [];
+                const trk = trackingList.find(t => (t.component === name || t.component_name === name));
+                
+                const statusPeca = trk?.status || 'Aguardando';
+                const setorAtual = trk?.current_stage || trk?.stage || '';
+                const setoresPosteriores = ['MONTAGEM', 'BANCADA DE USINAGEM'];
+                const isSent = !!trk && setoresPosteriores.includes(setorAtual.toUpperCase().trim());
+
+                const badgeColor = isSent ? 'bg-slate-500' : (statusPeca === 'Finalizado' ? 'bg-emerald-500' : 'bg-indigo-600');
+                const badgeText = isSent ? `EM ${setorAtual.toUpperCase()}` : 'Bancada';
+
+                const cardStyle = isSent ? 'opacity-40 grayscale pointer-events-none' : '';
+
+                const tasks = comp.isSpecial ? comp.items : (STRUCTURE[name] || ['AJUSTE GERAL BANCADA']);
+                const trackingData = trk && trk.tracking_data ? (typeof trk.tracking_data === 'string' ? JSON.parse(trk.tracking_data) : trk.tracking_data) : [];
+
+                const itemHtml = tasks.map(t => {
+                    const cleanItemName = t.replace(/\s+/g, '_').toLowerCase();
+                    const savedLog = Array.isArray(trackingData) ? trackingData.find(log => log.service === t) : null;
+                    
+                    const timerKey = `timer_${selectedOS.id}_${name}_${t}`;
+                    const pausedKey = `timer_paused_${selectedOS.id}_${name}_${t}`;
+                    const startTimeStr = localStorage.getItem(timerKey);
+                    const pausedTimeStr = localStorage.getItem(pausedKey);
+                    
+                    const isActive = !!startTimeStr;
+                    const isPaused = !isActive && !!pausedTimeStr;
+
+                    let timeBadgeHtml = '';
+                    let actionBtnHtml = '';
+
+                    if (savedLog) {
+                        const min = Math.floor(savedLog.duration_seconds / 60);
+                        const sec = savedLog.duration_seconds % 60;
+                        timeBadgeHtml = `<span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-black uppercase border border-emerald-100"><i class="fa-solid fa-clock mr-1"></i> ${min}:${sec.toString().padStart(2, '0')} min</span>`;
+                    } else if (isActive) {
+                        timeBadgeHtml = `<span id="badge-${name}-${cleanItemName}" class="text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded font-black animate-pulse border border-orange-100">00:00</span>`;
+                        actionBtnHtml = `
+                            <button type="button" onclick="pauseServiceTimer('${name}', '${t}')" class="text-xs bg-orange-500 hover:bg-orange-600 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider mr-1"><i class="fa-solid fa-pause"></i></button>
+                            <button type="button" onclick="stopServiceTimer('${name}', '${t}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-stop mr-1"></i> Finalizar</button>
+                        `;
+                    } else if (isPaused) {
+                        const pausedSecs = parseInt(pausedTimeStr, 10);
+                        const pMin = Math.floor(pausedSecs / 60);
+                        const pSec = pausedSecs % 60;
+                        timeBadgeHtml = `<span id="badge-${name}-${cleanItemName}" class="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded font-black border border-slate-200">${pMin}:${pSec.toString().padStart(2, '0')}</span>`;
+                        actionBtnHtml = `
+                            <button type="button" onclick="resumeServiceTimer('${name}', '${t}')" class="text-xs bg-turbo-indigo hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider mr-1"><i class="fa-solid fa-play"></i></button>
+                            <button type="button" onclick="stopServiceTimer('${name}', '${t}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-stop mr-1"></i> Finalizar</button>
+                        `;
+                    } else {
+                        actionBtnHtml = `<button type="button" onclick="startServiceTimer('${name}', '${t}')" class="text-xs bg-turbo-indigo hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-play mr-1"></i> Iniciar</button>`;
+                    }
+
+                    return `
+                        <div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 px-2 rounded-lg transition">
+                            <div class="flex items-center space-x-3">
+                                <label class="flex items-center space-x-3 cursor-pointer group">
+                                    <input type="checkbox" ${isSent ? 'disabled' : ''} ${savedLog ? 'checked' : ''} class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" data-service="${t}">
+                                    <span class="text-xs font-bold text-slate-500 group-hover:text-slate-800 transition uppercase">${t}</span>
+                                </label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                ${timeBadgeHtml}
+                                ${!isSent ? actionBtnHtml : ''}
+                            </div>
+                        </div>`;
+                }).join('');
+
+                return `
+                    <div class="bg-white rounded-3xl shadow-sm border-2 border-slate-100 flex flex-col p-6 ${cardStyle}" id="comp-${name.replace(/\s+/g, '-')}">
+                        <div class="flex justify-between items-center mb-6">
+                            <h4 class="text-2xl font-black text-slate-800 tracking-tighter uppercase italic">${name}</h4>
+                            <span class="text-[10px] font-black uppercase px-4 py-1.5 ${badgeColor} text-white rounded-full">${badgeText}</span>
+                        </div>
+                        <div class="flex-grow overflow-y-auto max-h-[300px] pr-1">
+                            ${itemHtml}
+                        </div>
+                        <div class="mt-4 pt-4 border-t grid grid-cols-2 gap-2">
+                            <button onclick="sendTo(this, '${name}', 'RETIFICA')" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition shadow-sm border border-slate-100">Retífica</button>
+                            <button onclick="sendTo(this, '${name}', 'SOLDA')" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition shadow-sm border border-slate-100">Solda</button>
+                            <button onclick="sendTo(this, '${name}', 'METROLOGIA')" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition shadow-sm border border-slate-100">Metrologia</button>
+                            
+                            ${name.toUpperCase() === 'EIXO' ? `
+                                <button onclick="sendTo(this, '${name}', 'BALANCEAMENTO')" class="col-span-2 py-3 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black uppercase rounded-lg transition shadow-md">Enviar p/ Balanceamento Solo</button>
+                            ` : ''}
+
+                            <button onclick="sendTo(this, '${name}', 'MONTAGEM')" class="col-span-2 py-4 bg-emerald-600 text-white text-[11px] font-black uppercase rounded-xl shadow-lg mt-1 transition hover:bg-emerald-700">Pronto p/ Montagem</button>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        // INICIA O CRONÔMETRO DE UM SUBPROCESSO ESPECÍFICO (BANCADA)
+        function startServiceTimer(componentName, serviceName) {
+            if (!selectedOS) return;
+            const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
+            const pausedKey = `timer_paused_${selectedOS.id}_${componentName}_${serviceName}`;
+            localStorage.setItem(timerKey, new Date().toISOString());
+            if (!localStorage.getItem(pausedKey)) localStorage.setItem(pausedKey, '0');
+            renderComponents();
+        }
+
+        function pauseServiceTimer(componentName, serviceName) {
+            if (!selectedOS) return;
+            const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
+            const pausedKey = `timer_paused_${selectedOS.id}_${componentName}_${serviceName}`;
+            
+            const startTimeStr = localStorage.getItem(timerKey);
+            if (!startTimeStr) return;
+
+            const elapsedSeconds = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+            const prevPaused = parseInt(localStorage.getItem(pausedKey) || '0', 10);
+            
+            localStorage.setItem(pausedKey, (prevPaused + elapsedSeconds).toString());
+            localStorage.removeItem(timerKey);
+            
+            renderComponents();
+        }
+
+        function resumeServiceTimer(componentName, serviceName) {
+            if (!selectedOS) return;
+            const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
+            localStorage.setItem(timerKey, new Date().toISOString());
+            renderComponents();
+        }
+
+        // PARA O CRONÔMETRO E PERSISTE O TEMPO DECORRIDO NO SUPABASE
+        async function stopServiceTimer(componentName, serviceName) {
+            if (!selectedOS) return;
+            const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
+            const pausedKey = `timer_paused_${selectedOS.id}_${componentName}_${serviceName}`;
+            
+            const startTimeStr = localStorage.getItem(timerKey);
+            const pausedTime = parseInt(localStorage.getItem(pausedKey) || '0', 10);
+            
+            if (!startTimeStr && pausedTime === 0) return;
+
+            let activeElapsed = 0;
+            let endTime = new Date();
+            let startTime = new Date();
+            
+            if (startTimeStr) {
+                startTime = new Date(startTimeStr);
+                activeElapsed = Math.floor((endTime - startTime) / 1000);
+            } else {
+                endTime = new Date();
+                startTime = new Date(endTime.getTime() - (pausedTime * 1000));
+            }
+
+            const durationSeconds = Math.max(1, activeElapsed + pausedTime);
+
+            localStorage.removeItem(timerKey);
+            localStorage.removeItem(pausedKey);
+
+            let trackingData = [];
+            const trackingList = selectedOS.full_tracking || selectedOS.tracking || [];
+            const trk = trackingList.find(t => (t.component === componentName || t.component_name === componentName));
+
+            if (trk && trk.tracking_data) {
+                trackingData = typeof trk.tracking_data === 'string' ? JSON.parse(trk.tracking_data) : trk.tracking_data;
+            }
+
+            // Remove log antigo desse serviço
+            trackingData = trackingData.filter(log => log.service !== serviceName);
+
+            // Adiciona o novo log
+            trackingData.push({
+                service: serviceName,
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                duration_seconds: durationSeconds,
+                user_id: (await supabaseClient.auth.getSession()).data?.session?.user?.id || null,
+                user_name: (await supabaseClient.auth.getSession()).data?.session?.user?.user_metadata?.name || null,
+                sector: window.location.pathname.split('/').pop().replace('.html', '').toUpperCase()
+            });
+
+            const osId = selectedOS.service_order_id || selectedOS.id;
+
+            try {
+                const { error } = await supabaseClient
+                    .from('component_tracking')
+                    .upsert({
+                        service_order_id: osId,
+                        component_name: componentName.toUpperCase().trim(),
+                        tracking_data: trackingData,
+                        current_stage: 'BANCADA',
+                        status: 'Finalizado'
+                    }, { onConflict: 'service_order_id,component_name' });
+
+                if (!error) {
+                    if (trk) {
+                        trk.tracking_data = trackingData;
+                        trk.status = 'Finalizado';
+                    } else {
+                        const novaPeca = {
+                            component: componentName,
+                            component_name: componentName,
+                            current_stage: 'BANCADA',
+                            status: 'Finalizado',
+                            tracking_data: trackingData
+                        };
+                        if (selectedOS.tracking) selectedOS.tracking.push(novaPeca);
+                        if (selectedOS.full_tracking) selectedOS.full_tracking.push(novaPeca);
+                    }
+                    
+                    // Preenche e abre o modal de resumo
+                    document.getElementById('resumo-peca-nome').innerText = `${componentName} - ${serviceName}`;
+                    document.getElementById('resumo-inicio').innerText = startTime.toLocaleTimeString('pt-BR');
+                    document.getElementById('resumo-fim').innerText = endTime.toLocaleTimeString('pt-BR');
+                    
+                    const min = Math.floor(durationSeconds / 60);
+                    const sec = durationSeconds % 60;
+                    document.getElementById('resumo-duracao').innerText = `${min}:${sec.toString().padStart(2, '0')} min`;
+                    
+                    document.getElementById('modal-resumo-tempo').classList.remove('hidden');
+                    document.getElementById('modal-resumo-tempo').classList.add('flex');
+                    
+                    renderComponents();
+                } else {
+                    alert("Erro ao salvar tempo de serviço no Supabase: " + error.message);
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Erro de conexão ao salvar tempo.");
+            }
+        }
+
+        
+        // FUNÇÃO DE CRONÔMETRO PARA OUTRAS ATIVIDADES (PRODUTIVIDADE EXTRA)
+        
+        
+        
+        
+        // INÍCIO: FUNÇÕES DE PRODUTIVIDADE DO SETOR
+        async function toggleSectorCleaning(sectorName) {
+            const timerKey = `timer_sector_cleaning_start_${sectorName}`;
+            const startTimeStr = localStorage.getItem(timerKey);
+            const btn = document.getElementById('btn-sector-cleaning');
+
+            if (!startTimeStr) {
+                localStorage.setItem(timerKey, new Date().toISOString());
+                if(btn) {
+                    btn.classList.replace('bg-turbo-teal', 'bg-red-600');
+                    btn.classList.replace('hover:bg-teal-600', 'hover:bg-red-700');
+                    btn.classList.add('animate-pulse');
+                    btn.innerText = "Parar Limpeza (00:00)";
+                }
+            } else {
+                localStorage.removeItem(timerKey);
+                if(btn) {
+                    btn.classList.replace('bg-red-600', 'bg-turbo-teal');
+                    btn.classList.replace('hover:bg-red-700', 'hover:bg-teal-600');
+                    btn.classList.remove('animate-pulse');
+                    btn.innerText = "Iniciar Limpeza Setor";
+                }
+
+                const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+                const min = Math.floor(elapsed / 60);
+                const sec = elapsed % 60;
+                const formattedTime = `${min}:${sec.toString().padStart(2, '0')} min`;
+
+                let osId = null;
+                if (typeof selectedOS !== 'undefined' && selectedOS) {
+                    osId = selectedOS.service_order_id || selectedOS.os_id || selectedOS.id;
+                }
+
+                try {
+                    const { data: { user } } = await supabaseClient.auth.getUser();
+
+                    const insertData = {
+                        action: 'Limpeza do Setor Executada',
+                        details: `O operador realizou a limpeza do setor de ${sectorName} durante ${formattedTime}.`,
+                        timestamp: new Date().toISOString()
+                    };
+                    if (osId) insertData.service_order_id = osId;
+                    if (user) insertData.user_id = user.id;
+
+                    let res = await supabaseClient.from('history_events').insert(insertData);
+                    
+                    if (res.error) {
+                        if (res.error.code === '23502' && !osId) {
+                            console.warn("Aviso: Banco de dados exige OS para salvar no histórico.");
+                        } else if (res.error.code === '23503' && res.error.message.includes('user_id')) {
+                            delete insertData.user_id;
+                            res = await supabaseClient.from('history_events').insert(insertData);
+                            if (res.error) throw res.error;
+                        } else {
+                            throw res.error;
+                        }
+                    }
+
+                    if (document.getElementById('resumo-peca-nome')) {
+                        document.getElementById('resumo-peca-nome').innerText = `Limpeza Setor: ${sectorName}`;
+                        document.getElementById('resumo-inicio').innerText = new Date(startTimeStr).toLocaleTimeString('pt-BR');
+                        document.getElementById('resumo-fim').innerText = new Date().toLocaleTimeString('pt-BR');
+                        document.getElementById('resumo-duracao').innerText = formattedTime;
+                        
+                        const modalResumo = document.getElementById('modal-resumo-tempo');
+                        if(modalResumo) {
+                            modalResumo.classList.remove('hidden');
+                            modalResumo.classList.add('flex');
+                        }
+                    } else {
+                        alert(`Limpeza concluída: ${formattedTime}`);
+                    }
+                } catch (e) {
+                    console.error("Erro ao salvar limpeza:", e);
+                    alert(`Erro Limpeza: ` + (e.message || JSON.stringify(e)));
+                }
+            }
+        }
+
+
+        async function toggleOtherActivities(sectorName) {
+            const timerKey = `timer_other_activities_start_${sectorName}`;
+            const descKey = `desc_other_activities_${sectorName}`;
+            const startTimeStr = localStorage.getItem(timerKey);
+            const btn = document.getElementById('btn-other-activities');
+
+            if (!startTimeStr) {
+                const desc = prompt("Descreva qual atividade você vai iniciar (Produtividade Extra):");
+                if (!desc) return;
+                localStorage.setItem(timerKey, new Date().toISOString());
+                localStorage.setItem(descKey, desc);
+                if(btn) {
+                    btn.classList.replace('bg-slate-500', 'bg-red-600');
+                    btn.classList.replace('hover:bg-slate-600', 'hover:bg-red-700');
+                    btn.classList.remove('shadow-slate-900');
+                    btn.classList.add('animate-pulse');
+                    btn.innerText = "Parar Atividade (00:00)";
+                }
+            } else {
+                const desc = localStorage.getItem(descKey) || "Atividade Extra";
+                localStorage.removeItem(timerKey);
+                localStorage.removeItem(descKey);
+                if(btn) {
+                    btn.classList.replace('bg-red-600', 'bg-slate-500');
+                    btn.classList.replace('hover:bg-red-700', 'hover:bg-slate-600');
+                    btn.classList.add('shadow-slate-900');
+                    btn.classList.remove('animate-pulse');
+                    btn.innerText = "Outras Atividades";
+                }
+
+                const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+                const min = Math.floor(elapsed / 60);
+                const sec = elapsed % 60;
+                const formattedTime = `${min}:${sec.toString().padStart(2, '0')} min`;
+
+                let osId = null;
+                if (typeof selectedOS !== 'undefined' && selectedOS) {
+                    osId = selectedOS.service_order_id || selectedOS.os_id || selectedOS.id;
+                }
+
+                try {
+                    const { data: { user } } = await supabaseClient.auth.getUser();
+
+                    const insertData = {
+                        action: `Atividade Extra: ${desc}`,
+                        details: `O operador realizou uma atividade fora do escopo no setor de ${sectorName} durante ${formattedTime}.`,
+                        timestamp: new Date().toISOString()
+                    };
+                    if (osId) insertData.service_order_id = osId;
+                    if (user) insertData.user_id = user.id;
+
+                    let res = await supabaseClient.from('history_events').insert(insertData);
+                    
+                    if (res.error) {
+                        if (res.error.code === '23502' && !osId) {
+                            console.warn("Aviso: Banco de dados exige OS para salvar no histórico.");
+                        } else if (res.error.code === '23503' && res.error.message.includes('user_id')) {
+                            delete insertData.user_id;
+                            res = await supabaseClient.from('history_events').insert(insertData);
+                            if (res.error) throw res.error;
+                        } else {
+                            throw res.error;
+                        }
+                    }
+
+                    if (document.getElementById('resumo-peca-nome')) {
+                        document.getElementById('resumo-peca-nome').innerText = `Atividade Extra: ${desc}`;
+                        document.getElementById('resumo-inicio').innerText = new Date(startTimeStr).toLocaleTimeString('pt-BR');
+                        document.getElementById('resumo-fim').innerText = new Date().toLocaleTimeString('pt-BR');
+                        document.getElementById('resumo-duracao').innerText = formattedTime;
+                        
+                        const modalResumo = document.getElementById('modal-resumo-tempo');
+                        if(modalResumo) {
+                            modalResumo.classList.remove('hidden');
+                            modalResumo.classList.add('flex');
+                        }
+                    } else {
+                        alert(`Atividade Extra (${desc}) finalizada. Duração: ${formattedTime}`);
+                    }
+                } catch (e) {
+                    console.error("Erro ao salvar atividade:", e);
+                    alert(`Erro Atividade: ` + (e.message || JSON.stringify(e)));
+                }
+            }
+        }
+        // FIM: FUNÇÕES DE PRODUTIVIDADE DO SETOR
+        
+
+        // Loop de Atualização dos Cronômetros em tempo real (1 segundo)
+        setInterval(() => {
+            if (selectedOS) {
+                document.querySelectorAll('[id^="badge-"]').forEach(badge => {
+                    const idParts = badge.id.split('-');
+                    const compTitle = idParts[1];
+                    
+                    const prefix = `timer_${selectedOS.id}_${compTitle}_`;
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith(prefix)) {
+                            const serviceNameFromKey = key.replace(prefix, '');
+                            const cleanServiceFromKey = serviceNameFromKey.replace(/\s+/g, '_').toLowerCase();
+                            const cleanItemName = idParts.slice(2).join('-'); 
+                            
+                            if (cleanServiceFromKey === cleanItemName) {
+                                const startTimeStr = localStorage.getItem(key);
+                                if (startTimeStr) {
+                                    const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+                                    const min = Math.floor(elapsed / 60);
+                                    const sec = elapsed % 60;
+                                    badge.innerText = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            const cleaningKey = `timer_sector_cleaning_start_BANCADA`;
+            const cleaningStart = localStorage.getItem(cleaningKey);
+            if (cleaningStart) {
+                const elapsed = Math.floor((new Date() - new Date(cleaningStart)) / 1000);
+                const min = Math.floor(elapsed / 60);
+                const sec = elapsed % 60;
+                const btn = document.getElementById('btn-sector-cleaning');
+                if (btn) btn.innerText = `Parar Limpeza (${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')})`;
+            }
+
+            // 3. Atualização em tempo real do cronômetro de Outras Atividades
+            const otherKey = `timer_other_activities_start_BANCADA`;
+            const otherStart = localStorage.getItem(otherKey);
+            if (otherStart) {
+                const elapsed = Math.floor((new Date() - new Date(otherStart)) / 1000);
+                const min = Math.floor(elapsed / 60);
+                const sec = elapsed % 60;
+                const btnO = document.getElementById('btn-other-activities');
+                if (btnO) btnO.innerText = `Parar Atividade (${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')})`;
+            }
+
+        }, 1000);
+
+        // --- LÓGICA DE MODAL E ESTILOS (BANCADA) ---
+        function toggleSpecialRadioStyle(type) {
+            const lp = document.getElementById('label-padrao');
+            const lr = document.getElementById('label-retrabalho');
+            if(type === 'PADRAO') {
+                document.querySelector('input[value="PADRAO"]').checked = true;
+                lp.className = "flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all border-indigo-600 bg-indigo-50/50";
+                lr.className = "flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer transition-all hover:bg-slate-50";
+            } else {
+                document.querySelector('input[value="RETRABALHO"]').checked = true;
+                lr.className = "flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all border-red-500 bg-red-50/50";
+                lp.className = "flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer transition-all hover:bg-slate-50";
+            }
+        }
+
+        function validateSpecialModal() {
+            const name = document.getElementById('special-name').value;
+            const btn = document.getElementById('btn-add-special');
+            if(name.length >= 3) {
+                btn.disabled = false;
+                btn.classList.replace('bg-indigo-300', 'bg-indigo-600');
+                btn.classList.remove('cursor-not-allowed');
+            } else {
+                btn.disabled = true;
+                btn.classList.replace('bg-indigo-600', 'bg-indigo-300');
+                btn.classList.add('cursor-not-allowed');
+            }
+        }
+
+        function openSpecialModal() { 
+            document.getElementById('special-name').value = ''; 
+            document.getElementById('dynamic-checklist-container').innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <input type="text" placeholder="Ex: Ajuste de canal" class="special-checklist-input flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-indigo-500">
+                    <button onclick="addChecklistItemLine()" class="text-indigo-600 hover:text-indigo-800 p-2"><i class="fa-solid fa-circle-plus text-xl"></i></button>
+                </div>`;
+            validateSpecialModal(); 
+            document.getElementById('modalSpecial').classList.remove('hidden'); 
+        }
+
+        function addChecklistItemLine() {
+            const container = document.getElementById('dynamic-checklist-container');
+            const div = document.createElement('div');
+            div.className = 'flex items-center space-x-2';
+            div.innerHTML = `
+                <input type="text" placeholder="Novo serviço..." class="special-checklist-input flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-indigo-500">
+                <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 p-2"><i class="fa-solid fa-circle-minus text-xl"></i></button>
+            `;
+            container.appendChild(div);
+        }
+
+        function closeModal(id) { 
+            const el = document.getElementById(id);
+            if(el) el.classList.add('hidden'); 
+        }
+
+        function addSpecialCard() {
+            const name = document.getElementById('special-name').value.toUpperCase();
+            const type = document.querySelector('input[name="special-type"]:checked')?.value || 'PADRAO';
+            const inputs = document.querySelectorAll('.special-checklist-input');
+            const customItems = Array.from(inputs).map(input => input.value.trim()).filter(val => val !== '');
+            if (customItems.length === 0) customItems.push("Serviço Geral Bancada");
+
+            specialItems.push({ name: name, items: customItems, type: type, isSpecial: true });
+            renderComponents(); 
+            closeModal('modalSpecial'); 
+        }
+
+        // --- LÓGICA DE HISTÓRICO ---
+        async function carregarLinhaDoTempo() {
+            if (!selectedOS) { alert("Selecione uma OS primeiro."); return; }
+            
+            document.getElementById('detail-business-id').textContent = selectedOS.business_id;
+            document.getElementById('detail-model').textContent = selectedOS.model;
+            
+            const listExtras = document.getElementById('detail-maintenance-extras');
+            try {
+                let extras = selectedOS.maintenance_extras;
+                if (typeof extras === 'string' && extras.startsWith('{')) extras = JSON.parse(extras);
+                listExtras.innerHTML = formatMaintenanceExtras(extras);
+            } catch (e) { listExtras.innerHTML = '<li>Erro ao carregar itens.</li>'; }
+
+            const timeline = document.getElementById('timeline-container');
+            timeline.innerHTML = '<p class="text-xs text-slate-400 animate-pulse text-center py-4 uppercase font-bold">Buscando rastreio...</p>';
+            
+            document.getElementById('details-modal').classList.remove('hidden');
+            document.getElementById('details-modal').classList.add('flex');
+
+            try {
+                const { data: events } = await supabaseClient
+                    .from('history_events')
+                    .select('*')
+                    .eq('service_order_id', selectedOS.os_id || selectedOS.id)
+                    .order('timestamp', { ascending: true });
+
+                if (events && events.length > 0) {
+                    timeline.innerHTML = events.map(ev => `
+                        <div class="relative pb-4 border-l-2 border-turbo-indigo pl-4 ml-2">
+                            <div class="absolute -left-[9px] top-1 w-4 h-4 bg-turbo-indigo rounded-full border-2 border-white shadow-sm"></div>
+                            <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight">${ev.action}</p>
+                            <p class="text-[10px] text-slate-500 font-medium mt-1">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
+                            ${ev.details ? `<p class="text-[9px] text-turbo-indigo italic mt-1 font-semibold leading-relaxed">"${ev.details}"</p>` : ''}
+                        </div>`).join('');
+                } else {
+                    timeline.innerHTML = '<p class="text-[10px] text-slate-400 italic text-center uppercase py-4">Iniciando histórico...</p>';
+                }
+            } catch (err) {
+                timeline.innerHTML = '<p class="text-xs text-red-500 text-center font-bold">ERRO AO CARREGAR.</p>';
+            }
+        }
+
+        function formatMaintenanceExtras(extras) {
+            if (!extras || typeof extras !== 'object') return '<li class="text-slate-400">Nenhum item.</li>';
+            const mapping = { actuator: 'Atuador', geometry: 'Geometria', geometryStem: 'Canote', geometryFlange: 'Flange' };
+            const items = Object.entries(extras)
+                .filter(([_, val]) => val === true || (val && val.came === true))
+                .map(([key, _]) => `<li class="font-bold text-slate-700 uppercase text-[10px]">${mapping[key] || key}</li>`);
+            return items.length > 0 ? items.join('') : '<li class="text-slate-400">Nenhum item.</li>';
+        }
+
+        // INICIALIZAÇÃO
+        fetchQueue();
+    </script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

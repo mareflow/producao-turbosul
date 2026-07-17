@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triagem de Produção | TurboSul</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .os-card.active {
+            border-left: 4px solid #2563EB;
+            background-color: #f8fafc;
+        }
+
+        .btn-toggle-stock.active {
+            background-color: #16a34a !important;
+            color: white !important;
+        }
+
+        .btn-toggle-order.active {
+            background-color: #dc2626 !important;
+            color: white !important;
+        }
+
+        .tab-active {
+            background-color: #2563EB;
+            color: white;
+        }
+
+        .obs-input {
+            background-color: #334155;
+            color: #f8fafc;
+        }
+
+        .purple-checkbox:checked {
+            background-color: #7c3aed;
+            border-color: #7c3aed;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER FIXO -->
+    <header class="bg-white border-b px-8 py-3 flex items-center justify-between z-50">
+        <div class="flex items-center space-x-4">
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="Logo TurboSul" class="h-10">
+            <div>
+                <h1 class="text-slate-800 font-bold text-lg leading-tight uppercase tracking-tight">TurboSul - Controle
+                    de Produção</h1>
+                <p class="text-slate-500 text-xs font-medium">Gerenciamento de Ordens de Serviço</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-6">
+            <span class="text-sm font-black text-slate-800 uppercase tracking-wider leading-none">Setor Triagem</span>
+            <button onclick="window.location.href='https://mareflow.github.io/turbosul-login/'"
+                class="bg-red-500 text-white px-4 py-1.5 rounded-md text-sm font-bold hover:bg-red-600 transition">Sair</button>
+        </div>
+    </header>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="flex-1 flex overflow-hidden p-6 gap-6">
+
+        <aside class="w-80 flex flex-col">
+            <h2 class="text-slate-800 font-extrabold text-2xl mb-4 tracking-tight uppercase">Triagem de Produção</h2>
+            <div id="sidebar-filters" class="flex space-x-1 text-[9px] font-bold mb-4">
+                <button type="button" onclick="setActiveSidebarTab('triage')" id="side-tab-triage"
+                    class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white transition-all border border-blue-600">FILA
+                    (ANÁLISE) <span id="count-side-triage">(0)</span></button>
+                <button type="button" onclick="setActiveSidebarTab('standby')" id="side-tab-standby"
+                    class="flex-1 py-2.5 rounded-xl bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 transition-all">STANDBY
+                    <span id="count-side-standby">(0)</span></button>
+            </div>
+            <div id="fila-container" class="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+                <div class="bg-white p-4 rounded-xl shadow-sm animate-pulse">
+                    <div class="h-4 bg-slate-200 rounded w-1/2 mb-3"></div>
+                    <div class="h-3 bg-slate-100 rounded w-3/4"></div>
+                </div>
+            </div>
+        </aside>
+
+        <section class="flex-1 flex flex-col">
+            <div class="flex justify-end space-x-1 mb-4">
+                <button onclick="switchTab('triage')" id="tab-triage"
+                    class="px-6 py-2 rounded-l-lg text-sm font-bold tab-active shadow-sm transition">
+                    Ordens Aprovadas (Aguardando Decisão) <span id="count-triage" class="ml-1">(0)</span>
+                </button>
+                <button onclick="switchTab('pending')" id="tab-pending"
+                    class="px-6 py-2 rounded-r-lg text-sm font-bold bg-white text-slate-600 hover:bg-slate-50 shadow-sm transition">
+                    Pendências de Peças <span id="count-pending" class="ml-1">(0)</span>
+                </button>
+            </div>
+
+            <div id="workspace-content"
+                class="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                <div id="empty-state" class="flex-1 flex items-center justify-center flex-col text-slate-400">
+                    <svg class="w-16 h-16 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
+                        </path>
+                    </svg>
+                    <span class="font-bold uppercase tracking-widest text-sm">Selecione uma ordem</span>
+                </div>
+
+                <div id="triage-panel" class="hidden flex-1 flex flex-col p-8 overflow-y-auto custom-scrollbar">
+                    <div class="flex justify-between items-start mb-6">
+                        <h3 class="text-slate-800 font-extrabold text-xl uppercase tracking-tighter">Detalhes da
+                            Logística</h3>
+                        <button type="button" onclick="carregarLinhaDoTempo()"
+                            class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-1 px-3 rounded-md transition duration-150 uppercase text-[10px] tracking-widest">Histórico
+                            Completo</button>
+                    </div>
+
+                    <!-- MODAL HISTÓRICO -->
+                    <div id="details-modal"
+                        class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-[110]">
+                        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+                            <div
+                                class="flex justify-between items-center border-b pb-4 mb-4 sticky top-0 bg-white z-10">
+                                <h3 class="text-xl font-black text-blue-600 uppercase tracking-tighter">Detalhes do
+                                    Processo</h3>
+                                <button id="close-details-modal-btn"
+                                    class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-sm border-b pb-4 mb-4">
+                                <div>
+                                    <p class="text-gray-500 font-medium uppercase text-xs">Identificação</p>
+                                    <p id="detail-business-id" class="text-lg font-black text-slate-800 leading-tight">--</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500 font-medium uppercase text-xs">Cliente</p>
+                                    <p id="detail-client" class="text-slate-800 font-bold">--</p>
+                                </div>
+                                <div class="col-span-2">
+                                    <p class="text-gray-500 font-medium uppercase text-xs">Modelo</p>
+                                    <p id="detail-model" class="text-slate-800 font-bold">--</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500 font-medium uppercase text-xs">Part Number</p>
+                                    <p id="detail-part-number" class="text-slate-800 font-bold">--</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500 font-medium uppercase text-xs">Status Atual</p>
+                                    <span id="detail-status" class="inline-block bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">--</span>
+                                </div>
+                            </div>
+                            <div class="space-y-4 mb-6">
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p class="text-gray-400 font-bold uppercase text-[10px]">Grau de Dificuldade</p>
+                                        <p id="detail-difficulty" class="text-gray-800 font-bold">--</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-400 font-bold uppercase text-[10px]">Tipo de Venda</p>
+                                        <p id="detail-trade-in" class="text-gray-800 font-bold">--</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-gray-400 font-bold uppercase text-[10px]">Itens Adicionais
+                                        Identificados</p>
+                                    <ul id="detail-maintenance-extras"
+                                        class="text-sm list-disc list-inside bg-slate-50 p-3 rounded-lg mt-1 text-gray-800">
+                                    </ul>
+                                </div>
+                                <div>
+                                    <p class="text-gray-400 font-bold uppercase text-[10px]">Observações Técnicas /
+                                        Entrada</p>
+                                    <p id="detail-observation"
+                                        class="text-sm bg-slate-50 p-3 rounded-lg mt-1 italic text-gray-800">--</p>
+                                </div>
+                            </div>
+                            <h4
+                                class="text-sm font-bold text-gray-800 uppercase tracking-widest mb-4 text-center border-t pt-4">
+                                Linha do Tempo de Produção</h4>
+                            <div id="timeline-container" class="space-y-4 border-l-2 border-slate-200 ml-2 pl-4"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        <div class="space-y-6">
+                            <div class="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                                <h4 class="text-blue-600 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+                                    Informações OS</h4>
+                                <div class="space-y-3">
+                                    <p class="text-sm font-medium text-slate-500">Cliente: <span id="info-cliente"
+                                            class="text-slate-800 font-bold ml-1">---</span></p>
+                                    <p class="text-sm font-medium text-slate-500">Modelo: <span id="info-modelo"
+                                            class="text-slate-800 font-bold ml-1">---</span></p>
+                                    <p class="text-sm font-medium text-slate-500">Part Number: <span id="info-part-number"
+                                            class="text-slate-800 font-bold ml-1">---</span></p>
+                                    <p class="text-sm font-medium text-slate-500">OS Gerada: <span id="info-os"
+                                            class="text-slate-800 font-bold ml-1">---</span></p>
+                                    <p class="text-sm font-medium text-slate-500">Previsão: <span id="info-previsao"
+                                            class="text-blue-600 font-bold ml-1">---</span></p>
+                                    <div class="flex items-center mt-2">
+                                        <input type="checkbox" id="segunda-hora-check-visual" disabled class="mr-2">
+                                        <span class="text-[10px] font-black text-slate-400 uppercase">Prioridade 2ª
+                                            Hora</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- IDENTIFICAÇÃO E MARCAÇÃO -->
+                            <div id="panel-identificacao" class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                                <h4 class="text-orange-600 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+                                    Identificação e Marcação</h4>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tipo de Cliente</label>
+                                        <select id="select-marking-type" onchange="atualizarCodigoAutomatico(true)" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500">
+                                            <option value="Consumidor Final">Consumidor Final</option>
+                                            <option value="Estoque DPS">Estoque DPS</option>
+                                            <option value="Outros">Outros</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Código de Marcação</label>
+                                        <div class="flex space-x-2">
+                                            <input type="text" id="input-marking-code" placeholder="Carregando..." class="flex-1 bg-slate-100 border border-slate-200 text-slate-800 text-xs font-mono font-bold rounded-lg px-3 py-2 outline-none" readonly>
+                                            <button type="button" id="btn-refresh-marking" onclick="atualizarCodigoAutomatico(true)" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center" title="Gerar Novo Código">
+                                                <i class="fa-solid fa-rotate"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div
+                                class="bg-purple-50 rounded-xl p-6 border border-purple-100 flex items-center space-x-4">
+                                <input type="checkbox" id="check-analisado"
+                                    class="w-6 h-6 rounded border-purple-300 text-purple-600 focus:ring-purple-500 purple-checkbox">
+                                <label for="check-analisado"
+                                    class="text-purple-800 font-black text-xs uppercase tracking-wider cursor-pointer">Marcar
+                                    como analisado (Vendas)</label>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col">
+                            <h4 class="text-orange-600 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+                                Disponibilidade de Peças</h4>
+                            <div id="lista-pecas"
+                                class="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-auto pt-6 border-t border-slate-100 flex flex-col space-y-4">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Observações de
+                            Triagem</label>
+                        <textarea id="obs-triagem" rows="4"
+                            class="obs-input w-full rounded-xl p-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                            placeholder="Digite observações internas..."></textarea>
+                        <div class="flex justify-end pt-4 space-x-3">
+                            <button type="button" id="btn-standby-action" onclick="colocarEmStandby()"
+                                class="bg-slate-100 hover:bg-slate-200 text-slate-500 font-black py-4 px-6 rounded-xl uppercase tracking-widest text-[10px] transition-all">Deixar
+                                OS em Standby</button>
+                            <button type="button" id="btn-liberar-producao" onclick="confirmarSalvar()"
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-black py-4 px-10 rounded-xl uppercase tracking-widest text-sm shadow-lg shadow-blue-200 transition-all transform hover:-translate-y-1">Liberar
+                                para Produção</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="pending-panel" class="hidden flex-1 p-8 overflow-y-auto custom-scrollbar">
+                    <h3 class="text-orange-600 font-black text-lg uppercase tracking-wider mb-6">Pendências de Peças
+                    </h3>
+                    <div id="lista-pecas-pendentes" class="space-y-4"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="py-3 text-center border-t bg-white/40 backdrop-blur-sm z-10">
+        <div class="flex items-center justify-center space-x-2">
+            <span class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Desenvolvido por</span>
+            <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Maré Flow</span>
+            <span class="text-slate-300">|</span>
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic">TurboSul Controle de
+                Produção © 2026</span>
+        </div>
+    </footer>
+
+    <!-- MODAL: DECISÃO LOGÍSTICA -->
+    <div id="modal-confirm"
+        class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl">
+            <div
+                class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4 mx-auto">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                    </path>
+                </svg>
+            </div>
+            <h4 class="text-xl font-black text-slate-800 mb-2 uppercase tracking-tight text-center">Gestão de Pendência
+            </h4>
+            <p id="modal-confirm-msg" class="text-slate-500 text-sm mb-6 leading-relaxed text-center italic">Detectamos
+                peças faltantes.</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="salvarTriagem('Aguardando Desmontagem OS')"
+                    class="w-full bg-blue-600 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest hover:bg-blue-700 transition shadow-lg shadow-blue-100">Seguir
+                    com Pendência (Ir p/ Desmontagem)</button>
+                <button onclick="salvarTriagem('Aguardando Peças')"
+                    class="w-full bg-red-500 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest hover:bg-red-600 transition">Bloquear
+                    OS (Falta Peça Crítica)</button>
+                <button
+                    onclick="document.getElementById('modal-confirm').classList.add('hidden'); document.getElementById('modal-confirm').classList.remove('flex');"
+                    class="w-full bg-slate-100 text-slate-400 font-bold py-2 rounded-xl text-[10px] uppercase">Voltar e
+                    Revisar Estoque</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL STATUS -->
+    <div id="modal-status-standby"
+        class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center border-t-8 border-blue-600">
+            <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h4 id="modal-status-title" class="text-xl font-black text-slate-800 mb-2 uppercase tracking-tighter">Status
+                Atualizado</h4>
+            <p id="modal-status-msg" class="text-slate-500 text-sm mb-6 font-medium">Ação realizada com sucesso.</p>
+            <button onclick="location.reload()"
+                class="w-full bg-slate-800 text-white font-black py-4 rounded-xl hover:bg-slate-900 transition tracking-widest uppercase text-xs shadow-lg">OK,
+                CONTINUAR</button>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMAÇÃO DE BAIXA -->
+    <div id="modal-baixa-peca"
+        class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center border-t-8 border-green-500">
+            <div
+                class="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h4 class="text-xl font-black text-slate-800 mb-2 uppercase tracking-tighter">Receber Peça</h4>
+            <p id="modal-baixa-msg" class="text-slate-500 text-sm mb-6 font-medium">Confirmar recebimento?</p>
+            <div class="flex gap-3">
+                <button onclick="fecharModalBaixa()"
+                    class="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-200 transition uppercase text-xs tracking-widest">Cancelar</button>
+                <button id="btn-executar-baixa" onclick="confirmarBaixaExecutar()"
+                    class="flex-1 bg-green-500 text-white font-bold py-3 rounded-xl hover:bg-green-600 transition shadow-lg shadow-green-100 uppercase text-xs tracking-widest">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const API_GET = 'https://webhook.mareflow.com.br/webhook/logistics/triage';
+        const API_POST = 'https://webhook.mareflow.com.br/webhook/logistics/save-triage';
+        const API_SYNC = 'https://webhook.mareflow.com.br/webhook/logistics/sync-part';
+        const FALLBACK_USER = '8ab0d7ed-055c-4480-a1af-eb0b08894682';
+
+        let allOrders = [];
+        let selecionada = null;
+        let activeTab = 'triage';
+        window.activeSidebarTab = 'triage';
+
+        document.addEventListener('DOMContentLoaded', carregarDados);
+
+        async function carregarDados() {
+            const container = document.getElementById('fila-container');
+            container.innerHTML = `<div class="p-4 animate-pulse"><div class="h-4 bg-slate-200 rounded w-1/2 mb-3"></div><div class="h-3 bg-slate-100 rounded w-3/4"></div></div>`;
+            try {
+                const response = await fetch(API_GET);
+                const data = await response.json();
+                allOrders = Array.isArray(data) ? data : [];
+                renderizarFila();
+                atualizarContadores();
+            } catch (err) {
+                allOrders = [];
+                renderizarFila();
+                atualizarContadores();
+            }
+        }
+
+        function setActiveSidebarTab(tab) {
+            window.activeSidebarTab = tab;
+            document.getElementById('side-tab-triage').className = tab === 'triage'
+                ? 'flex-1 py-2.5 rounded-xl bg-blue-600 text-white transition-all border border-blue-600'
+                : 'flex-1 py-2.5 rounded-xl bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 transition-all';
+            document.getElementById('side-tab-standby').className = tab === 'standby'
+                ? 'flex-1 py-2.5 rounded-xl bg-blue-600 text-white transition-all border border-blue-600'
+                : 'flex-1 py-2.5 rounded-xl bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 transition-all';
+            renderizarFila();
+        }
+
+        function renderizarFila() {
+            const container = document.getElementById('fila-container');
+            if (!container) return;
+            container.innerHTML = '';
+            if (activeTab === 'pending') {
+                container.innerHTML = `<div class="py-10 text-center"><p class="text-slate-400 font-bold text-[10px] uppercase tracking-widest leading-tight">Lista de Pendências<br>de Compra Ativa</p></div>`;
+                return;
+            }
+            const statusFiltro = window.activeSidebarTab === 'triage' ? 'Aguardando Triagem' : 'Standby';
+            const ordensParaMostrar = allOrders.filter(os => os.status === statusFiltro);
+            if (ordensParaMostrar.length === 0) {
+                container.innerHTML = `<div class="py-10 text-center"><p class="text-slate-400 font-bold text-[10px] uppercase tracking-widest leading-relaxed">Nenhuma ordem em<br>${statusFiltro}.</p></div>`;
+                return;
+            }
+            ordensParaMostrar.forEach(os => {
+                const isActive = selecionada && selecionada.business_id === os.business_id ? 'active border-l-4 border-blue-600 bg-blue-50 shadow-sm' : 'bg-white border-slate-200';
+                container.innerHTML += `
+                    <div onclick="selecionarOS('${os.business_id}')" id="card-${os.business_id}" class="os-card ${isActive} p-4 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-all group mb-3">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-slate-800 font-extrabold text-sm uppercase">${os.business_id}</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${os.urgency === 'Alta' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}">${os.urgency || 'Normal'}</span>
+                        </div>
+                        <h3 class="text-slate-700 font-bold text-xs group-hover:text-blue-600 transition">${os.model}</h3>
+                        <p class="text-slate-400 text-[11px] font-medium">${os.client}</p>
+                    </div>`;
+            });
+        }
+
+        async function selecionarOS(id) {
+            if (selecionada && selecionada.business_id === id) {
+                selecionada = null;
+                document.querySelectorAll('.os-card').forEach(c => c.classList.remove('active', 'border-l-4', 'border-blue-600', 'bg-blue-50'));
+                document.getElementById('triage-panel').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('hidden');
+                return;
+            }
+
+            selecionada = allOrders.find(o => o.business_id === id);
+            if (!selecionada) return;
+
+            document.querySelectorAll('.os-card').forEach(c => c.classList.remove('active', 'border-l-4', 'border-blue-600', 'bg-blue-50'));
+            const card = document.getElementById(`card-${id}`);
+            if (card) card.classList.add('active', 'border-l-4', 'border-blue-600', 'bg-blue-50');
+
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('triage-panel').classList.remove('hidden');
+
+            document.getElementById('info-cliente').innerText = selecionada.client || '---';
+            document.getElementById('info-modelo').innerText = selecionada.model || '---';
+            document.getElementById('info-part-number').innerText = selecionada.part_number || '---';
+            document.getElementById('info-os').innerText = selecionada.business_id || '---';
+
+            const campoPrevisao = document.getElementById('info-previsao');
+            if (campoPrevisao) campoPrevisao.innerText = selecionada.previsao_saida ? selecionada.previsao_saida.split('T')[0] : '---';
+
+            document.getElementById('segunda-hora-check-visual').checked = selecionada.segunda_hora === true;
+            document.getElementById('obs-triagem').value = selecionada.observations || '';
+
+            const btnStandby = document.getElementById('btn-standby-action');
+            const btnLiberar = document.getElementById('btn-liberar-producao');
+
+            if (selecionada.status === 'Standby') {
+                btnStandby.innerText = "VOLTAR PARA FILA DE ANÁLISE";
+                btnStandby.onclick = () => liberarDeStandby();
+                btnStandby.classList.replace('bg-slate-100', 'bg-blue-50');
+                btnStandby.classList.replace('text-slate-500', 'text-blue-700');
+                btnLiberar.classList.add('hidden');
+            } else {
+                btnStandby.innerText = "DEIXAR OS EM STANDBY";
+                btnStandby.onclick = () => colocarEmStandby();
+                btnStandby.classList.replace('bg-blue-50', 'bg-slate-100');
+                btnStandby.classList.replace('text-blue-700', 'text-slate-500');
+                btnLiberar.classList.remove('hidden');
+            }
+
+            // ✅ CORREÇÃO PRINCIPAL: Garante o UUID real do Supabase via business_id
+            // O objeto da API externa pode ter um 'id' diferente do UUID do Supabase
+            document.getElementById('lista-pecas').innerHTML =
+                '<div class="p-6 text-center text-slate-400 animate-pulse text-[10px] font-bold uppercase">Carregando peças...</div>';
+
+            try {
+                // Passo 1: busca o UUID real da OS no Supabase pelo business_id
+                const { data: osData, error: osError } = await supabaseClient
+                    .from('service_orders')
+                    .select('id, identificacao_e_marcacao_code, identificacao_e_marcacao_type')
+                    .eq('business_id', selecionada.business_id)
+                    .single();
+
+                if (osError || !osData) {
+                    console.error('Não foi possível encontrar a OS no Supabase:', osError);
+                    renderizarPecas([]);
+                    return;
+                }
+
+                const supabaseOsId = osData.id;
+                // Salva o UUID real no objeto selecionada para uso posterior (salvar triagem, etc.)
+                selecionada._supabaseId = supabaseOsId;
+                selecionada.identificacao_e_marcacao_code = osData.identificacao_e_marcacao_code;
+                selecionada.identificacao_e_marcacao_type = osData.identificacao_e_marcacao_type;
+
+                // Atualiza a interface de identificação e marcação
+                if (selecionada.identificacao_e_marcacao_code) {
+                    document.getElementById('select-marking-type').value = selecionada.identificacao_e_marcacao_type || 'Consumidor Final';
+                    document.getElementById('input-marking-code').value = selecionada.identificacao_e_marcacao_code;
+                    document.getElementById('select-marking-type').disabled = true;
+                    document.getElementById('input-marking-code').readOnly = true;
+                    const refreshBtn = document.getElementById('btn-refresh-marking');
+                    if (refreshBtn) refreshBtn.style.display = 'none';
+                } else {
+                    document.getElementById('select-marking-type').value = 'Consumidor Final';
+                    document.getElementById('input-marking-code').value = '';
+                    document.getElementById('select-marking-type').disabled = false;
+                    document.getElementById('input-marking-code').readOnly = true;
+                    const refreshBtn = document.getElementById('btn-refresh-marking');
+                    if (refreshBtn) refreshBtn.style.display = 'inline-flex';
+                    // Dispara a geração automática
+                    await atualizarCodigoAutomatico();
+                }
+
+                // Passo 2: busca o checklist completo usando o UUID correto para garantir que peças marcadas como 'OK' (como REPAROS) também venham
+                const { data: checklistItems, error: checklistError } = await supabaseClient
+                    .from('checklist_analysis_general')
+                    .select('*')
+                    .eq('service_order_id', supabaseOsId);
+
+                if (!checklistError && checklistItems) {
+                    const formattedItems = checklistItems.map(item => ({
+                        id: item.id,
+                        item_name: item.item_name,
+                        decisao_vendas: item.decisao_vendas || 'TROCAR',
+                        status: item.status || 'Pendente',
+                        availability: item.availability || 'ORDER'
+                    }));
+                    renderizarPecas(formattedItems);
+                } else {
+                    renderizarPecas([]);
+                }
+            } catch (e) {
+                console.error('Erro ao buscar checklist:', e);
+                renderizarPecas([]);
+            }
+        }
+
+        function renderizarPecas(items) {
+            const container = document.getElementById('lista-pecas');
+            if (!container) return;
+            container.innerHTML = '';
+
+            // ✅ Whitelist completa incluindo CCO
+            const whitelist = [
+                "CARCAÇA DE TURBINA (CT)", "ROTOR", "EIXO",
+                "ATUADOR", "GEOMETRIA VARIÁVEL", "CANOTE DA GEOMETRIA",
+                "FLANGE DA GEOMETRIA", "CCO", "CCE", "REPAROS"
+            ];
+
+            // =================================================================================
+            // ✅ LÓGICA VISÍVEL DE "TROCAR CONJUNTO"
+            // Se qualquer peça principal for "TROCAR CONJUNTO", garantimos que EIXO, ROTOR, 
+            // CCE e REPAROS também entrem como "TROCAR CONJUNTO", pois o núcleo é fechado.
+            // =================================================================================
+            const coreParts = ["EIXO", "ROTOR", "CCE", "REPAROS"];
+            const isTrocaConjunto = (items || []).some(p => 
+                coreParts.includes((p.item_name || "").toUpperCase().trim()) && 
+                (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
+            );
+
+            if (isTrocaConjunto) {
+                (items || []).forEach(p => {
+                    const nome = (p.item_name || "").toUpperCase().trim();
+                    if (coreParts.includes(nome)) {
+                        p.decisao_vendas = "TROCAR CONJUNTO";
+                    }
+                });
+            }
+
+            // ✅ Aceita TROCAR e TROCAR CONJUNTO
+            const filtradas = (items || []).filter(p => {
+                const nome = (p.item_name || "").toUpperCase().trim();
+                const pVendas = (p.decisao_vendas || "").toUpperCase().trim();
+                return whitelist.includes(nome) && (pVendas === "TROCAR" || pVendas === "TROCAR CONJUNTO");
+            });
+
+            if (filtradas.length === 0) {
+                container.innerHTML = '<div class="p-10 text-center text-slate-400 font-bold text-[10px] uppercase">Nenhum componente para troca.</div>';
+                return;
+            }
+
+            filtradas.forEach(p => {
+                const nome = p.item_name.toUpperCase().trim();
+                const valorBanco = (p.availability || "ORDER").toUpperCase().trim();
+                const isStock = (valorBanco === 'STOCK');
+                container.innerHTML += `
+                    <div class="flex items-center justify-between p-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition" data-id="${p.id}" data-name="${nome}">
+                        <div class="flex flex-col">
+                            <span class="text-slate-800 font-black text-xs uppercase">${nome}</span>
+                            <span class="text-[9px] text-red-600 font-bold uppercase italic">Veredito: ${p.decisao_vendas}</span>
+                        </div>
+                        <div class="flex bg-slate-100 rounded-lg p-1 shadow-inner">
+                            <button onclick="sincronizarPeca(this, '${nome}', 'STOCK')"
+                                    class="btn-toggle-stock ${isStock ? 'active' : ''} text-[9px] font-black uppercase px-4 py-2 rounded-md transition-all">ESTOQUE</button>
+                            <button onclick="sincronizarPeca(this, '${nome}', 'ORDER')"
+                                    class="btn-toggle-order ${!isStock ? 'active' : ''} text-[9px] font-black uppercase px-4 py-2 rounded-md ml-1 transition-all">PEDIR</button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function switchTab(type) {
+            activeTab = type;
+            const triagePanel = document.getElementById('triage-panel');
+            const pendingPanel = document.getElementById('pending-panel');
+            const tabTriage = document.getElementById('tab-triage');
+            const tabPending = document.getElementById('tab-pending');
+            const sidebarFilters = document.getElementById('sidebar-filters');
+
+            triagePanel.classList.add('hidden');
+            pendingPanel.classList.add('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+
+            if (type === 'triage') {
+                tabTriage.className = 'px-6 py-2 rounded-l-lg text-sm font-bold tab-active shadow-sm transition';
+                tabPending.className = 'px-6 py-2 rounded-r-lg text-sm font-bold bg-white text-slate-600 hover:bg-slate-50 shadow-sm transition';
+                sidebarFilters.classList.remove('opacity-20', 'pointer-events-none');
+                if (!selecionada) document.getElementById('empty-state').classList.remove('hidden');
+                else triagePanel.classList.remove('hidden');
+            } else {
+                tabPending.className = 'px-6 py-2 rounded-r-lg text-sm font-bold tab-active shadow-sm transition';
+                tabTriage.className = 'px-6 py-2 rounded-l-lg text-sm font-bold bg-white text-slate-600 hover:bg-slate-50 shadow-sm transition';
+                sidebarFilters.classList.add('opacity-20', 'pointer-events-none');
+                pendingPanel.classList.remove('hidden');
+                renderizarPendencias();
+            }
+            renderizarFila();
+        }
+
+        async function renderizarPendencias() {
+            const container = document.getElementById('lista-pecas-pendentes');
+            if (!container) return;
+            container.innerHTML = '<div class="p-10 text-center text-slate-400 animate-pulse font-bold text-[10px] uppercase">Buscando pendências de compras...</div>';
+            try {
+                const { data: pendingItems, error } = await supabaseClient
+                    .from('triage_parts')
+                    .select('*, service_orders(business_id, model, client, status)')
+                    .eq('availability', 'ORDER');
+
+                if (error || !pendingItems) {
+                    container.innerHTML = '<div class="p-10 text-center text-red-500 font-bold text-[10px] uppercase">Erro de comunicação com o servidor de compras.</div>';
+                    return;
+                }
+
+                const excludedStatuses = ['Aguardando Análise Técnica', 'Aguardando Vendas Comercial', 'Aguardando Triagem', 'Standby', 'Concluída', 'Cancelada'];
+                const pecasFaltantes = pendingItems
+                    .filter(item => item.service_orders && !excludedStatuses.includes(item.service_orders.status))
+                    .map(item => ({
+                        peca_id: item.id,
+                        nome_peca: item.part_name,
+                        os_business_id: item.service_orders.business_id,
+                        os_id: item.service_order_id,
+                        modelo: item.service_orders.model,
+                        cliente: item.service_orders.client
+                    }));
+
+                if (pecasFaltantes.length === 0) {
+                    container.innerHTML = `<div class="py-20 text-center"><svg class="mx-auto h-20 w-20 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg><p class="mt-4 text-slate-400 font-black text-sm uppercase tracking-widest">Nenhuma pendência de compra ativa.</p></div>`;
+                    return;
+                }
+
+                const rows = pecasFaltantes.map(item => `
+                    <tr class="hover:bg-blue-50/50 transition-colors">
+                        <td class="px-6 py-4 font-black text-blue-600">${item.os_business_id}</td>
+                        <td class="px-6 py-4 font-bold text-slate-700 uppercase">${item.nome_peca}</td>
+                        <td class="px-6 py-4"><div class="font-bold text-slate-600">${item.cliente}</div><div class="text-xs text-slate-400">${item.modelo}</div></td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="marcarRecebido('${item.os_id}', '${item.nome_peca}')"
+                                    class="bg-green-500 hover:bg-green-600 text-white font-bold text-[10px] py-2 px-4 rounded-lg uppercase tracking-wider transition transform hover:scale-105">Dar Baixa</button>
+                        </td>
+                    </tr>`).join('');
+
+                container.innerHTML = `
+                    <div class="overflow-hidden rounded-xl border border-slate-100 shadow-sm bg-white">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Ordem de Serviço</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Peça Pendente</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente / Modelo</th>
+                                    <th class="px-6 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">${rows}</tbody>
+                        </table>
+                    </div>`;
+            } catch (e) {
+                container.innerHTML = '<div class="p-10 text-center text-red-500 font-bold text-[10px] uppercase">Erro de comunicação com o Supabase.</div>';
+            }
+        }
+
+        let osParaBaixa = null;
+        let pecaParaBaixa = null;
+
+        function marcarRecebido(osId, partName) {
+            osParaBaixa = osId;
+            pecaParaBaixa = partName;
+            document.getElementById('modal-baixa-msg').innerHTML = `Confirmar o recebimento de <b>"${partName.toUpperCase()}"</b> no almoxarifado?`;
+            document.getElementById('modal-baixa-peca').classList.remove('hidden');
+            document.getElementById('modal-baixa-peca').classList.add('flex');
+        }
+
+        function fecharModalBaixa() {
+            document.getElementById('modal-baixa-peca').classList.add('hidden');
+            document.getElementById('modal-baixa-peca').classList.remove('flex');
+            osParaBaixa = null;
+            pecaParaBaixa = null;
+        }
+
+        async function confirmarBaixaExecutar() {
+            if (!osParaBaixa || !pecaParaBaixa) return;
+            const btn = document.getElementById('btn-executar-baixa');
+            const textoOriginal = btn.innerText;
+            btn.innerText = "SALVANDO...";
+            btn.disabled = true;
+            try {
+                const response = await fetch(API_SYNC, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ os_id: osParaBaixa, part_name: pecaParaBaixa.toUpperCase().trim(), availability: 'STOCK' })
+                });
+                if (response.ok) { fecharModalBaixa(); await carregarDados(); switchTab('pending'); }
+                else alert("Erro ao atualizar o status da peça.");
+            } catch (e) {
+                alert("Falha de conexão.");
+            } finally {
+                btn.innerText = textoOriginal;
+                btn.disabled = false;
+            }
+        }
+
+        async function atualizarContadores() {
+            const triageCount = allOrders.filter(o => o.status === 'Aguardando Triagem').length;
+            const standbyCount = allOrders.filter(o => o.status === 'Standby').length;
+            let pendingCount = 0;
+            try {
+                const { data: pendingItems, error } = await supabaseClient
+                    .from('triage_parts').select('*, service_orders(status)').eq('availability', 'ORDER');
+                if (!error && pendingItems) {
+                    const excl = ['Aguardando Análise Técnica', 'Aguardando Vendas Comercial', 'Aguardando Triagem', 'Standby', 'Concluída', 'Cancelada'];
+                    pendingCount = pendingItems.filter(i => i.service_orders && !excl.includes(i.service_orders.status)).length;
+                }
+            } catch (e) { }
+            const el = (id) => document.getElementById(id);
+            if (el('count-triage')) el('count-triage').innerText = `(${triageCount})`;
+            if (el('count-pending')) el('count-pending').innerText = `(${pendingCount})`;
+            if (el('count-side-triage')) el('count-side-triage').innerText = `(${triageCount})`;
+            if (el('count-side-standby')) el('count-side-standby').innerText = `(${standbyCount})`;
+        }
+
+        function coletarDadosDasPecas() {
+            const pecasEstado = [];
+            let temFaltante = false;
+            document.querySelectorAll('#lista-pecas > div[data-name]').forEach(div => {
+                const idItem = div.getAttribute('data-id');
+                const name = div.getAttribute('data-name');
+                const isOrder = div.querySelector('.btn-toggle-order').classList.contains('active');
+                if (isOrder) temFaltante = true;
+                pecasEstado.push({ id: idItem, name: name, availability: isOrder ? 'ORDER' : 'STOCK' });
+            });
+            return { pecasEstado, temFaltante };
+        }
+
+        async function salvarTriagem(statusFinalOverride = null) {
+            if (!selecionada) return;
+            const { pecasEstado, temFaltante } = coletarDadosDasPecas();
+            if (temFaltante && !statusFinalOverride) {
+                document.getElementById('modal-confirm-msg').innerHTML = `A turbina <b>${selecionada.business_id}</b> tem faltantes. Como deseja proceder?`;
+                document.getElementById('modal-confirm').classList.remove('hidden');
+                document.getElementById('modal-confirm').classList.add('flex');
+                return;
+            }
+            // Usa o UUID real do Supabase se disponível
+            const osId = selecionada._supabaseId || selecionada.id;
+            const code = document.getElementById('input-marking-code').value.trim();
+            const type = document.getElementById('select-marking-type').value;
+
+            if (!code || code === 'Gerando...' || code === 'ERRO') {
+                alert("Aguarde a geração do código de marcação automático.");
+                return;
+            }
+
+            try {
+                // Grava a marcação diretamente no Supabase antes de rodar o webhook
+                const { error: updateError } = await supabaseClient
+                    .from('service_orders')
+                    .update({ 
+                        identificacao_e_marcacao_code: code,
+                        identificacao_e_marcacao_type: type 
+                    })
+                    .eq('id', osId);
+
+                if (updateError) throw updateError;
+
+                // Registra o evento de marcação no histórico
+                await supabaseClient.from('history_events').insert({
+                    service_order_id: osId,
+                    action: 'Identificação Gravada',
+                    details: `Identificação e marcação registradas na triagem: ${type} [ ${code} ]`,
+                    timestamp: new Date().toISOString()
+                });
+
+                const payload = {
+                    os_id: osId,
+                    status: statusFinalOverride || 'Aguardando Desmontagem OS',
+                    observations: document.getElementById('obs-triagem').value,
+                    items_availability: pecasEstado,
+                    user_id: FALLBACK_USER
+                };
+
+                const res = await fetch(API_POST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (res.ok) location.reload();
+            } catch (err) { 
+                console.error("Erro ao salvar triagem:", err);
+                alert("Erro ao salvar triagem."); 
+            }
+        }
+
+        async function atualizarCodigoAutomatico(force = false) {
+            if (!selecionada) return;
+            const selectType = document.getElementById('select-marking-type');
+            const inputCode = document.getElementById('input-marking-code');
+            const type = selectType.value;
+
+            // Se a OS já tem código salvo no banco e não estamos forçando, apenas exibe
+            if (selecionada.identificacao_e_marcacao_code && !force) {
+                inputCode.value = selecionada.identificacao_e_marcacao_code;
+                return;
+            }
+
+            inputCode.value = 'Gerando...';
+            inputCode.classList.add('animate-pulse');
+
+            try {
+                // Busca o último código gravado no banco de dados para esse tipo
+                const { data, error } = await supabaseClient
+                    .from('service_orders')
+                    .select('created_at, identificacao_e_marcacao_code')
+                    .eq('identificacao_e_marcacao_type', type)
+                    .not('identificacao_e_marcacao_code', 'is', null)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (error) throw error;
+
+                const lastCode = (data && data.length > 0) ? data[0].identificacao_e_marcacao_code : null;
+                const lastDateStr = (data && data.length > 0) ? data[0].created_at : null;
+
+                let nextCode = '';
+
+                if (type === 'Estoque DPS') {
+                    const allowedLetters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','P','Q','R','S','T','U','V','W','X','Z'];
+                    nextCode = '1A';
+                    if (lastCode && lastCode.startsWith('1')) {
+                        const lastLetter = lastCode.substring(1).toUpperCase().trim();
+                        const index = allowedLetters.indexOf(lastLetter);
+                        if (index !== -1 && index < allowedLetters.length - 1) {
+                            nextCode = '1' + allowedLetters[index + 1];
+                        } else {
+                            nextCode = '1A';
+                        }
+                    }
+                } else if (type === 'Consumidor Final') {
+                    nextCode = '01';
+                    if (lastCode) {
+                        const lastNum = parseInt(lastCode, 10);
+                        if (!isNaN(lastNum)) {
+                            if (lastNum === 59) {
+                                nextCode = '70';
+                            } else if (lastNum >= 99) {
+                                nextCode = '01';
+                            } else if (lastNum >= 60 && lastNum < 69) {
+                                nextCode = '70';
+                            } else {
+                                const nextNum = lastNum + 1;
+                                nextCode = String(nextNum).padStart(2, '0');
+                            }
+                        }
+                    }
+                } else if (type === 'Outros') {
+                    const now = new Date();
+                    const currentMonth = now.getMonth();
+                    const currentYear = now.getFullYear();
+
+                    let shouldReset = true;
+                    let lastLetter = 'A';
+                    let lastNum = 0;
+
+                    if (lastCode && lastDateStr) {
+                        const lastDate = new Date(lastDateStr);
+                        if (lastDate.getMonth() === currentMonth && lastDate.getFullYear() === currentYear) {
+                            shouldReset = false;
+                            const match = lastCode.trim().match(/^([A-Z])(\d{2})$/i);
+                            if (match) {
+                                lastLetter = match[1].toUpperCase();
+                                lastNum = parseInt(match[2], 10);
+                            }
+                        }
+                    }
+
+                    if (!shouldReset) {
+                        if (lastNum >= 99) {
+                            const nextLetterCode = lastLetter.charCodeAt(0) + 1;
+                            const nextLetter = nextLetterCode > 90 ? 'A' : String.fromCharCode(nextLetterCode);
+                            nextCode = nextLetter + '01';
+                        } else {
+                            nextCode = lastLetter + String(lastNum + 1).padStart(2, '0');
+                        }
+                    } else {
+                        nextCode = 'A01';
+                    }
+                }
+
+                inputCode.value = nextCode;
+            } catch (err) {
+                console.error("Erro ao gerar código automático:", err);
+                inputCode.value = 'ERRO';
+            } finally {
+                inputCode.classList.remove('animate-pulse');
+            }
+        }
+
+        async function colocarEmStandby() {
+            if (!selecionada) return;
+            const { pecasEstado } = coletarDadosDasPecas();
+            const btn = document.getElementById('btn-standby-action');
+            btn.disabled = true;
+            btn.innerText = "SALVANDO...";
+            const osId = selecionada._supabaseId || selecionada.id;
+            const payload = {
+                os_id: osId, status: 'Standby',
+                observations: document.getElementById('obs-triagem').value,
+                items_availability: pecasEstado
+            };
+            try {
+                const res = await fetch(API_POST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (res.ok) {
+                    document.getElementById('modal-status-msg').innerText = "OS movida para Standby. Peças preservadas.";
+                    document.getElementById('modal-status-standby').classList.remove('hidden');
+                    document.getElementById('modal-status-standby').classList.add('flex');
+                }
+            } catch (err) {
+                alert("Erro ao mover.");
+                btn.disabled = false;
+                btn.innerText = "Deixar OS em Standby";
+            }
+        }
+
+        async function liberarDeStandby() {
+            if (!selecionada) return;
+            const { pecasEstado } = coletarDadosDasPecas();
+            const osId = selecionada._supabaseId || selecionada.id;
+            const payload = {
+                os_id: osId, status: 'Aguardando Triagem',
+                observations: document.getElementById('obs-triagem').value,
+                items_availability: pecasEstado
+            };
+            try {
+                const res = await fetch(API_POST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (res.ok) location.reload();
+            } catch (err) { alert("Erro ao retornar."); }
+        }
+
+        async function carregarLinhaDoTempo() {
+            if (!selecionada) { alert("Selecione uma OS primeiro."); return; }
+            const os = selecionada;
+            document.getElementById('detail-business-id').textContent = os.business_id;
+            document.getElementById('detail-model').textContent = os.model;
+            document.getElementById('detail-part-number').textContent = os.part_number || '---';
+            document.getElementById('detail-client').textContent = os.client;
+            document.getElementById('detail-status').textContent = os.status;
+            document.getElementById('detail-difficulty').textContent = os.difficulty || '1';
+            document.getElementById('detail-trade-in').textContent = os.is_trade_in ? `Troca (${os.trade_in_option})` : 'Venda Comum';
+            document.getElementById('detail-observation').textContent = os.observation || 'Sem observações técnicas.';
+
+            const listExtras = document.getElementById('detail-maintenance-extras');
+            try {
+                let extras = os.maintenance_extras;
+                if (typeof extras === 'string') extras = JSON.parse(extras);
+                listExtras.innerHTML = formatMaintenanceExtras(extras);
+            } catch (e) {
+                listExtras.innerHTML = '<li class="text-gray-400 font-bold uppercase text-[10px]">Nenhum item adicional.</li>';
+            }
+
+            const timeline = document.getElementById('timeline-container');
+            timeline.innerHTML = '<p class="text-xs text-blue-500 animate-pulse text-center py-4 uppercase font-bold">Buscando rastreio...</p>';
+            document.getElementById('details-modal').classList.remove('hidden');
+            document.getElementById('details-modal').classList.add('flex');
+
+            try {
+                const supabaseOsId = os._supabaseId || os.id;
+                const { data: events } = await supabaseClient
+                    .from('history_events').select('*')
+                    .eq('service_order_id', supabaseOsId)
+                    .order('timestamp', { ascending: true });
+                if (events && events.length > 0) {
+                    timeline.innerHTML = events.map(ev => `
+                        <div class="relative pb-4 border-l-2 border-blue-100 pl-4 ml-2">
+                            <div class="absolute -left-[9px] top-1 w-4 h-4 bg-blue-600 rounded-full border-2 border-white"></div>
+                            <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight">${ev.action}</p>
+                            <p class="text-[10px] text-slate-400 font-medium">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
+                            ${ev.details ? `<p class="text-[9px] text-blue-700 italic mt-1 font-bold">"${ev.details}"</p>` : ''}
+                        </div>`).join('');
+                } else {
+                    timeline.innerHTML = '<p class="text-[10px] text-slate-400 italic text-center uppercase">Iniciando histórico...</p>';
+                }
+            } catch (err) {
+                timeline.innerHTML = '<p class="text-xs text-red-500 text-center font-bold">ERRO AO CARREGAR.</p>';
+            }
+        }
+
+        function formatMaintenanceExtras(extras) {
+            if (!extras || typeof extras !== 'object') return '<li class="text-gray-400 font-bold uppercase text-[10px]">Nenhum item adicional.</li>';
+            const mapping = { actuator: 'Atuador', geometry: 'Geometria Variável', geometryStem: 'Canote da Geometria', geometryFlange: 'Flange da Geometria' };
+            const items = Object.entries(extras)
+                .filter(([_, val]) => val === true || (val && val.came === true))
+                .map(([key, _]) => `<li class="font-black text-slate-700 uppercase text-[11px]">${mapping[key] || key}</li>`);
+            return items.length > 0 ? items.join('') : '<li class="text-gray-400 font-bold uppercase text-[10px]">Nenhum item adicional identificado.</li>';
+        }
+
+        function confirmarSalvar() { salvarTriagem(); }
+        document.getElementById('close-details-modal-btn').onclick = () => document.getElementById('details-modal').classList.add('hidden');
+
+        async function sincronizarPeca(btn, partName, availability) {
+            const parent = btn.parentElement;
+            const prevActive = parent.querySelector('button.active');
+            parent.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            try {
+                const osId = selecionada._supabaseId || selecionada.id;
+                const response = await fetch(API_SYNC, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ os_id: osId, part_name: partName.toUpperCase().trim(), availability: availability })
+                });
+                if (!response.ok) throw new Error("Erro no servidor");
+            } catch (e) {
+                alert("❌ Erro ao salvar disponibilidade.");
+                btn.classList.remove('active');
+                if (prevActive) prevActive.classList.add('active');
+            }
+        }
+
+        setInterval(() => {
+            ['btn-sector-cleaning', 'btn-other-activities'].forEach(btnId => {
+                const btn = document.getElementById(btnId);
+                const key = btnId === 'btn-sector-cleaning'
+                    ? 'timer_sector_cleaning_start_TRIAGEM'
+                    : 'timer_other_activities_start_TRIAGEM';
+                const startTimeStr = localStorage.getItem(key);
+                if (startTimeStr && btn) {
+                    const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+                    const min = Math.floor(elapsed / 60);
+                    const sec = elapsed % 60;
+                    const label = btnId === 'btn-sector-cleaning' ? 'Limpeza' : 'Atividades';
+                    btn.innerText = `Parar ${label} (${min}:${sec.toString().padStart(2, '0')})`;
+                }
+            });
+        }, 1000);
+    </script>
+</body>
+
+</html>

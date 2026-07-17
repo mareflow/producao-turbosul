@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Análise Técnica TurboSul</title>
+    
+    <!-- Inclusão do Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Importação da fonte 'Inter' do Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Biblioteca Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Estilos Customizados -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .bg-brand-blue { background-color: #2563EB; }
+        .hover\:bg-brand-blue-dark:hover { background-color: #1D4ED8; }
+        
+        .os-card:hover {
+            cursor: pointer;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px);
+            transition: all 0.2s ease-in-out;
+        }
+        .os-card.active {
+            border-left: 4px solid #2563EB;
+            background-color: #EBF8FF; /* blue-50 */
+        }
+
+        /* Estilo para a área de observação/status no formulário */
+        .obs-area {
+            background-color: #2D3748; /* Cor escura para combinar com os screenshots */
+            color: #fff;
+            padding: 8px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col">
+
+    <!-- HEADER FIXO (Topo da Tela) -->
+    <header class="fixed top-0 left-0 right-0 h-20 bg-white shadow-md z-10 flex items-center justify-between px-8">
+        <div class="flex items-center space-x-4">
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="Logo TurboSul" class="w-10 h-10">
+            <div>
+                <h1 class="text-lg font-bold text-gray-800">TurboSul - Controle de Produção</h1>
+                <p class="text-sm text-gray-500">Gerenciamento de Ordens de Serviço</p>
+            </div>
+        </div>
+
+        <nav class="flex items-center space-x-6 text-sm text-gray-600">
+            <div class="flex items-center space-x-2 text-gray-700 pr-4">
+                <span class="text-sm font-black text-slate-800 uppercase tracking-wider">Análise Técnica</span>
+            </div>
+            
+            <a href="./quadro-producao.html" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-sm font-bold uppercase tracking-widest shadow-sm transition flex items-center mr-2">
+                Quadro de Produção
+            </a>
+            <button id="logout-button" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-4 rounded-md transition duration-150">Sair</button>
+        </nav>
+    </header>
+
+<!-- CONTEÚDO PRINCIPAL -->
+    <main class="flex-1 flex items-start p-6 gap-6 pt-24">
+        
+        <!-- Coluna 1: Fila de Trabalho (Fixa no topo ao rolar) -->
+        <div class="w-1/4 max-w-xs bg-white rounded-lg shadow p-4 flex flex-col space-y-4 sticky top-24 max-h-[calc(100vh-110px)] overflow-y-auto">
+            <h2 class="text-xl font-semibold text-gray-800 mb-2 border-b pb-2 uppercase tracking-tighter">Controle de Fila</h2>
+            <div class="flex space-x-1 text-[10px] font-bold mb-4">
+                <button id="tab-fila-btn" class="flex-1 py-2 rounded-t-lg border-b-2 border-brand-blue text-brand-blue bg-blue-50">
+                    FILA DE ANÁLISE (<span id="count-fila">0</span>)
+                </button>
+                <button id="tab-standby-btn" class="flex-1 py-2 rounded-t-lg border-b-2 border-transparent text-gray-500 hover:bg-slate-50">
+                    STANDBY / CASCO (<span id="count-standby">0</span>)
+                </button>
+            </div>
+            
+            <div id="fila-de-analise-container" class="space-y-3">
+                <p id="loading-message" class="text-gray-500 text-center mt-4 text-xs italic">Carregando...</p>
+            </div>
+        </div>
+
+        <!-- Coluna 2: Formulário de Análise (75%) -->
+        <div id="form-container" class="w-3/4 flex flex-col space-y-4">
+            
+            <h2 class="text-2xl font-semibold text-gray-800">Análise Técnica</h2>
+
+            <!-- Placeholder Inicial (Até que uma OS seja selecionada) -->
+            <div id="initial-placeholder" class="bg-white rounded-lg shadow p-20 text-center flex-grow flex items-center justify-center">
+                <p class="text-gray-500 text-lg">Selecione uma OS para iniciar.</p>
+            </div>
+
+            <!-- Formulário de Análise (Visível após clique) -->
+            <div id="analysis-form-wrapper" class="bg-white rounded-lg shadow flex-grow hidden flex-col">
+                
+                <form id="analysis-form" class="flex flex-col h-full">
+
+                    <!-- Área Fixa: Título e Detalhes da OS Selecionada -->
+                    <div class="p-4 border-b bg-gray-50 flex justify-between items-center rounded-t-lg">
+                        <h3 id="form-title" class="text-xl font-semibold text-gray-800">Formulário de Análise - ANA-XXX</h3>
+                        <button type="button" id="btn-historico-completo" class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-1 px-3 rounded-md transition duration-150 uppercase text-[10px] tracking-widest">
+                            Histórico Completo
+                        </button>
+                    </div>
+
+                    <!-- Área Fixa: Padrão de Manutenção e Adicionais -->
+                    <div class="p-6 border-b space-y-4">
+                        <h4 class="text-base font-semibold text-gray-700 mb-4 uppercase tracking-tighter">Padrão de Manutenção (1-8) / Adicionais</h4>
+                        
+                        <!-- ALERTA DE INSTRUÇÃO DE USO -->
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-6 rounded shadow-sm flex items-start space-x-3 transition-all duration-300">
+                            <svg class="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div class="text-[11px] text-blue-900 leading-normal">
+                                <p class="font-black uppercase mb-1 tracking-wider">Instrução de Identificação:</p>
+                                Os itens abaixo iniciam desabilitados (cinza). Caso identifique o componente na turbina, marque o campo <span class="font-black text-blue-700">"Veio?"</span>. Isso habilitará o seletor para que você dê o veredito técnico (BOM ou TROCAR).
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-4 gap-4">
+                            <!-- Dropdown Padrão -->
+                            <div class="col-span-1">
+                                <select id="pattern-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-blue focus:border-brand-blue">
+                                    <option value="">Selecione o Padrão...</option>
+                                    <option value="Padrão 1">Padrão 1</option>
+                                    <option value="Padrão 2">Padrão 2</option>
+                                    <option value="Padrão 3">Padrão 3</option>
+                                    <option value="Padrão 4">Padrão 4</option>
+                                    <option value="Padrão 5">Padrão 5</option>
+                                    <option value="Padrão 6">Padrão 6</option>
+                                    <option value="Padrão 7">Padrão 7</option>
+                                    <option value="Padrão 8">Padrão 8</option>
+                                </select>
+                            </div>
+                            <!-- Itens Adicionais (Identificação pelo Analista) -->
+                            <div class="col-span-3 grid grid-cols-4 gap-4">
+                                <!-- ATUADOR -->
+                                <div class="space-y-1 p-2 border rounded-lg bg-white transition-all duration-200">
+                                    <p class="text-xs font-medium text-gray-700">ATUADOR</p>
+                                    <div class="flex items-center space-x-2">
+                                        <input type="checkbox" id="check-actuator" class="h-4 w-4 text-brand-blue border-gray-300 rounded">
+                                        <label for="check-actuator" class="text-sm">Veio?</label>
+                                    </div>
+                                    <select id="status-actuator" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
+                                        <option value="PEÇA OK">PEÇA OK</option>
+                                        <option value="TROCAR">TROCAR</option>
+                                    </select>
+                                </div>
+                                <!-- GEOMETRIA VARIÁVEL -->
+                                <div class="space-y-1 p-2 border rounded-lg bg-white transition-all duration-200">
+                                    <p class="text-xs font-medium text-gray-700">GEOMETRIA VARIÁVEL</p>
+                                    <div class="flex items-center space-x-2">
+                                        <input type="checkbox" id="check-geometry" class="h-4 w-4 text-brand-blue border-gray-300 rounded">
+                                        <label for="check-geometry" class="text-sm">Veio?</label>
+                                    </div>
+                                    <select id="status-geometry" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
+                                        <option value="PEÇA OK">PEÇA OK</option>
+                                        <option value="TROCAR">TROCAR</option>
+                                    </select>
+                                </div>
+                                <!-- CANOTE DA GEOMETRIA -->
+                                <div class="space-y-1 p-2 border rounded-lg bg-white transition-all duration-200">
+                                    <p class="text-xs font-medium text-gray-700">CANOTE DA GEOMETRIA</p>
+                                    <div class="flex items-center space-x-2">
+                                        <input type="checkbox" id="check-geometryStem" class="h-4 w-4 text-brand-blue border-gray-300 rounded">
+                                        <label for="check-geometryStem" class="text-sm">Veio?</label>
+                                    </div>
+                                    <select id="status-geometryStem" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
+                                        <option value="PEÇA OK">PEÇA OK</option>
+                                        <option value="TROCAR">TROCAR</option>
+                                    </select>
+                                </div>
+                                <!-- FLANGE DA GEOMETRIA -->
+                                <div class="space-y-1 p-2 border rounded-lg bg-white transition-all duration-200">
+                                    <p class="text-xs font-medium text-gray-700">FLANGE DA GEOMETRIA</p>
+                                    <div class="flex items-center space-x-2">
+                                        <input type="checkbox" id="check-geometryFlange" class="h-4 w-4 text-brand-blue border-gray-300 rounded">
+                                        <label for="check-geometryFlange" class="text-sm">Veio?</label>
+                                    </div>
+                                    <select id="status-geometryFlange" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
+                                        <option value="PEÇA OK">PEÇA OK</option>
+                                        <option value="TROCAR">TROCAR</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- NOVA SEÇÃO: PEÇAS OBRIGATÓRIAS (INTERNAS) -->
+                        <h4 class="text-base font-semibold text-gray-700 mt-6 mb-4 uppercase tracking-tighter">Veredito Peças Internas Padrão</h4>
+                        <div class="grid grid-cols-3 gap-4">
+                            <!-- REPAROS -->
+                            <div class="space-y-1 p-2 border rounded-lg bg-blue-50/50">
+                                <p class="text-xs font-medium text-gray-700">REPAROS</p>
+                                <select id="status-reparos" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
+                                    <option value="PEÇA OK">PEÇA OK</option>
+                                    <option value="RECONDICIONAR">RECONDICIONAR</option>
+                                    <option value="TROCAR">TROCAR</option>
+                                </select>
+                            </div>
+                            <!-- CCE -->
+                            <div class="space-y-1 p-2 border rounded-lg bg-blue-50/50">
+                                <p class="text-xs font-medium text-gray-700">CCE</p>
+                                <select id="status-cce" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
+                                    <option value="PEÇA OK">PEÇA OK</option>
+                                    <option value="RECONDICIONAR">RECONDICIONAR</option>
+                                    <option value="TROCAR">TROCAR</option>
+                                </select>
+                            </div>
+                            <!-- CCO -->
+                            <div class="space-y-1 p-2 border rounded-lg bg-blue-50/50">
+                                <p class="text-xs font-medium text-gray-700">CCO</p>
+                                <select id="status-cco" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
+                                    <option value="PEÇA OK">PEÇA OK</option>
+                                    <option value="RECONDICIONAR">RECONDICIONAR</option>
+                                    <option value="TROCAR">TROCAR</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CONTEÚDO DA CONFERÊNCIA TÉCNICA (Abas + Resumo) -->
+                    <div id="panel-conferencia-tecnica" class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mt-4">
+                        
+                        <!-- Painel de Inputs (Abas de Preenchimento) -->
+                        <div id="checklist-inputs-container">
+                            <!-- Abas de Navegação -->
+                            <div class="p-4 border-b flex space-x-8 bg-slate-50 overflow-x-auto">
+                                <button type="button" class="tab-button text-brand-blue border-b-2 border-brand-blue font-semibold" data-tab="tab1">1. Anexos (Itens Externos do Cliente)</button>
+                                <button type="button" class="tab-button text-gray-500 hover:text-gray-700 font-medium" data-tab="tab2">2. Reparos Gerais (Interno)</button>
+                                <button type="button" class="tab-button text-gray-500 hover:text-gray-700 font-medium" data-tab="tab3">3. Checklist do Caracol (Caixa Quente)</button>
+                            </div>
+
+                            <!-- Conteúdo das Abas (Expandido) -->
+                            <div id="tab-content-wrapper" class="p-6 space-y-8">
+                                <!-- TAB 1: Anexos (Itens Externos do Cliente) -->
+                                <div id="tab1" class="tab-content space-y-4"></div>
+
+                                <!-- TAB 2: Reparos Gerais (Interno) -->
+                                <div id="tab2" class="tab-content hidden space-y-4"></div>
+                                
+                                <!-- TAB 3: Checklist do Caracol (Caixa Quente) -->
+                                <div id="tab3" class="tab-content hidden space-y-4"></div>
+
+                                <!-- Botão 1: Salvar Checklist posicionado logo abaixo do checklist ativo, alinhado à direita -->
+                                <div class="flex justify-end pt-4 pr-1">
+                                    <button type="button" id="btn-salvar-checklist" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-lg transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center">
+                                        <i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Painel de Resumo Estático (Oculto por padrão, visível após salvar) -->
+                        <div id="checklist-summary-container" class="hidden p-6 bg-slate-50/50">
+                            <div class="flex justify-between items-center mb-4">
+                                <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center">
+                                    <i class="fa-solid fa-circle-check text-emerald-600 mr-2 text-sm"></i> Resumo do Checklist Gravado (Leitura)
+                                </h4>
+                                <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Laudo Salvo</span>
+                            </div>
+                            <div id="checklist-summary-list" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                <!-- Injetado via JS -->
+                            </div>
+                        </div>
+                    </div>
+                        
+                    <!-- Área de Resumo Final (Fim da Página) -->
+                    <div class="bg-white pt-10 border-t mt-10 pb-10">
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                    <p class="text-sm font-semibold text-red-700">Peças para Substituição (Estoque/Vendas)</p>
+                                    <p id="substituicao-resumo" class="text-xs text-red-600 mt-1">Nenhuma peça.</p>
+                                </div>
+                                <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <p class="text-sm font-semibold text-yellow-700">Serviços a Realizar (Orçamento)</p>
+                                    <p id="servicos-resumo" class="text-xs text-yellow-600 mt-1">Nenhum serviço.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-6">
+                                <p class="text-sm font-bold text-slate-700 mb-3 uppercase tracking-tighter">Observações gerais da análise técnica</p>
+                                <textarea id="observacoes-analise" rows="4" class="w-full obs-area text-sm shadow-inner" placeholder="Descreva detalhes técnicos aqui..."></textarea>
+                            </div>
+
+                            <!-- Área de Botões de Ação Unificados (Fim da Página) -->
+                            <div class="flex justify-end border-t border-gray-100 pt-6 pb-4">
+                                <!-- Botão Seguir e Gerar Relatórios (Azul, desabilitado por padrão) -->
+                                <button type="submit" id="btn-seguir-relatorios" disabled class="bg-gray-400 cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center">
+                                    2. Seguir e Gerar Relatórios
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- RODAPÉ DE ASSINATURA MARÉ FLOW -->
+    <footer class="py-2 text-center border-t bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-50">
+        <div class="flex items-center justify-center space-x-2">
+            <span class="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Desenvolvido por</span>
+            <span class="text-[9px] font-black text-blue-600 uppercase tracking-widest">Maré Flow</span>
+            <span class="text-slate-300">|</span>
+            <span class="text-[8px] font-bold text-slate-400 uppercase tracking-tighter italic">TurboSul Controle de Produção © 2026</span>
+        </div>
+    </footer>
+    
+    <!-- MODAIS - INÍCIO -->
+
+    <!-- MODAL DE ERRO TÉCNICO (PROFISSIONAL) -->
+    <div id="error-analysis-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-[200]">
+        <div class="bg-white w-full max-w-sm rounded-[32px] p-8 text-center border-b-8 border-red-600 shadow-2xl">
+            <div class="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i class="fa-solid fa-circle-exclamation text-3xl"></i>
+            </div>
+            <h3 class="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-2">Ops! Algo deu errado</h3>
+            <p id="error-analysis-message" class="text-sm text-gray-500 font-medium leading-relaxed mb-8">Não foi possível processar a análise. Verifique sua conexão.</p>
+            <button onclick="document.getElementById('error-analysis-modal').classList.add('hidden')" class="w-full bg-slate-800 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest hover:bg-slate-900 transition">Entendido</button>
+        </div>
+    </div>
+    
+    <!-- NOVO MODAL DE CONFIRMAÇÃO DE ANÁLISE -->
+    <div id="analysis-confirmation-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Confirmar Geração de Relatórios</h3>
+            <p class="text-gray-600 mb-4">Seu checklist já foi salvo no banco. Deseja prosseguir para enviar ao Comercial?</p>
+            
+            <div class="flex items-center justify-center space-x-2 mb-6 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                <input type="checkbox" id="open-pdf-analise" checked class="h-5 w-5 text-brand-blue border-gray-300 rounded focus:ring-brand-blue">
+                <label for="open-pdf-analise" class="text-sm font-bold text-blue-900 cursor-pointer">Abrir PDF na tela após salvar</label>
+            </div>
+            
+            <div class="flex justify-center space-x-3">
+                <button id="cancel-analysis-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-150">
+                    Cancelar
+                </button>
+                <button id="confirm-analysis-btn" class="bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                    Sim, Gerar Relatório
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOVO MODAL DE SUCESSO DE ANÁLISE SALVA -->
+    <div id="analysis-saved-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <div class="flex flex-col items-center mb-4">
+                <svg class="w-12 h-12 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <h3 class="text-xl font-bold text-gray-800">Análise Salva!</h3>
+                <p class="text-gray-600 mt-2 mb-4 italic text-xs">As peças foram roteadas para os setores.</p>
+                
+                <!-- BOTÃO DO LAUDO (Garantia caso o pop-up bloqueie) -->
+                <div id="pdf-container-success" class="hidden w-full mb-4">
+                    <a id="btn-ver-laudo" href="#" target="_blank" class="block w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl transition shadow-lg shadow-green-100 uppercase text-xs tracking-widest">
+                        <i class="fa-solid fa-file-pdf mr-2"></i> Abrir Laudo Técnico
+                    </a>
+                </div>
+            </div>
+            <button id="analysis-saved-ok-btn" class="w-full bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition duration-150 uppercase text-[10px]">
+                OK, Continuar
+            </button>
+        </div>
+    </div>
+    
+    <!-- MODAIS EXISTENTES -->
+    <div id="dispatch-success-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <div class="flex flex-col items-center mb-4">
+                <svg class="w-12 h-12 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <h3 class="text-xl font-bold text-gray-800">Despacho Realizado!</h3>
+                <p id="dispatch-success-message" class="text-gray-600 mt-2">--</p>
+            </div>
+            <button id="dispatch-success-ok-btn" class="w-full bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                OK
+            </button>
+        </div>
+    </div>
+
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl">
+            
+            <div class="p-6 border-b flex justify-between items-center">
+                <h3 class="text-xl font-semibold text-gray-800">Detalhes do Processo</h3>
+                <button id="close-details-modal-btn" class="text-gray-400 hover:text-gray-600 transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-5 text-sm">
+                
+                <div class="grid grid-cols-3 gap-4 border-b pb-4">
+                    <div><p class="text-gray-500 font-medium">Nº ORÇAMENTO / ENTRADA</p><p id="detail-business-id" class="text-lg font-bold text-gray-800">--</p></div>
+                    <div><p class="text-gray-500 font-medium">MODELO</p><p id="detail-model" class="text-gray-800">--</p></div>
+                    <div><p class="text-gray-500 font-medium">CLIENTE</p><p id="detail-client" class="text-gray-800">--</p></div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4 pb-4">
+                    <div><p class="text-gray-500 font-medium">STATUS ATUAL</p><span id="detail-status" class="inline-block text-sm font-medium bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">--</span></div>
+                    <div><p class="text-gray-500 font-medium">URGÊNCIA</p><span id="detail-urgency" class="inline-block text-sm font-medium px-2 py-0.5 rounded-full">--</span></div>
+                    <div><p class="text-gray-500 font-medium">DATA DE CRIAÇÃO</p><p id="detail-created-at" class="text-gray-800">--</p></div>
+                </div>
+                
+                <h4 class="text-base font-semibold text-gray-800 border-b pb-2">Detalhes Adicionais</h4>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><p class="text-gray-500 font-medium">GRAU DE DIFICULDADE</p><p id="detail-difficulty" class="text-gray-800">--</p></div>
+                    <div><p class="text-gray-500 font-medium">TIPO DE VENDA</p><p id="detail-trade-in" class="text-gray-800">--</p></div>
+                </div>
+
+                <div class="space-y-2">
+                    <p class="text-gray-500 font-medium">ITENS ADICIONAIS INCLUÍDOS</p>
+                    <ul id="detail-maintenance-extras" class="text-gray-800 list-disc list-inside bg-slate-50 p-3 rounded-lg">
+                        <!-- Itens serão injetados aqui -->
+                    </ul>
+                </div>
+
+                <div class="space-y-2">
+                    <p class="text-gray-500 font-medium">OBSERVAÇÕES</p>
+                    <p id="detail-observation" class="bg-slate-50 p-3 rounded-lg text-gray-800 italic">Nenhuma observação registrada.</p>
+                </div>
+                
+                <h4 class="text-base font-semibold text-gray-800 border-b pb-2 pt-4 uppercase text-xs tracking-widest">Linha do Tempo de Produção</h4>
+                <div id="timeline-container" class="mt-4 space-y-4 border-l-2 border-slate-200 ml-2 pl-4">
+                    <!-- Histórico será injetado aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-dispatch-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[100]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Confirmar Despacho</h3>
+            <p id="confirm-dispatch-message" class="text-gray-600 mb-6">Tem certeza que deseja despachar X ordens para Análise Técnica?</p>
+            
+            <div class="flex justify-center space-x-3">
+                <button id="cancel-dispatch-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-150">
+                    Cancelar
+                </button>
+                <button id="confirm-dispatch-btn" class="bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-lg transition duration-150">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRMAR RECEBIMENTO DE CASCO (BONITO) -->
+    <div id="hull-confirmation-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[130]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center">
+            <div class="w-16 h-16 bg-blue-100 text-brand-blue rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="text-xl font-black text-slate-800 uppercase tracking-tighter mb-2">Receber Casco?</h3>
+            <p class="text-sm text-gray-500 font-medium leading-relaxed mb-6">Confirmar recebimento do casco? A Ordem de Serviço voltará para a **Fila de Produção** imediatamente.</p>
+            
+            <div class="flex space-x-3">
+                <button type="button" onclick="document.getElementById('hull-confirmation-modal').classList.add('hidden')" class="flex-1 bg-slate-200 text-slate-600 font-bold py-3 rounded-lg text-xs uppercase tracking-widest hover:bg-slate-300 transition">Cancelar</button>
+                <button type="button" id="confirm-hull-btn" class="flex-[2] bg-green-600 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest shadow-lg shadow-green-100 hover:bg-green-700 transition">Sim, Receber</button>
+            </div>
+        </div>
+    </div>
+	
+	<!-- MODAL: CONFIRMAR PAGAMENTO DE CASCO -->
+    <div id="payment-confirmation-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[130]">
+        <div class="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center border-t-8 border-blue-600">
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="text-xl font-black text-slate-800 uppercase tracking-tighter mb-2">Confirmar Pagamento?</h3>
+            <p class="text-sm text-gray-500 font-medium leading-relaxed mb-6">O cliente pagou o casco? Esta OS será marcada como **Finalizada** e enviada para a aba de concluídas no Admin.</p>
+            
+            <div class="flex space-x-3">
+                <button type="button" onclick="document.getElementById('payment-confirmation-modal').classList.add('hidden')" class="flex-1 bg-slate-200 text-slate-600 font-bold py-3 rounded-lg text-xs uppercase tracking-widest hover:bg-slate-300 transition">Cancelar</button>
+                <button type="button" id="confirm-payment-btn" class="flex-[2] bg-blue-600 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest shadow-lg shadow-blue-100 hover:bg-blue-700 transition">Confirmar Pagamento</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL RAIO-X -->
+    <div id="raiox-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[110]">
+        <div class="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6">
+            <div class="flex justify-between items-center border-b pb-4 mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Raio-X da Ordem de Serviço</h3>
+                <button onclick="document.getElementById('raiox-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div id="raiox-content" class="grid grid-cols-2 gap-4 text-sm">
+                <!-- Conteúdo injetado via JS -->
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Inclusão da biblioteca do Supabase via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Lógica de Frontend com JavaScript Puro (Vanilla JS) -->
+    <!-- Inclusão da biblioteca do Supabase via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Lógica de Frontend com JavaScript Puro (Vanilla JS) -->
+    <script>
+        // ====================================================================
+        // 1. CONFIGURAÇÃO E DADOS
+        // ====================================================================
+        const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
+        
+        // Webhooks
+        const WEBHOOK_GET_ANALYSIS = 'https://webhook.mareflow.com.br/webhook/orders/analysis';
+        const WEBHOOK_SAVE_ANALYSIS = 'https://webhook.mareflow.com.br/webhook/analysis/report';
+        const WEBHOOK_POST = 'https://teste.mareflow.com.br/webhook/orders/new-entry';
+        const WEBHOOK_DISPATCH = 'https://teste.mareflow.com.br/webhook/orders/dispatch-to-analysis'; 
+        
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        let currentOrders = [];
+        let activeOSId = null;
+        let isChecklistSaved = false; // Controla se o checklist foi salvo na sessão atual da OS
+        let btnSalvarChecklist = null;
+        let btnSeguirRelatorios = null;
+
+        // Dados estáticos para o formulário
+        const STATUS_OPTIONS_EXTERNAL = ['NÃO INFORMADO', 'PEÇA OK', 'RECONDICIONAR', 'TROCAR', 'ITEM FALTANTE'];
+        const STATUS_OPTIONS_CARACOL = ['NÃO INFORMADO', 'PEÇA OK', 'RECONDICIONAR', 'TROCAR', 'ITEM FALTANTE']; 
+
+        const ANALYSIS_ITEMS = {
+            tab1: [
+                'Travas CCO', 'Travas CT', 'Parafuso CT Flangeado', 'Parafuso CCO Flangeado', 'Cano Retorno Parafusos', 
+                'Adaptador Lubrificação', 'Nipel de Lubrificação', 'Cano Lubrificação com Nipel', 'Atuador Pressão', 
+                'Atuador Vácuo', 'Atuador Vácuo Eletrônico', 'Atuador Eletrônico com Haste', 'Suporte Atuador Eletrônico', 
+                'Calço Atuador', 'Chapa de Proteção Atuador', 'Parafusos Suporte Atuador', 'Parafusos Chapa Proteção', 
+                'Mangueira na CCO', 'Prisioneiro Saída', 'Prisioneiro Pé Mesa CT', 'Prisioneiro CCE', 'Parafuso CCE', 
+                'Prisioneiro CCO', 'Prisioneiro Especial Longo', 'Saída de Escape', 'Flange Saída CT', 'Chapa de Proteção CT', 
+                'Freio Motor', 'Chapa de Proteção Saída', 'Nipel Fixo na CCO', 'Nipel Roscado na CCO', 'Nipel com Parafuso OCO', 
+                'Olhal', 'Parafuso OCO', 'Coletor', 'Cinta CT CCE', 'Cinta CCO', 'Cinta Saída', 'Flange Pé Mesa CT', 
+                'Cano Admissão CCO', 'Cano Admissão Motor', 'Cano de Água', 'Valvula Prioritária', 'Valvula Solenóide', 
+                'Sonda Temp Pressão', 'Sensor PVF', 'Bocal Plástico Biturbo', 'Tampão CT', 'Arruela Plástica Biturbo', 
+                'Bocal Alumínio Biturbo', 'Luva Borracha Biturbo', 'Cano Ligação Alumínio', 'Capa Alumínio Biturbo', 
+                'Peça Alumínio com Mola', 'Juntas', 'Almofada Amianto Saída', 'Mangueira Atuador', 'Conexão T', 
+                'Defletor Admissão com Trava', 'Abraçadeiras', 'Capa Protetiva Alumínio', 'Nipel de Retorno', 
+                'Mangueira de Retorno', 'Suporte CT', 'Anel Cano Retorno', 'Parafuso União Biturbo', 'Valvula Pressão Partida', 
+                'Oring', 'Valvula Sensor Partida', 'Mangueira Bocal Alumínio'
+            ],
+            tab2: [
+                'Mancal Radial', 'Mancal Encosto', 'Flange', 'Colar', 'Espaçador', 'Calço Arruela', 
+                'Defletor de Óleo', 'Protetor Térmico', 'Travas de Mancal CCE', 'Trava Aranha Mancal', 'Trava de Flange', 
+                'Calço de Altura no Rotor', 'Porca do Eixo', 'Almofada Vedação Eixo', 'Almofada Vedação Caracol', 
+                'Arruela Metálica Vedação', 'Geometria Variável TGV', 'Flange da TGV', 'Viton', 'Aneis Vedação Flange TGV', 
+                'Anel Assentamento Valvula Biturbo'
+            ],
+            tab3: [
+                'Trinca Base Face ou Gases', 'Quebra Base Face', 'Espessura da Base Minima 9mm', 'Embuchamento da CT', 
+                'Desgaste Saida Escape Flangeada', 'Desgaste Face Encaixe CCE', 'Trinca Face Assentamento CCE', 
+                'Trinca Parede Lateral Protetor', 'Trinca ou Quebra da Voluta', 'Borboleta ou Moeda Folga', 
+                'Bucha Guia Borboleta', 'Braco Wastegate', 'Pino de Centro', 'Assentamento Borboleta Moeda', 
+                'Coletor Anexo', 'Plaina Coletor Uniao Biturbo', 'Empenamento Faces Alojamento', 'Necessita Gabarito Usinagem', 
+                'Tipo de Solda'
+            ]
+        };
+
+        const PADROES_LOGICA = {
+            "Padrão 1":  { eixo: "PEÇA OK", rotor: "PEÇA OK", ct: "PEÇA OK" },
+            "Padrão 2":  { eixo: "PEÇA OK", rotor: "PEÇA OK", ct: "TROCAR" },
+            "Padrão 3":  { eixo: "PEÇA OK", rotor: "TROCAR", ct: "PEÇA OK" },
+            "Padrão 4":  { eixo: "PEÇA OK", rotor: "TROCAR", ct: "TROCAR" },
+            "Padrão 5":  { eixo: "TROCAR", rotor: "PEÇA OK", ct: "PEÇA OK" },
+            "Padrão 6":  { eixo: "TROCAR", rotor: "TROCAR", ct: "PEÇA OK" },
+            "Padrão 7":  { eixo: "TROCAR", rotor: "PEÇA OK", ct: "TROCAR" },
+            "Padrão 8":  { eixo: "TROCAR", rotor: "TROCAR", ct: "TROCAR" }
+        };
+
+        const MAINTENANCE_MAP = {
+            actuator: 'Atuador',
+            geometry: 'Geometria Variável',
+            geometryStem: 'Canote da Geometria',
+            geometryFlange: 'Flange da Geometria'
+        };
+
+        const HULL_STATE_MAP = {
+            'RECEIVED': 'Já Recebido (Seguir Processo)',
+            'WAITING': 'Aguardando Cliente Trazer (Standby)',
+            'PAID': 'Pago/Incluso (Seguir Processo)',
+            'UNKNOWN': 'Aguardando definição de status' 
+        };
+        
+        const FALLBACK_USER_UID = '8ab0d7ed-055c-4480-a1af-eb0b08894682';
+
+        // Variáveis DOM declaradas aqui para o escopo global
+        let filaContainer, filaCountSpan, loadingMessage, modal, successModal, detailsModal, confirmDispatchModal, dispatchSuccessModal, confirmDispatchMessage, dispatchSuccessMessage, form, baseTrocaCheck, baseTrocaRadiosDiv, successOkBtn, closeDetailsBtn, dispatchAllBtn, confirmDispatchBtn, cancelDispatchBtn, dispatchSuccessOkBtn;
+        let analysisConfirmationModal, confirmAnalysisBtn, cancelAnalysisBtn, analysisSavedModal, analysisSavedOkBtn;
+
+
+        // ====================================================================
+        // 2. FUNÇÕES AUXILIARES E DE CONTROLE (ESCOPO GLOBAL)
+        // ====================================================================
+
+        async function getCurrentUserUID() { 
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session && session.user) { return session.user.id; }
+            } catch (error) { console.error("Erro ao obter a sessão para UID.", error); }
+            return FALLBACK_USER_UID;
+        }
+
+        function getUrgencyBadge(urgency) {
+            switch (urgency) {
+                case 'Urgente': return 'bg-red-600 text-white';
+                case 'Alta': return 'bg-red-400 text-white'; 
+                case 'Normal': return 'bg-blue-300 text-gray-800';
+                case 'Baixa': return 'bg-gray-300 text-gray-800';
+                default: return 'bg-gray-300 text-gray-800';
+            }
+        }
+        
+        function formatDateTime(isoString) {
+            if (!isoString) return '--';
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            } catch {
+                return isoString;
+            }
+        }
+
+        function formatMaintenanceExtras(extras) {
+            if (!extras || typeof extras !== 'object') return '<li class="text-gray-400">Nenhum item adicional.</li>';
+            
+            const mapping = { actuator: 'Atuador', geometry: 'Geometria Variável', geometryStem: 'Canote da Geometria', geometryFlange: 'Flange da Geometria' };
+            const items = Object.entries(extras)
+                .filter(([_, val]) => val === true || (val && val.came === true))
+                .map(([key, _]) => `<li class="font-bold text-slate-700">${mapping[key] || key}</li>`);
+
+            return items.length > 0 ? items.join('') : '<li class="text-gray-400">Nenhum item adicional.</li>';
+        }
+        
+        function renderOrderCard(order) {
+            const isStandby = order.status === 'Standby / Aguardando Casco' || order.trade_in_option === 'Standby';
+            const urgencyText = order.urgency || 'Normal';
+            const urgencyClass = getUrgencyBadge(urgencyText);
+            
+            let actionButtons = '';
+            if (isStandby) {
+                actionButtons = `
+                    <div class="flex space-x-2 mt-3 pt-2 border-t">
+                        <button onclick="event.stopPropagation(); liberarCasco('${order.id}')" class="flex-1 bg-green-600 text-white text-[9px] font-bold py-1.5 rounded hover:bg-green-700">RECEBER CASCO</button>
+                        <button onclick="event.stopPropagation(); pagarCasco('${order.id}')" class="flex-1 bg-blue-600 text-white text-[9px] font-bold py-1.5 rounded hover:bg-blue-700">PAGOU CASCO</button>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="os-card bg-white p-3 rounded-lg shadow border border-gray-200 cursor-pointer" 
+                     data-order-id="${order.id}" 
+                     data-status="${order.status}">
+                    <div class="pointer-events-none">
+                        <p class="text-base font-bold text-gray-800 mb-1 flex justify-between items-center">${order.business_id}
+                            <span class="inline-block text-xs font-medium ${urgencyClass} px-2 py-0.5 rounded-full">${urgencyText}</span>
+                        </p>
+                        <p class="text-sm text-gray-600">${order.model}</p>
+                        <p class="text-xs text-gray-500">${order.client}</p>
+                    </div>
+                    ${actionButtons}
+                </div>
+            `;
+        }
+
+        // Renderiza o corpo das abas do formulário
+        function renderAnalysisForm() {
+            const createContent = (tabKey, options) => ANALYSIS_ITEMS[tabKey].map(item => createFormRow(item, options)).join('');
+            const tab1Content = createContent('tab1', STATUS_OPTIONS_EXTERNAL);
+            const tab2Content = createContent('tab2', STATUS_OPTIONS_EXTERNAL);
+            
+            // Tab 3: Conteúdo com o checkbox CONDENAR GLOBAL
+            const tab3Content = `
+                <!-- Checkbox Global Condenar Caracol -->
+                <div class="p-4 mb-4 border border-red-300 rounded-lg bg-white flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="condenar-caracol-check" class="h-5 w-5 text-red-600 border-red-300 rounded focus:ring-red-500">
+                        <label for="condenar-caracol-check" class="text-sm font-bold text-red-700">CONDENAR CARACOL COMPLETO (TROCAR)</label>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    ${createContent('tab3', STATUS_OPTIONS_CARACOL)}
+                </div>
+            `;
+            
+            document.getElementById('tab1').innerHTML = `<div class="p-4 bg-white">${tab1Content}</div>`;
+            document.getElementById('tab2').innerHTML = `<div class="p-4 bg-white">${tab2Content}</div>`;
+            document.getElementById('tab3').innerHTML = `<div class="p-4 bg-white">${tab3Content}</div>`;
+        }
+        
+        // Gera o HTML da linha do formulário (Dropdown + Obs)
+        function createFormRow(itemName, options) {
+            const cleanName = itemName.replace(/\s+/g, '_').toLowerCase();
+            const optionTags = options.map(opt => `<option value="${opt}">${opt}</option>`).join('');
+            
+            return `
+                <div class="grid grid-cols-4 gap-4 items-center border-b py-2">
+                    <label class="col-span-2 text-sm font-medium text-gray-700">${itemName}</label>
+                    <select id="status-${cleanName}" name="status-${cleanName}" onchange="updateStatusSelectStyle(this)"
+                        class="col-span-1 w-full px-2 py-1 text-sm border rounded-lg bg-green-500 text-white font-bold status-select">
+                        ${optionTags}
+                    </select>
+                    <textarea id="obs-${cleanName}" name="obs-${cleanName}" placeholder="Obs..." rows="1" class="col-span-1 w-full px-2 py-1 text-xs border rounded-lg obs-area resize-none"></textarea>
+                </div>
+            `;
+        }
+        
+        // Aplica cores dinamicamente aos dropdowns de status
+        function updateStatusSelectStyle(element) {
+            const select = element.target ? element.target : element;
+            if (!select || !select.classList) return;
+
+            select.classList.remove('bg-slate-400', 'bg-green-500', 'bg-red-600', 'bg-yellow-500', 'text-white', 'opacity-50', 'grayscale', 'animate-pulse');
+            
+            const value = select.value;
+            
+            if (value === 'PEÇA OK' || value === 'BOM / OK' || value.includes('OK')) {
+                select.classList.add('bg-green-500', 'text-white');
+            } else if (value === 'RECONDICIONAR' || value.includes('RECONDICIONAR')) {
+                select.classList.add('bg-yellow-500', 'text-white');
+            } else if (value === 'TROCAR' || value === 'TROCAR PEÇA' || value.includes('TROCAR')) {
+                select.classList.add('bg-red-600', 'text-white');
+            } else if (value === 'ITEM FALTANTE') {
+                select.classList.add('bg-slate-800', 'text-white');
+            } else if (value === 'NÃO RECEBIDO') {
+                select.classList.add('bg-slate-200', 'text-slate-500', 'opacity-50', 'grayscale');
+            } else {
+                select.classList.add('bg-slate-400', 'text-white');
+            }
+        }
+        
+        // Alternar abas
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('text-brand-blue', 'border-b-2', 'border-brand-blue');
+                btn.classList.add('text-gray-500', 'hover:text-gray-700');
+            });
+
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('text-brand-blue', 'border-b-2', 'border-brand-blue');
+            document.querySelector(`[data-tab="${tabId}"]`).classList.remove('text-gray-500', 'hover:text-gray-700');
+        }
+
+        // RENDERIZA O RESUMO DO CHECKLIST EM MODO LEITURA (Dividindo por seções visuais limpas)
+        function renderChecklistSummary(checklistData) {
+            const list = document.getElementById('checklist-summary-list');
+            if (!list) return;
+            
+            if (!checklistData || checklistData.length === 0) {
+                list.innerHTML = `<p class="text-gray-400 italic">Nenhum detalhe técnico foi respondido no checklist.</p>`;
+                return;
+            }
+
+            // Listas de chaves estruturadas para realizar a separação
+            const coreComponentNames = [
+                "EIXO", "ROTOR", "CARCAÇA DE TURBINA", "CT", 
+                "CARCAÇA COMPRESSORA", "CCO", "CARCAÇA CENTRAL", "CCE"
+            ];
+            
+            const accessoryNames = [
+                "ATUADOR", "GEOMETRIA VARIÁVEL", "CANOTE DA GEOMETRIA", "FLANGE DA GEOMETRIA"
+            ];
+
+            const coreGroup = [];
+            const accessoriesGroup = [];
+            const generalChecklistGroup = [];
+
+            // Classifica cada item em seu respectivo container visual
+            checklistData.forEach(item => {
+                const displayName = item.item_name || item.name || "";
+                const nameUpper = displayName.toUpperCase().trim();
+
+                if (coreComponentNames.includes(nameUpper)) {
+                    coreGroup.push(item);
+                } else if (accessoryNames.includes(nameUpper)) {
+                    accessoriesGroup.push(item);
+                } else {
+                    generalChecklistGroup.push(item);
+                }
+            });
+
+            // Estruturação do cartão interno padrão
+            const renderItemCard = (item) => {
+                const displayName = item.item_name || item.name || "Item não identificado";
+                const status = item.veredito_tecnico || item.status || "NÃO INFORMADO";
+                const displayObs = item.observation || item.obs || "";
+
+                let badgeColor = "bg-slate-100 text-slate-700";
+                if (status === 'PEÇA OK' || status === 'BOM / OK' || status.includes('OK')) {
+                    badgeColor = "bg-green-500 text-white";
+                } else if (status === 'RECONDICIONAR' || status.includes('RECONDICIONAR')) {
+                    badgeColor = "bg-yellow-500 text-white";
+                } else if (status === 'TROCAR' || status === 'TROCAR PEÇA' || status.includes('TROCAR')) {
+                    badgeColor = "bg-red-600 text-white";
+                } else if (status === 'ITEM FALTANTE') {
+                    badgeColor = "bg-slate-800 text-white";
+                }
+
+                return `
+                    <div class="flex items-center justify-between p-3.5 bg-white border border-slate-100 rounded-xl shadow-sm">
+                        <span class="font-extrabold text-slate-700 uppercase text-[11px] tracking-tight">${displayName}</span>
+                        <div class="flex items-center space-x-3">
+                            <span class="px-3 py-1 rounded-lg text-[9px] font-black uppercase ${badgeColor} tracking-wider">${status}</span>
+                            ${displayObs ? `<span class="text-[10px] text-gray-400 italic max-w-[150px] truncate" title="${displayObs}">Obs: "${displayObs}"</span>` : ''}
+                        </div>
+                    </div>`;
+            };
+
+            let finalHtml = "";
+
+            // Seção 1: Núcleo do Turbocompressor (Eixo, Rotor, etc.)
+            if (coreGroup.length > 0) {
+                finalHtml += `
+                    <div class="w-full mb-2">
+                        <h5 class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 flex items-center border-b pb-2">
+                            <i class="fa-solid fa-gears mr-2 text-sm"></i> 1. Componentes do Núcleo (Padrão de Manutenção)
+                        </h5>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            ${coreGroup.map(renderItemCard).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Seção 2: Acessórios e Comando (Atuadores e Geometrias)
+            if (accessoriesGroup.length > 0) {
+                finalHtml += `
+                    <div class="w-full mb-2 pt-2">
+                        <h5 class="text-xs font-black text-indigo-600 uppercase tracking-widest mb-3 flex items-center border-b pb-2">
+                            <i class="fa-solid fa-sliders mr-2 text-sm"></i> 2. Acessórios e Comando (Identificação)
+                        </h5>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            ${accessoriesGroup.map(renderItemCard).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Seção 3: Detalhamento Técnico Geral
+            if (generalChecklistGroup.length > 0) {
+                finalHtml += `
+                    <div class="w-full pt-2">
+                        <h5 class="text-xs font-black text-slate-600 uppercase tracking-widest mb-3 flex items-center border-b pb-2">
+                            <i class="fa-solid fa-list-check mr-2 text-sm"></i> 3. Itens do Checklist Técnico (Inspeção Geral)
+                        </h5>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            ${generalChecklistGroup.map(renderItemCard).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Altera dinamicamente o layout do container para flex flex-col para comportar as seções independentes
+            list.className = "flex flex-col space-y-6 text-xs w-full";
+            list.innerHTML = finalHtml;
+        }
+
+        // Atualiza as caixas inferiores de substituição/serviços dinamicamente baseando-se no preenchimento manual do formulário
+        function atualizarResumoGeral() {
+            const trocasExternas = [];
+            const trocasInternas = [];
+            const servicos = [];
+
+            const labelsTopo = {
+                'actuator': 'Atuador',
+                'geometry': 'Geometria Variável',
+                'geometryStem': 'Canote da Geometria',
+                'geometryFlange': 'Flange da Geometria'
+            };
+
+            Object.keys(ANALYSIS_ITEMS).forEach(tab => {
+                ANALYSIS_ITEMS[tab].forEach(item => {
+                    const cleanName = item.replace(/\s+/g, '_').toLowerCase();
+                    const el = document.getElementById(`status-${cleanName}`);
+                    if (el) {
+                        if (el.value === 'TROCAR') {
+                            if (tab === 'tab1') trocasExternas.push(item);
+                            else trocasInternas.push(item);
+                        } else if (el.value === 'RECONDICIONAR') {
+                            servicos.push(item);
+                        }
+                    }
+                });
+            });
+
+            ['actuator', 'geometry', 'geometryStem', 'geometryFlange'].forEach(id => {
+                const el = document.getElementById(`status-${id}`);
+                if (el && !el.disabled && el.value === 'TROCAR') {
+                    trocasInternas.push(labelsTopo[id]);
+                }
+            });
+
+            const resumoPecas = document.getElementById('substituicao-resumo');
+            const resumoServicos = document.getElementById('servicos-resumo');
+
+            if (resumoPecas) {
+                if (trocasExternas.length > 0 || trocasInternas.length > 0) {
+                    const totalPecas = [...trocasExternas, ...trocasInternas];
+                    resumoPecas.innerHTML = `<span class="font-black text-red-700 uppercase">SUBSTITUIÇÃO:</span> ${totalPecas.join(', ')}`;
+                } else {
+                    resumoPecas.innerText = 'Nenhuma peça para substituição.';
+                }
+            }
+
+            if (resumoServicos) {
+                if (servicos.length > 0) {
+                    resumoServicos.innerHTML = `<span class="font-black text-yellow-700 uppercase">USINAGEM/SERVIÇOS:</span> ${servicos.join(', ')}`;
+                } else {
+                    resumoServicos.innerText = 'Nenhum serviço de usinagem selecionado.';
+                }
+            }
+        }
+
+        // Atualiza as caixas inferiores de substituição/serviços de forma dinâmica quando um checklist existente é carregado do Supabase
+        function atualizarResumoComDadosCarregados(checklistData) {
+            const trocasExternas = [];
+            const trocasInternas = [];
+            const servicos = [];
+
+            checklistData.forEach(item => {
+                const displayName = item.item_name || item.name || "";
+                const status = item.veredito_tecnico || item.status || "";
+
+                if (status === 'TROCAR') {
+                    if (ANALYSIS_ITEMS.tab1.includes(displayName)) {
+                        trocasExternas.push(displayName);
+                    } else {
+                        trocasInternas.push(displayName);
+                    }
+                } else if (status === 'RECONDICIONAR') {
+                    servicos.push(displayName);
+                }
+            });
+
+            const resumoPecas = document.getElementById('substituicao-resumo');
+            const resumoServicos = document.getElementById('servicos-resumo');
+
+            if (resumoPecas) {
+                if (trocasExternas.length > 0 || trocasInternas.length > 0) {
+                    const totalPecas = [...trocasExternas, ...trocasInternas];
+                    resumoPecas.innerHTML = `<span class="font-black text-red-700 uppercase">SUBSTITUIÇÃO:</span> ${totalPecas.join(', ')}`;
+                } else {
+                    resumoPecas.innerText = 'Nenhuma peça para substituição.';
+                }
+            }
+
+            if (resumoServicos) {
+                if (servicos.length > 0) {
+                    resumoServicos.innerHTML = `<span class="font-black text-yellow-700 uppercase">USINAGEM/SERVIÇOS:</span> ${servicos.join(', ')}`;
+                } else {
+                    resumoServicos.innerText = 'Nenhum serviço de usinagem selecionado.';
+                }
+            }
+        }
+
+        // Preenche o formulário ao selecionar uma OS (Com detecção e recuperação do checklist salvo)
+        async function populateForm(order) {
+            activeOSId = order.id;
+            isChecklistSaved = false; // Reseta estado local por padrão
+            
+            // Atribui e exibe a observação geral salva da OS no campo textarea
+            const obsAnalise = document.getElementById('observacoes-analise');
+            if (obsAnalise) {
+                obsAnalise.value = order.observation || '';
+            }
+
+            // Força o botão de gerar relatório a iniciar desabilitado por padrão
+            if (btnSeguirRelatorios) {
+                btnSeguirRelatorios.disabled = true;
+                btnSeguirRelatorios.className = "w-full sm:w-auto bg-gray-400 cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center";
+            }
+
+            // RESET: Retorna o botão de salvar para o estado inicial laranja e clicável
+            if (btnSalvarChecklist) {
+                btnSalvarChecklist.disabled = false;
+                btnSalvarChecklist.className = "bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-lg transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center";
+                btnSalvarChecklist.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist';
+            }
+
+            // Resetador do contêiner de inputs e resumo do checklist
+            const inputContainer = document.getElementById('checklist-inputs-container');
+            const summaryContainer = document.getElementById('checklist-summary-container');
+            if (inputContainer) inputContainer.classList.remove('hidden');
+            if (summaryContainer) summaryContainer.classList.add('hidden');
+
+            // Renderiza as abas de checklist em branco por padrão
+            renderAnalysisForm();
+
+            // PERSISTÊNCIA: Busca direta no Supabase para verificar se essa OS já tem checklist gravado
+            try {
+                const { data: existingChecklist, error } = await supabaseClient
+                    .from('checklist_analysis_general')
+                    .select('*')
+                    .eq('service_order_id', order.id);
+
+                if (!error && existingChecklist && existingChecklist.length > 0) {
+                    isChecklistSaved = true;
+                    // Habilita a Etapa 2 se já houver dados no banco
+                    if (btnSeguirRelatorios) {
+                        btnSeguirRelatorios.disabled = false;
+                        btnSeguirRelatorios.className = "w-full sm:w-auto bg-brand-blue hover:bg-brand-blue-dark text-white font-bold py-3 px-6 rounded-lg transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center cursor-pointer";
+                    }
+                    // Oculta os inputs e exibe a visualização de leitura estática do checklist
+                    if (inputContainer) inputContainer.classList.add('hidden');
+                    if (summaryContainer) {
+                        summaryContainer.classList.remove('hidden');
+                        renderChecklistSummary(existingChecklist);
+                        atualizarResumoComDadosCarregados(existingChecklist);
+                    }
+                } else {
+                    atualizarResumoGeral();
+                }
+            } catch (err) { 
+                console.error("Erro ao verificar checklist existente:", err); 
+                atualizarResumoGeral();
+            }
+            
+            const modalRaioX = document.getElementById('raiox-modal');
+            if(modalRaioX) modalRaioX.classList.add('hidden');
+            
+            document.getElementById('analysis-form-wrapper').classList.remove('hidden');
+            document.getElementById('initial-placeholder').classList.add('hidden');
+            document.getElementById('form-title').textContent = `Formulário de Análise - ${order.business_id}`;
+
+            // Configuração do Botão de Histórico no Modal
+            const btnHist = document.getElementById('btn-historico-completo');
+            btnHist.onclick = () => showDetailsModalWithHistory(order);
+
+            // --- Lógica dos Itens Adicionais ---
+            const extras = typeof order.maintenance_extras === 'string' ? JSON.parse(order.maintenance_extras) : order.maintenance_extras;
+            const mapping = {
+                actuator: { check: 'check-actuator', status: 'status-actuator' },
+                geometry: { check: 'check-geometry', status: 'status-geometry' },
+                geometryStem: { check: 'check-geometryStem', status: 'status-geometryStem' },
+                geometryFlange: { check: 'check-geometryFlange', status: 'status-geometryFlange' }
+            };
+
+            Object.entries(mapping).forEach(([key, fields]) => {
+                const itemData = extras ? extras[key] : null;
+                const hasItem = itemData === true || (itemData && itemData.came === true);
+                const checkEl = document.getElementById(fields.check);
+                const statusEl = document.getElementById(fields.status);
+                
+                if (checkEl && statusEl) {
+                    checkEl.checked = hasItem;
+                    checkEl.disabled = false;
+                    
+                    // Função para habilitar/desabilitar o veredito baseada no checkbox
+                    const toggleStatus = (isChecked) => {
+                        if (isChecked) {
+                            statusEl.disabled = false;
+                            statusEl.parentElement.classList.remove('opacity-40', 'grayscale');
+                            if (statusEl.value === "NÃO RECEBIDO") statusEl.value = "PEÇA OK";
+                        } else {
+                            statusEl.value = "NÃO RECEBIDO";
+                            statusEl.disabled = true;
+                            statusEl.parentElement.classList.add('opacity-40', 'grayscale');
+                        }
+                        updateStatusSelectStyle(statusEl);
+                    };
+
+                    toggleStatus(hasItem);
+
+                    checkEl.onchange = (e) => {
+                        toggleStatus(e.target.checked);
+                        atualizarResumoGeral();
+                    };
+                }
+            });
+
+            if (order.difficulty) {
+                document.getElementById('pattern-select').value = `Padrão ${order.difficulty}`;
+                aplicarPadraoManutencao(order.difficulty);
+            }
+            switchTab('tab1');
+            const wrapper = document.getElementById('tab-content-wrapper');
+            if (wrapper) wrapper.scrollTop = 0;
+        }
+
+        async function showDetailsModalWithHistory(order) {
+            const extras = typeof order.maintenance_extras === 'string' ? JSON.parse(order.maintenance_extras) : order.maintenance_extras;
+            const tradeInText = order.is_trade_in ? `Venda à Base de Troca (${order.trade_in_option || 'Pendente'})` : 'Venda Comum';
+
+            document.getElementById('detail-business-id').textContent = order.business_id;
+            document.getElementById('detail-model').textContent = order.model;
+            document.getElementById('detail-client').textContent = order.client;
+            document.getElementById('detail-status').textContent = order.status;
+            document.getElementById('detail-urgency').textContent = order.urgency || 'Normal';
+            document.getElementById('detail-urgency').className = 'inline-block text-xs font-bold px-2 py-0.5 rounded-full ' + getUrgencyBadge(order.urgency);
+            document.getElementById('detail-created-at').textContent = formatDateTime(order.created_at);
+            
+            document.getElementById('detail-difficulty').textContent = order.difficulty || 'Não definido';
+            document.getElementById('detail-trade-in').textContent = tradeInText;
+            document.getElementById('detail-observation').textContent = order.observation || 'Nenhuma observação registrada.';
+            
+            const listExtras = document.getElementById('detail-maintenance-extras');
+            listExtras.innerHTML = formatMaintenanceExtras(extras);
+
+            const timeline = document.getElementById('timeline-container');
+            timeline.innerHTML = '<p class="text-xs text-gray-400 animate-pulse">Carregando histórico...</p>';
+            
+            try {
+                const { data: events, error } = await supabaseClient
+                    .from('history_events')
+                    .select('*')
+                    .eq('service_order_id', order.id)
+                    .order('timestamp', { ascending: true });
+
+                if (!error && events && events.length > 0) {
+                    timeline.innerHTML = events.map(ev => `
+                        <div class="relative">
+                            <div class="absolute -left-[21px] top-1 w-3 h-3 bg-brand-blue rounded-full border-2 border-white"></div>
+                            <p class="text-[11px] font-black text-slate-800 uppercase tracking-tighter">${ev.action}</p>
+                            <p class="text-[10px] text-gray-500 font-medium">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    timeline.innerHTML = '<p class="text-xs text-gray-400 italic">Nenhum evento registrado.</p>';
+                }
+            } catch (err) { console.error(err); }
+
+            document.getElementById('details-modal').classList.remove('hidden');
+            document.getElementById('details-modal').classList.add('flex');
+        }
+
+        function aplicarPadraoManutencao(nivel) {
+            if (nivel >= 7) {
+                const eixo = document.getElementById('status-eixo_rotor');
+                const rotor = document.getElementById('status-rotor_compressor');
+                if (eixo) { eixo.value = 'TROCAR'; updateStatusSelectStyle({target: eixo}); }
+                if (rotor) { rotor.value = 'TROCAR'; updateStatusSelectStyle({target: rotor}); }
+            }
+        }
+
+        async function loadAnalysisOrders() { 
+            const WEBHOOK_GET = WEBHOOK_GET_ANALYSIS;
+            
+            filaContainer.innerHTML = '';
+            loadingMessage.classList.remove('hidden');
+            
+            try {
+                const response = await fetch(WEBHOOK_GET, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Falha HTTP (Status: ${response.status}). Resposta: ${errorText.substring(0, 50)}...`);
+                }
+
+                const text = await response.text();
+                let responseJson = {};
+                if (text) {
+                    try {
+                        responseJson = JSON.parse(text);
+                    } catch (e) {
+                        responseJson = { data: [] };
+                    }
+                } else {
+                    responseJson = { data: [] };
+                }
+                
+                let orders = responseJson.data; 
+                if (!Array.isArray(orders)) { orders = Array.isArray(responseJson) ? responseJson : []; }
+                
+                currentOrders = orders.map(rawOrder => {
+                    const order = rawOrder.json || rawOrder;
+                    order.entry_date = order.entry_date || order.created_at; 
+                    return order;
+                });
+                
+                loadingMessage.classList.add('hidden');
+                
+                if (currentOrders.length === 0) {
+                    filaContainer.innerHTML = '<p class="text-gray-500 text-center mt-4">Nenhuma ordem de serviço na fila de análise.</p>';
+                    filaCountSpan.textContent = '0';
+                    return;
+                }
+
+                filaCountSpan.textContent = currentOrders.length;
+                
+                updateSidebarUI();
+                addCardClickListeners();
+
+            } catch (error) {
+                console.error("Erro ao carregar ordens:", error);
+                loadingMessage.textContent = `Erro ao carregar a fila. ${error.message}.`;
+                loadingMessage.classList.remove('hidden');
+                filaCountSpan.textContent = 'ERRO';
+            }
+        }
+        
+        function showAnalysisConfirmationModal() {
+            analysisConfirmationModal.classList.remove('hidden');
+            analysisConfirmationModal.classList.add('flex');
+        }
+
+        function closeAnalysisConfirmationModal() {
+            analysisConfirmationModal.classList.add('hidden');
+            analysisConfirmationModal.classList.remove('flex');
+        }
+
+        function showAnalysisSavedModal() {
+            analysisSavedModal.classList.remove('hidden');
+            analysisSavedModal.classList.add('flex');
+        }
+        
+        function closeAnalysisSavedModal() {
+            analysisSavedModal.classList.add('hidden');
+            analysisSavedModal.classList.remove('flex');
+        }
+
+        // ====================================================================
+        // 3. COLETA E SUBMISSÃO DE DADOS
+        // ====================================================================
+
+        function collectChecklistData(tabKey) {
+            const items = ANALYSIS_ITEMS[tabKey];
+            const data = [];
+            
+            if (tabKey === 'tab3') {
+                const condemnCheck = document.getElementById('condenar-caracol-check');
+                if (condemnCheck && condemnCheck.checked) {
+                    data.push({
+                        name: "CONDENAR CARACOL COMPLETO",
+                        status: "TROCAR",
+                        obs: "Condenado pela análise técnica."
+                    });
+                }
+            }
+
+            items.forEach(itemName => {
+                const cleanName = itemName.replace(/\s+/g, '_').toLowerCase();
+                const statusSelect = document.getElementById(`status-${cleanName}`);
+                const obsTextarea = document.getElementById(`obs-${cleanName}`);
+
+                if (statusSelect && obsTextarea && statusSelect.value !== 'NÃO INFORMADO' && statusSelect.value !== 'Não Informado') {
+                    data.push({
+                        name: itemName,
+                        status: statusSelect.value,
+                        obs: obsTextarea.value.trim()
+                    });
+                }
+            });
+            return data;
+        }
+
+        async function collectFormData() {
+            const patternSelected = document.getElementById('pattern-select').value;
+            const generalObservations = document.getElementById('observacoes-analise').value.trim();
+            
+            const routingTriage = [];
+            if (patternSelected) {
+                const p = patternSelected;
+                if (["Padrão 5", "Padrão 6", "Padrão 7", "Padrão 8"].includes(p)) routingTriage.push("Eixo Rotor");
+                if (["Padrão 3", "Padrão 4", "Padrão 6", "Padrão 8"].includes(p)) routingTriage.push("Rotor Compressor");
+                if (["Padrão 2", "Padrão 4", "Padrão 7", "Padrão 8"].includes(p)) routingTriage.push("Carcaça de Turbina (CT)");
+            }
+
+            const maintenanceExtras = {
+                actuator: { came: document.getElementById('check-actuator').checked, status: document.getElementById('status-actuator').value },
+                geometry: { came: document.getElementById('check-geometry').checked, status: document.getElementById('status-geometry').value },
+                geometryStem: { came: document.getElementById('check-geometryStem').checked, status: document.getElementById('status-geometryStem').value },
+                geometryFlange: { came: document.getElementById('check-geometryFlange').checked, status: document.getElementById('status-geometryFlange').value },
+            };
+
+            const payload = {
+                os_id: activeOSId, 
+                user_id: await getCurrentUserUID(),
+                pattern: patternSelected || "Não informado",
+                general_observations: generalObservations,
+                
+                attachments: collectChecklistData('tab1'), 
+                general_repairs: (function() {
+                    const repairs = collectChecklistData('tab2');
+                    
+                    // 1. Injetar Peças Obrigatórias Internas (REPAROS, CCE, CCO)
+                    repairs.push({ name: "REPAROS", status: document.getElementById('status-reparos').value, obs: "" });
+                    repairs.push({ name: "CCE", status: document.getElementById('status-cce').value, obs: "" });
+                    repairs.push({ name: "CCO", status: document.getElementById('status-cco').value, obs: "" });
+
+                    // 2. Injetar Padrão 1-8 (EIXO, ROTOR, CT)
+                    if (patternSelected && PADROES_LOGICA[patternSelected]) {
+                        const pData = PADROES_LOGICA[patternSelected];
+                        repairs.push({ name: "EIXO", status: pData.eixo, obs: "Definido por " + patternSelected });
+                        repairs.push({ name: "ROTOR", status: pData.rotor, obs: "Definido por " + patternSelected });
+                        repairs.push({ name: "CARCAÇA DE TURBINA (CT)", status: pData.ct, obs: "Definido por " + patternSelected });
+                    }
+
+                    // 3. Injetar Peças Externas (se vieram)
+                    if (document.getElementById('check-actuator').checked) {
+                        repairs.push({ name: "ATUADOR", status: document.getElementById('status-actuator').value, obs: "" });
+                    }
+                    if (document.getElementById('check-geometry').checked) {
+                        repairs.push({ name: "GEOMETRIA VARIÁVEL", status: document.getElementById('status-geometry').value, obs: "" });
+                    }
+                    if (document.getElementById('check-geometryStem').checked) {
+                        repairs.push({ name: "CANOTE DA GEOMETRIA", status: document.getElementById('status-geometryStem').value, obs: "" });
+                    }
+                    if (document.getElementById('check-geometryFlange').checked) {
+                        repairs.push({ name: "FLANGE DA GEOMETRIA", status: document.getElementById('status-geometryFlange').value, obs: "" });
+                    }
+
+                    return repairs;
+                })(),
+                snail_checklist: collectChecklistData('tab3'),
+                
+                routing_triage: routingTriage, 
+                maintenance_extras: maintenanceExtras 
+            };
+
+            return payload;
+        }
+
+        async function submitAnalysis() {
+            if (!activeOSId) return;
+            
+            confirmAnalysisBtn.disabled = true;
+            confirmAnalysisBtn.textContent = 'Enviando...';
+
+            const payload = await collectFormData();
+            const orderData = currentOrders.find(o => o.id === activeOSId);
+            const checklistRows = [];
+            const allItems = [...(payload.attachments || []), ...(payload.general_repairs || []), ...(payload.snail_checklist || [])];
+            allItems.forEach(item => {
+                checklistRows.push({ name: item.name, status: item.status, obs: item.obs });
+            });
+
+            try {
+                confirmAnalysisBtn.textContent = 'Gerando Laudo PDF...';
+                try {
+                    await window.PDFGenerator.generateAnalysisPDF(
+                        { ...orderData, observation: payload.general_observations },
+                        checklistRows,
+                        supabaseClient
+                    );
+                } catch(e) {
+                    console.error("PDF Error:", e);
+                    alert("ERRO AO GERAR PDF: " + e.message + " | " + e.toString());
+                    // Continua mesmo se o PDF falhar, para não travar a OS
+                }
+                
+                confirmAnalysisBtn.textContent = 'Salvando Dados...';
+
+                const { data: sessionData } = await supabaseClient.auth.getSession();
+                const userId = sessionData?.session?.user?.id || null;
+                
+                // Salva checklist se não tiver salvo (garantia dupla)
+                if (!isChecklistSaved) {
+                    await supabaseClient.from('checklist_analysis_general').delete().eq('service_order_id', activeOSId);
+                    const checklistRows = [];
+                    const allItems = [...(payload.attachments || []), ...(payload.general_repairs || []), ...(payload.snail_checklist || [])];
+                    allItems.forEach(item => {
+                        checklistRows.push({ service_order_id: activeOSId, item_name: item.name, status: item.status, observation: item.obs });
+                    });
+                    if (checklistRows.length > 0) await supabaseClient.from('checklist_analysis_general').insert(checklistRows);
+                }
+
+                // Atualiza a OS para Aguardando Aprovação Comercial
+                const { error } = await supabaseClient.from('service_orders').update({
+                    status: 'Aguardando Aprovação Comercial',
+                    observation: payload.general_observations
+                }).eq('id', activeOSId);
+                
+                if (!error) {
+                    await supabaseClient.from('history_events').insert({
+                        service_order_id: activeOSId, user_id: userId,
+                        action: 'ANÁLISE TÉCNICA CONCLUÍDA', description: 'O relatório técnico foi finalizado e a OS enviada para Vendas.'
+                    });
+                    closeAnalysisConfirmationModal();
+                    showAnalysisSavedModal();
+                } else {
+                    document.getElementById('error-analysis-message').innerText = "Erro no servidor banco de dados: " + error.message;
+                    document.getElementById('error-analysis-modal').classList.remove('hidden');
+                    document.getElementById('error-analysis-modal').classList.add('flex');
+                    closeAnalysisConfirmationModal();
+                }
+            } catch (error) {
+                console.error("Erro no submitAnalysis:", error);
+                document.getElementById('error-analysis-message').innerText = "Falha de conexão.";
+                document.getElementById('error-analysis-modal').classList.remove('hidden');
+                document.getElementById('error-analysis-modal').classList.add('flex');
+                closeAnalysisConfirmationModal();
+            } finally {
+                confirmAnalysisBtn.disabled = false;
+                confirmAnalysisBtn.textContent = 'Sim, Finalizar Análise';
+            }
+        }
+
+        // FUNÇÃO PARA PERSISTIR O CHECKLIST ANTES DE ENVIAR PARA ORÇAMENTO
+        async function saveChecklist() {
+            if (!activeOSId) {
+                alert('Por favor, selecione uma Ordem de Serviço na fila antes de salvar.');
+                return;
+            }
+
+            btnSalvarChecklist.disabled = true;
+            btnSalvarChecklist.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin mr-2"></i> Salvando no Banco...';
+
+            try {
+                const payload = await collectFormData();
+                
+                // 1. Limpa o checklist antigo (se houver) para evitar duplicatas
+                await supabaseClient.from('checklist_analysis_general').delete().eq('service_order_id', activeOSId);
+                
+                // 2. Prepara as linhas
+                const checklistRows = [];
+                const allItems = [
+                    ...(payload.attachments || []),
+                    ...(payload.general_repairs || []),
+                    ...(payload.snail_checklist || [])
+                ];
+                
+                allItems.forEach(item => {
+                    checklistRows.push({
+                        service_order_id: activeOSId,
+                        item_name: item.name,
+                        status: item.status,
+                        observation: item.obs
+                    });
+                });
+
+                // 3. Insere no checklist_analysis_general
+                let insertError = null;
+                if (checklistRows.length > 0) {
+                    const { error } = await supabaseClient.from('checklist_analysis_general').insert(checklistRows);
+                    insertError = error;
+                }
+
+                // 4. Atualiza a observacao geral
+                const { error: updateError } = await supabaseClient.from('service_orders').update({
+                    observation: payload.general_observations
+                }).eq('id', activeOSId);
+
+                const error = insertError || updateError;
+
+                if (!error) {
+                    isChecklistSaved = true;
+
+                    const inputContainer = document.getElementById('checklist-inputs-container');
+                    const summaryContainer = document.getElementById('checklist-summary-container');
+                    if (inputContainer) inputContainer.classList.add('hidden');
+                    if (summaryContainer) {
+                        summaryContainer.classList.remove('hidden');
+                        renderChecklistSummary(allItems);
+                        atualizarResumoComDadosCarregados(allItems);
+                    }
+
+                    btnSalvarChecklist.disabled = true;
+                    btnSalvarChecklist.className = "bg-green-600 text-white font-bold py-3 px-8 rounded-lg cursor-not-allowed shadow-md flex items-center justify-center opacity-90";
+                    btnSalvarChecklist.innerHTML = '<i class="fa-solid fa-circle-check mr-2"></i> Checklist Salvo!';
+
+                    btnSeguirRelatorios.disabled = false;
+                    btnSeguirRelatorios.className = "w-full sm:w-auto bg-brand-blue hover:bg-brand-blue-dark text-white font-bold py-3 px-6 rounded-lg transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center cursor-pointer";
+
+                    alert('Checklist salvo com sucesso no banco de dados! A Etapa 2 de geração do Laudo foi liberada.');
+                } else {
+                    console.error("Database error:", error);
+                    alert('Falha ao persistir checklist: ' + error.message);
+                    btnSalvarChecklist.disabled = false;
+                    btnSalvarChecklist.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist';
+                }
+            } catch (error) {
+                console.error("Erro na persistência do checklist:", error);
+                alert('Erro ao salvar dados. Verifique sua conexão.');
+                btnSalvarChecklist.disabled = false;
+                btnSalvarChecklist.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist';
+            }
+        }
+
+        // ====================================================================
+        // 4. INICIALIZAÇÃO DOS LISTENERS
+        // ====================================================================
+
+        function addCardClickListeners() {
+            document.querySelectorAll('.os-card').forEach(card => {
+                card.onclick = (event) => {
+                    const orderId = card.dataset.orderId;
+                    const orderStatus = card.dataset.status;
+                    const orderData = currentOrders.find(o => o.id === orderId);
+                    
+                    if (!orderData) return;
+
+                    if (orderStatus === 'Standby / Aguardando Casco') {
+                        abrirRaioX(orderId);
+                    } 
+                    else {
+                        populateForm(orderData);
+                    }
+                };
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            filaContainer = document.getElementById('fila-de-analise-container');
+            filaCountSpan = document.getElementById('count-fila'); 
+            const standbyCountSpan = document.getElementById('count-standby'); 
+            
+            loadingMessage = document.getElementById('loading-message');
+            
+            btnSalvarChecklist = document.getElementById('btn-salvar-checklist');
+            btnSeguirRelatorios = document.getElementById('btn-seguir-relatorios');
+            
+            if (btnSalvarChecklist) {
+                btnSalvarChecklist.addEventListener('click', saveChecklist);
+            }
+            
+            const formElement = document.getElementById('analysis-form');
+            const logoutBtn = document.getElementById('logout-button');
+            const tabButtons = document.querySelectorAll('.tab-button');
+            
+            analysisConfirmationModal = document.getElementById('analysis-confirmation-modal');
+            confirmAnalysisBtn = document.getElementById('confirm-analysis-btn');
+            cancelAnalysisBtn = document.getElementById('cancel-analysis-btn');
+            analysisSavedModal = document.getElementById('analysis-saved-modal');
+            analysisSavedOkBtn = document.getElementById('analysis-saved-ok-btn');
+            
+            renderAnalysisForm();
+
+            document.addEventListener('change', function(e) {
+                if (e.target && e.target.id === 'condenar-caracol-check') {
+                    const isChecked = e.target.checked;
+                    const statusTarget = isChecked ? 'TROCAR' : 'NÃO INFORMADO';
+                    
+                    const tab3Div = document.getElementById('tab3');
+                    if (tab3Div) {
+                        const todosOsSelects = tab3Div.querySelectorAll('select');
+                        
+                        todosOsSelects.forEach(select => {
+                            select.value = statusTarget;
+                            updateStatusSelectStyle(select);
+                        });
+                        atualizarResumoGeral();
+                    }
+                }
+            });
+
+            document.getElementById('pattern-select').addEventListener('change', function(e) {
+                const padrao = e.target.value;
+                const dados = PADROES_LOGICA[padrao];
+                if (dados) {
+                    const mapeamento = {
+                        'status-eixo_rotor': dados.eixo,
+                        'status-rotor_compressor': dados.rotor,
+                        'status-carcaça_compressora': dados.ct,
+                        'status-trincas_(parede)': dados.ct
+                    };
+                    Object.entries(mapeamento).forEach(([id, valor]) => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            el.value = valor;
+                            updateStatusSelectStyle(el);
+                        }
+                    });
+                    atualizarResumoGeral();
+                }
+            });
+            
+            document.querySelectorAll('.status-select').forEach(select => {
+                select.addEventListener('change', updateStatusSelectStyle);
+                updateStatusSelectStyle({ target: select });
+            });
+
+            document.querySelectorAll('select[id^="status-"]').forEach(select => {
+                select.addEventListener('change', updateStatusSelectStyle);
+                updateStatusSelectStyle({ target: select });
+            });
+
+            document.getElementById('analysis-form').addEventListener('change', atualizarResumoGeral);
+
+            logoutBtn.addEventListener('click', async () => {
+                await supabaseClient.auth.signOut();
+                window.location.href = 'https://mareflow.github.io/turbosul-login/';
+            });
+
+            const btnFecharModal = document.getElementById('close-details-modal-btn');
+            if (btnFecharModal) {
+                btnFecharModal.addEventListener('click', () => {
+                    const modalDetails = document.getElementById('details-modal');
+                    modalDetails.classList.add('hidden');
+                    modalDetails.classList.remove('flex');
+                });
+            }
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    switchTab(e.target.dataset.tab);
+                });
+            });
+
+            formElement.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                if (!activeOSId) {
+                    alert('Selecione uma Ordem de Serviço para prosseguir.');
+                    return;
+                }
+                
+                if (!isChecklistSaved) {
+                    alert('Atenção: Você precisa clicar em "1. Salvar Checklist" e receber a confirmação de sucesso antes de gerar os relatórios.');
+                    return;
+                }
+
+                showAnalysisConfirmationModal();
+            });
+
+            confirmAnalysisBtn.addEventListener('click', submitAnalysis);
+            cancelAnalysisBtn.addEventListener('click', closeAnalysisConfirmationModal);
+
+            analysisSavedOkBtn.addEventListener('click', async () => {
+                closeAnalysisSavedModal();
+                document.getElementById('analysis-form-wrapper').classList.add('hidden');
+                document.getElementById('initial-placeholder').classList.remove('hidden');
+                await loadAnalysisOrders();
+                activeOSId = null; 
+            });
+            
+            (async function initDashboard() {
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+
+                if (error || !session) {
+                    // window.location.href = '/index.html'; 
+                    // return;
+                }
+
+                await loadAnalysisOrders();
+            })();
+        }); 
+
+        let activeTab = 'fila';
+
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'tab-fila-btn' || e.target.closest('#tab-fila-btn')) {
+                activeTab = 'fila';
+                document.getElementById('tab-fila-btn').className = 'flex-1 py-2 rounded-t-lg border-b-2 border-brand-blue text-brand-blue bg-blue-50';
+                document.getElementById('tab-standby-btn').className = 'flex-1 py-2 rounded-t-lg border-b-2 border-transparent text-gray-500 hover:bg-slate-50';
+                updateSidebarUI();
+            }
+            if (e.target.id === 'tab-standby-btn' || e.target.closest('#tab-standby-btn')) {
+                activeTab = 'standby';
+                document.getElementById('tab-standby-btn').className = 'flex-1 py-2 rounded-t-lg border-b-2 border-brand-blue text-brand-blue bg-blue-50';
+                document.getElementById('tab-fila-btn').className = 'flex-1 py-2 rounded-t-lg border-b-2 border-transparent text-gray-500 hover:bg-slate-50';
+                updateSidebarUI();
+            }
+        });
+
+        function updateSidebarUI() {
+            const fila = currentOrders.filter(o => o.status !== 'Standby / Aguardando Casco' && o.trade_in_option !== 'Standby');
+            const standby = currentOrders.filter(o => o.status === 'Standby / Aguardando Casco' || o.trade_in_option === 'Standby');
+            
+            const cf = document.getElementById('count-fila');
+            const cs = document.getElementById('count-standby');
+            if (cf) cf.innerText = fila.length;
+            if (cs) cs.innerText = standby.length;
+
+            const targetList = activeTab === 'fila' ? fila : standby;
+            if (filaContainer) {
+                filaContainer.innerHTML = targetList.length ? targetList.map(o => renderOrderCard(o)).join('') : '<p class="text-gray-500 text-center mt-4 uppercase font-black text-[10px]">Nenhuma ordem pendente.</p>';
+                addCardClickListeners(); 
+            }
+        }
+
+        function abrirRaioX(id) {
+            const os = currentOrders.find(o => o.id === id);
+            if (!os) return;
+
+            let extrasHtml = "";
+            if (os.maintenance_extras) {
+                const extras = typeof os.maintenance_extras === 'string' ? JSON.parse(os.maintenance_extras) : os.maintenance_extras;
+                const labels = { actuator: "Atuador", geometry: "Geometria", geometryStem: "Canote", geometryFlange: "Flange" };
+                extrasHtml = Object.entries(extras)
+                    .filter(([_, value]) => value === true || (value && value.came === true))
+                    .map(([key, _]) => `<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-[10px] font-black uppercase border border-blue-200">${labels[key] || key}</span>`)
+                    .join(' ');
+            }
+
+            document.getElementById('raiox-content').innerHTML = `
+                <div class="col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200 mb-2">
+                    <p class="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-1 italic">Identificação da Ordem</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><p class="text-gray-500 text-[10px] font-bold uppercase">Cliente</p><p class="font-black text-slate-800 uppercase tracking-tight">${os.client}</p></div>
+                        <div><p class="text-gray-500 text-[10px] font-bold uppercase">Modelo</p><p class="font-black text-slate-800 uppercase tracking-tight">${os.model}</p></div>
+                    </div>
+                </div>
+                
+                <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                    <p class="text-amber-600 text-[9px] font-black uppercase tracking-widest mb-1 italic">Logística de Troca</p>
+                    <p class="text-gray-500 text-[10px] font-bold uppercase">Tipo de Venda</p>
+                    <p class="font-black text-amber-700 uppercase italic">${os.trade_in_option || 'Venda Comum'}</p>
+                </div>
+
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                    <p class="text-blue-600 text-[9px] font-black uppercase tracking-widest mb-1 italic">Dados Técnicos</p>
+                    <p class="text-gray-500 text-[10px] font-bold uppercase">Part Number</p>
+                    <p class="font-mono font-black text-blue-700 text-lg">${os.part_number || '---'}</p>
+                </div>
+
+                <div class="col-span-2 p-4">
+                    <p class="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-3 italic">Itens Adicionais Identificados:</p>
+                    <div class="flex flex-wrap gap-2">
+                        ${extrasHtml || '<span class="text-slate-400 italic text-[10px] uppercase font-bold">Nenhum item adicional detectado.</span>'}
+                    </div>
+                </div>
+
+                <div class="col-span-2 border-t border-slate-100 pt-4 px-4">
+                    <p class="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-1 italic">Observações de Entrada:</p>
+                    <p class="italic text-slate-700 text-xs bg-slate-50 p-3 rounded-lg border leading-relaxed">"${os.observation || 'Nenhuma observação registrada na entrada.'}"</p>
+                </div>
+
+                <!-- CRONOLOGIA DE PROCESSO (TIMELINE) -->
+                <div class="col-span-2 border-t border-slate-100 pt-6 px-4 mt-2">
+                    <p class="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-4 text-center italic">Linha do Tempo de Produção</p>
+                    <div class="space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                        <div class="flex items-center relative pl-8">
+                            <div class="absolute left-0 w-6 h-6 bg-blue-100 rounded-full border-4 border-white flex items-center justify-center">
+                                <div class="w-2 h-2 bg-blue-600 rounded-full"></div>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black text-slate-800 uppercase tracking-tighter">Entrada no Sistema (Pré-Vendas)</p>
+                                <p class="text-[9px] text-slate-500 font-bold italic">${formatDateTime(os.created_at)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('raiox-modal').classList.remove('hidden');
+            document.getElementById('raiox-modal').classList.add('flex');
+        }
+
+        function liberarCasco(id) {
+            const modalHull = document.getElementById('hull-confirmation-modal');
+            const btnConfirm = document.getElementById('confirm-hull-btn');
+            
+            modalHull.classList.remove('hidden');
+            modalHull.classList.add('flex');
+
+            btnConfirm.onclick = async () => {
+                btnConfirm.disabled = true;
+                btnConfirm.textContent = "Processando...";
+                
+                try {
+                    const { data: sessionData } = await supabaseClient.auth.getSession();
+                    const userId = sessionData?.session?.user?.id || null;
+                    const { error } = await supabaseClient.from('service_orders').update({
+                        status: 'Aguardando Análise Técnica',
+                        trade_in_option: 'Já Recebido'
+                    }).eq('id', id);
+
+                    if (!error) {
+                        await supabaseClient.from('history_events').insert({
+                            service_order_id: id, user_id: userId,
+                            action: 'CASCO RECEBIDO', description: 'O técnico confirmou o recebimento do casco físico.'
+                        });
+                        modalHull.classList.add('hidden');
+                        location.reload(); 
+                    } else {
+                        alert("Erro ao processar no n8n.");
+                    }
+                } catch (err) {
+                    console.error(err);
+                } finally {
+                    btnConfirm.disabled = false;
+                    btnConfirm.textContent = "SIM, RECEBER";
+                }
+            };
+        }
+		
+        function pagarCasco(id) {
+            const modalPay = document.getElementById('payment-confirmation-modal');
+            const btnConfirm = document.getElementById('confirm-payment-btn');
+            
+            modalPay.classList.remove('hidden');
+            modalPay.classList.add('flex');
+
+            btnConfirm.onclick = async () => {
+                btnConfirm.disabled = true;
+                btnConfirm.textContent = "Finalizando...";
+                
+                try {
+                    const { data: sessionData } = await supabaseClient.auth.getSession();
+                    const userId = sessionData?.session?.user?.id || null;
+                    const { error } = await supabaseClient.from('service_orders').update({
+                        status: 'Standby / Aguardando Casco',
+                        trade_in_option: 'Standby'
+                    }).eq('id', activeOSId);
+
+                    if (!error) {
+                        await supabaseClient.from('history_events').insert({
+                            service_order_id: activeOSId, user_id: userId,
+                            action: 'STANDBY (CASCO)', description: 'Ordem movida para Standby aguardando o cliente trazer o casco físico.'
+                        });
+                        modalPay.classList.add('hidden');
+                        await loadAnalysisOrders(); 
+                    } else {
+                        alert("Erro no servidor ao registrar pagamento.");
+                    }
+                } catch (err) {
+                    console.error(err);
+                } finally {
+                    btnConfirm.disabled = false;
+                    btnConfirm.textContent = "CONFIRMAR PAGAMENTO";
+                }
+            };
+        }
+
+        function gerarRelatorioExcel(payload) {
+            const mapping = {
+                'Carcaça Compressora': 'CCO',
+                'Carcaça Central': 'CCE',
+                'Eixo Rotor': 'Eixo',
+                'Rotor Compressor': 'Rotor',
+                'Trincas (Parede)': 'CT',
+                'Prato Compressor': 'Prato',
+                'Colar': 'Colar',
+                'Atuador': 'Atuador',
+                'Geometria Variável': 'Geometria'
+            };
+
+            const adicionais = [
+                ['Atuador', payload.maintenance_extras.actuator.status, ''],
+                ['Geometria', payload.maintenance_extras.geometry.status, ''],
+                ['Canote', payload.maintenance_extras.geometryStem.status, ''],
+                ['Flange', payload.maintenance_extras.geometryFlange.status, '']
+            ];
+
+            const data = [
+                ["ITEM", "STATUS", "OBSERVAÇÃO"],
+                ...adicionais,
+                ...payload.attachments.map(i => [mapping[i.name] || i.name, i.status, i.obs]),
+                ...payload.general_repairs.map(i => [mapping[i.name] || i.name, i.status, i.obs]),
+                ...payload.snail_checklist.map(i => [mapping[i.name] || i.name, i.status, i.obs])
+            ];
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Analise_Tecnica");
+            
+            const fileName = `Analise_${payload.os_id}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+    </script>
+    <script src="js/auth.js"></script>
+    <script src="js/pdf_generator.js"></script>
+</body>
+</html>
