@@ -98,6 +98,7 @@
                 <button onclick="setFilter('EXPEDICAO')" id="filter-dispatch" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Expedição</button>
                 <button onclick="setFilter('STANDBY')" id="filter-standby" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Standby</button>
                 <button onclick="setFilter('ARQUIVADO')" id="filter-archived" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Arquivadas</button>
+                <button onclick="setFilter('CANCELADA')" id="filter-canceled" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Canceladas</button>
             </div>
 
             <!-- LISTA DE O.S. (SCROLL RESOLVIDO: min-h-0) -->
@@ -370,9 +371,14 @@
                         <p id="modal-display-desc" class="text-xs font-bold text-zinc-300 uppercase tracking-widest">CLIENTE | MODELO</p>
                     </div>
                 </div>
-                <button onclick="closeModal('details-modal')" class="text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 w-10 h-10 rounded-full transition-colors flex items-center justify-center">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
+                <div class="flex items-center gap-3">
+                    <button id="btn-cancel-os" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-xs font-black uppercase shadow transition hidden flex items-center">
+                        <i class="fa-solid fa-ban mr-2"></i> Cancelar O.S.
+                    </button>
+                    <button onclick="closeModal('details-modal')" class="text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 w-10 h-10 rounded-full transition-colors flex items-center justify-center">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- CONTEÚDO MODAL -->
@@ -570,14 +576,17 @@
 
         function setFilter(section) {
             currentFilterSection = section;
-            const buttons = ['filter-all', 'filter-triage', 'filter-production', 'filter-quality', 'filter-dispatch', 'filter-standby', 'filter-archived'];
+            const buttons = ['filter-all', 'filter-triage', 'filter-production', 'filter-quality', 'filter-dispatch', 'filter-standby', 'filter-archived', 'filter-canceled'];
             
             buttons.forEach(id => {
                 const btn = document.getElementById(id);
                 if(btn) btn.className = "px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all";
             });
 
-            const btnId = section === 'ARQUIVADO' ? 'filter-archived' : `filter-${section.toLowerCase()}`;
+            let btnId = `filter-${section.toLowerCase()}`;
+            if (section === 'ARQUIVADO') btnId = 'filter-archived';
+            if (section === 'CANCELADA') btnId = 'filter-canceled';
+
             const activeBtn = document.getElementById(btnId) || document.getElementById('filter-all');
             if (activeBtn) {
                 activeBtn.className = "px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-brand-red text-white border border-brand-red transition-all shadow-sm";
@@ -594,16 +603,18 @@
 
                 const status = (os.status || '').toUpperCase().trim();
                 
-                // Oculta os arquivados de todas as abas, exibindo apenas na aba "Arquivadas"
+                // Oculta os arquivados e cancelados de todas as abas, exibindo apenas na aba correspondente
                 if (currentFilterSection !== 'ARQUIVADO' && status === 'ARQUIVADO') return false;
+                if (currentFilterSection !== 'CANCELADA' && status === 'CANCELADA') return false;
 
                 switch (currentFilterSection) {
                     case 'TRIAGEM': return status.includes('TRIAGEM');
                     case 'STANDBY': return status.includes('STANDBY') || status.includes('CASCO');
                     case 'QUALIDADE': return status.includes('QUALIDADE');
                     case 'EXPEDICAO': return status.includes('EXPEDIÇÃO') || status.includes('EXPEDICAO') || status.includes('CONCLUÍDA');
-                    case 'PRODUCAO': return !status.includes('TRIAGEM') && !status.includes('STANDBY') && !status.includes('QUALIDADE') && !status.includes('EXPED') && !status.includes('CONCLUÍDA') && status !== 'ARQUIVADO';
+                    case 'PRODUCAO': return !status.includes('TRIAGEM') && !status.includes('STANDBY') && !status.includes('QUALIDADE') && !status.includes('EXPED') && !status.includes('CONCLUÍDA') && status !== 'ARQUIVADO' && status !== 'CANCELADA';
                     case 'ARQUIVADO': return status === 'ARQUIVADO';
+                    case 'CANCELADA': return status === 'CANCELADA';
                     default: return true;
                 }
             });
@@ -735,6 +746,15 @@
             document.getElementById('modal-part-number').innerText = os.part_number || 'Não Informado';
             document.getElementById('modal-trade-in').innerText = os.is_trade_in ? `Troca (Casco: ${os.trade_in_option || 'N/A'})` : 'Venda Simples';
 
+            const btnCancel = document.getElementById('btn-cancel-os');
+            if (os.status !== 'Cancelada' && os.status !== 'Arquivado') {
+                btnCancel.classList.remove('hidden');
+                btnCancel.onclick = () => cancelOS(os.id, os.business_id);
+            } else {
+                btnCancel.classList.add('hidden');
+                btnCancel.onclick = null;
+            }
+
             const pecasGrid = document.getElementById('modal-pieces-grid');
             const pecasObrigatorias = ['CCO', 'CCE', 'CT', 'EIXO', 'ROTOR', 'REPAROS'];
             
@@ -838,6 +858,52 @@
                     el.classList.add('hidden');
                     el.classList.remove('flex');
                 }, 200); // tempo do fade-out
+            }
+        }
+
+        async function cancelOS(osId, osNumber) {
+            const motive = prompt(`CONFIRMAÇÃO DE CANCELAMENTO:\nPor favor, digite o motivo para cancelar a O.S. ${osNumber}:`);
+            if (!motive) return; // cancelou ou deixou vazio
+            
+            const btn = document.getElementById('btn-cancel-os');
+            btn.innerText = "Cancelando...";
+            btn.disabled = true;
+
+            try {
+                // Fetch previous observations
+                const os = allOrders.find(o => o.id === osId);
+                let currentObs = os.observations || '';
+                const today = new Date().toLocaleDateString('pt-BR');
+                const newObsText = `[CANCELADA EM ${today}]: ${motive}`;
+                
+                const finalObs = currentObs ? `${currentObs}\n\n${newObsText}` : newObsText;
+
+                const { error: updErr } = await supabaseClient
+                    .from('service_orders')
+                    .update({
+                        status: 'Cancelada',
+                        observations: finalObs
+                    })
+                    .eq('id', osId);
+                
+                if (updErr) throw updErr;
+
+                // Log na timeline de auditoria
+                await supabaseClient.from('history_events').insert({
+                    service_order_id: osId,
+                    action: 'O.S. CANCELADA',
+                    details: `Motivo: ${motive}`
+                });
+
+                alert('O.S. cancelada com sucesso!');
+                closeModal('details-modal');
+                loadAdminDashboard(); // recarrega fila e dashboards
+            } catch (error) {
+                console.error("Erro ao cancelar OS:", error);
+                alert("Erro ao cancelar. Tente novamente.");
+            } finally {
+                btn.innerHTML = `<i class="fa-solid fa-ban mr-2"></i> Cancelar O.S.`;
+                btn.disabled = false;
             }
         }
 
