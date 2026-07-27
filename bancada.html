@@ -59,18 +59,20 @@
         <main class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
             <!-- HEADER GLOBAL DE PRODUTIVIDADE E OS -->
             <div id="workspace-header" class="flex flex-col lg:flex-row gap-4 mb-6">
-                <div id="os-details-header" class="hidden bg-indigo-600 text-white rounded-3xl p-6 shadow-lg flex-1 relative overflow-hidden">
-                    <div class="relative z-10 ml-4">
-                        <h2 id="display-os" class="text-3xl font-black mb-1 italic tracking-tighter uppercase">OS-XXXX</h2>
-                        <p id="display-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest italic">CLIENTE | MODELO</p>
-                    </div>
-                    <div class="mt-4 flex space-x-3 relative z-10">
-                        <button type="button" onclick="openSpecialModal()" class="bg-white/20 hover:bg-white/30 text-white border border-white/40 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                            + Adicionar Serviço Especial
-                        </button>
-                        <button type="button" onclick="carregarLinhaDoTempo()" class="bg-white/20 hover:bg-white/30 text-white border border-white/40 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                            <i class="fa-solid fa-clock-rotate-left mr-1"></i> Histórico OS
-                        </button>
+                <div id="os-details-header" class="hidden flex-1 bg-indigo-600 rounded-3xl shadow-lg text-white p-6 min-h-[140px] flex-col justify-center relative overflow-hidden">
+                    <div class="relative z-10 ml-4 flex flex-col md:flex-row justify-between items-start md:items-center w-full pr-8 gap-4">
+                        <div>
+                            <h2 id="display-os" class="text-3xl font-black mb-1 italic tracking-tighter uppercase">OS-XXXX</h2>
+                            <p id="display-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest italic">CLIENTE | MODELO</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button type="button" onclick="carregarLinhaDoTempo(selectedOS?.service_order_id || selectedOS?.os_id || selectedOS?.id)" class="bg-slate-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg">
+                                <i class="fa-solid fa-clock-rotate-left mr-2"></i> Histórico Completo
+                            </button>
+                            <button type="button" onclick="openSpecialModal()" class="bg-white/20 hover:bg-white/30 text-white border border-white/40 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                + Adicionar Serviço Especial
+                            </button>
+                        </div>
                     </div>
                     <i class="fa-solid fa-screwdriver-wrench absolute right-[-20px] bottom-[-20px] text-white opacity-10 text-9xl"></i>
                 </div>
@@ -301,7 +303,8 @@
             document.getElementById('os-details-header').classList.add('flex');
             document.getElementById('main-workspace').classList.remove('hidden');
             document.getElementById('display-os').innerText = selectedOS.business_id;
-            document.getElementById('display-desc').innerText = `${selectedOS.client} | ${selectedOS.model}`;
+            const displayDesc = `${selectedOS.client} | ${selectedOS.model} | P.N: ${selectedOS.part_number || '---'}` + (selectedOS.identificacao_e_marcacao_code ? ` | ${selectedOS.identificacao_e_marcacao_type || ''} [ ${selectedOS.identificacao_e_marcacao_code} ]` : '');
+            document.getElementById('display-desc').innerText = displayDesc;
             
             renderComponents();
         }
@@ -926,7 +929,10 @@
         }
 
         // --- LÓGICA DE HISTÓRICO ---
-        async function carregarLinhaDoTempo() {
+        async function carregarLinhaDoTempo(osId) {
+            if (osId && (!selectedOS || (selectedOS.id !== osId && selectedOS.os_id !== osId && selectedOS.service_order_id !== osId))) {
+                selectedOS = queueData.find(o => (o.os_id === osId || o.id === osId || o.service_order_id === osId)) || selectedOS;
+            }
             if (!selectedOS) { alert("Selecione uma OS primeiro."); return; }
             
             document.getElementById('detail-business-id').textContent = selectedOS.business_id;

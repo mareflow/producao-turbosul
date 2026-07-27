@@ -56,15 +56,18 @@
         <main class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 custom-scroll">
             <!-- HEADER GLOBAL DE PRODUTIVIDADE E OS -->
             <div id="workspace-header" class="flex flex-col lg:flex-row justify-between gap-6 mb-6">
-                <div id="os-details-header" class="hidden bg-turbo-teal rounded-3xl shadow-lg text-white p-6 min-h-[140px] flex-1 flex justify-between items-center relative overflow-hidden">
-                    <div class="relative z-10 ml-4">
-                        <h2 id="display-os" class="text-3xl font-black mb-1 italic tracking-tighter uppercase">OS-XXXX</h2>
-                        <p id="display-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest italic">CLIENTE | MODELO</p>
+                <div id="os-details-header" class="hidden flex-1 bg-turbo-teal rounded-3xl shadow-lg text-white p-6 min-h-[140px] flex-col justify-center relative overflow-hidden">
+                    <div class="relative z-10 ml-4 flex flex-col md:flex-row justify-between items-start md:items-center w-full pr-8 gap-4">
+                        <div>
+                            <h2 id="display-os" class="text-3xl font-black mb-1 italic tracking-tighter uppercase">OS-XXXX</h2>
+                            <p id="display-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest italic">CLIENTE | MODELO</p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button type="button" onclick="carregarLinhaDoTempo(selectedOS?.service_order_id || selectedOS?.os_id || selectedOS?.id)" class="bg-slate-900 hover:bg-black text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg">
+                                <i class="fa-solid fa-clock-rotate-left mr-2"></i> Histórico Completo
+                            </button>
+                        </div>
                     </div>
-                    <!-- Botão de histórico integrado à Montagem -->
-                    <button type="button" onclick="carregarLinhaDoTempo(selectedOS?.service_order_id || selectedOS?.os_id || selectedOS?.id)" class="relative z-10 bg-slate-900 hover:bg-black text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg mr-4">
-                        <i class="fa-solid fa-clock-rotate-left mr-2"></i> Histórico Completo
-                    </button>
                     <i class="fa-solid fa-screwdriver-wrench absolute right-[-20px] bottom-[-20px] text-white opacity-10 text-9xl"></i>
                 </div>
 
@@ -264,7 +267,8 @@
             document.getElementById('main-workspace').classList.remove('hidden');
             
             document.getElementById('display-os').innerText = selectedOS.business_id;
-            document.getElementById('display-desc').innerText = `${selectedOS.client} | ${selectedOS.model}`;
+            const displayDesc = `${selectedOS.client} | ${selectedOS.model} | P.N: ${selectedOS.part_number || '---'}` + (selectedOS.identificacao_e_marcacao_code ? ` | ${selectedOS.identificacao_e_marcacao_type || ''} [ ${selectedOS.identificacao_e_marcacao_code} ]` : '');
+            document.getElementById('display-desc').innerText = displayDesc;
             
             // Os dados de tracking já foram carregados e filtrados na inicialização da página
             atualizarWorkspaceMontagem();
