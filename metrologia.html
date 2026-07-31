@@ -827,7 +827,7 @@
             btn.disabled = true;
             btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Verificando Divergências...`;
 
-            const osId = selectedOS.service_order_id || selectedOS.id;
+            const osId = selectedOS.id || selectedOS.os_id || selectedOS.service_order_id;
             const anexosData = getAnexosData();
 
             const rows = anexosData.map(item => ({
@@ -886,7 +886,7 @@
 
                         alert("Checklist de integridade final salvo com sucesso!");
                     } else {
-                        throw new Error("Erro de rede");
+                        throw saveErr;
                     }
                 };
 
@@ -924,8 +924,8 @@
                 }
 
             } catch (e) {
-                console.error(e);
-                alert("Falha de conexão ao salvar checklist.");
+                console.error("Erro completo:", e);
+                alert("Falha ao salvar checklist: " + (e.message || JSON.stringify(e)));
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist de Integridade`;
             }
