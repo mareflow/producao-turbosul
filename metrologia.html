@@ -256,7 +256,7 @@
             }).join('');
         }
 
-        function selectOS(id) {
+        async function selectOS(id) {
             // CORREÇÃO: Busca por os_id, id ou service_order_id para garantir compatibilidade e não bugar
             selectedOS = queueData.find(o => (o.os_id === id || o.id === id || o.service_order_id === id));
             
@@ -276,6 +276,22 @@
             document.getElementById('os-details-header').classList.add('flex');
             document.getElementById('main-workspace').classList.remove('hidden');
             document.getElementById('display-os').innerText = selectedOS.business_id;
+
+            try {
+                const { data: osFresh, error: osError } = await supabaseClient
+                    .from('service_orders')
+                    .select('*')
+                    .eq('id', selectedOS.id || selectedOS.os_id || selectedOS.service_order_id)
+                    .single();
+                
+                if (!osError && osFresh) {
+                    selectedOS.part_number = osFresh.part_number;
+                    selectedOS.metrology_data = osFresh.metrology_data;
+                }
+            } catch (e) {
+                console.error("Erro ao carregar OS fresca do Supabase:", e);
+            }
+
             const displayDesc = `${selectedOS.client} | ${selectedOS.model} | P.N: ${selectedOS.part_number || '---'}` + (selectedOS.identificacao_e_marcacao_code ? ` | ${selectedOS.identificacao_e_marcacao_type || ''} [ ${selectedOS.identificacao_e_marcacao_code} ]` : '');
             document.getElementById('display-desc').innerText = displayDesc;
             
@@ -283,8 +299,28 @@
             const metGrid = document.getElementById('metrology-grid');
             if(metGrid) metGrid.classList.remove('opacity-40', 'pointer-events-none', 'grayscale');
 
-            // Os dados de tracking já vêm pré-carregados da fila inicial
-            renderAnexos();
+            let metData = selectedOS.metrology_data;
+            if (typeof metData === 'string') {
+                try { metData = JSON.parse(metData); } catch(e) {}
+            }
+
+            if (metData && Array.isArray(metData) && metData.length > 0) {
+                document.getElementById('checklist-inputs-container').classList.add('hidden');
+                document.getElementById('checklist-summary-container').classList.remove('hidden');
+                renderChecklistSummary(metData);
+            } else {
+                document.getElementById('checklist-summary-container').classList.add('hidden');
+                document.getElementById('checklist-inputs-container').classList.remove('hidden');
+                renderAnexos();
+                
+                // Reseta o estado visual do Botão de Salvar Checklist
+                const btnSalvar = document.getElementById('btn-salvar-checklist');
+                if (btnSalvar) {
+                    btnSalvar.disabled = false;
+                    btnSalvar.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist de Integridade';
+                }
+            }
+
             renderComponents();
         }
 
