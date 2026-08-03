@@ -768,6 +768,18 @@
 
             document.getElementById('hull-status').textContent = `Status: ${HULL_STATE_MAP[order.hull_status] || HULL_STATE_MAP['UNKNOWN']}`;
 
+            const dispatchOptions = dispatchLocationSelect.querySelectorAll('option');
+            let found = false;
+            dispatchOptions.forEach(option => {
+                if (option.value === (order.local_despacho || 'Selecione...')) {
+                    option.selected = true;
+                    found = true;
+                }
+            });
+            if (!found && order.local_despacho) {
+                dispatchLocationSelect.insertAdjacentHTML('beforeend', `<option value="${order.local_despacho}" selected>${order.local_despacho}</option>`);
+            }
+
             loadPDFButtons(order.id);
         }
 
@@ -798,18 +810,6 @@
                     }
                 } catch (e) { }
             }
-        }
-
-        const dispatchOptions = dispatchLocationSelect.querySelectorAll('option');
-        let found = false;
-        dispatchOptions.forEach(option => {
-            if (option.value === (order.local_despacho || 'Selecione...')) {
-                option.selected = true;
-                found = true;
-            }
-        });
-        if (!found && order.local_despacho) {
-            dispatchLocationSelect.insertAdjacentHTML('beforeend', `<option value="${order.local_despacho}" selected>${order.local_despacho}</option>`);
         }
 
 
