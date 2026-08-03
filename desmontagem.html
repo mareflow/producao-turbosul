@@ -495,14 +495,19 @@
             
             let todasPecasEnviadas = true;
 
-            // Filtra os itens que são "CONJUNTO NOVO" para não renderizar na tela de desmontagem
+            // 1. Verifica se a OS como um todo foi marcada como Conjunto Novo (Full)
+            const isOsConjuntoNovo = (currentSelection.triage_parts || []).some(p => 
+                ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || '').toUpperCase().trim()) && 
+                (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
+            );
+
+            // Filtra os itens que são do núcleo para não renderizar na tela de desmontagem se for Conjunto Novo
             const filteredToRender = allToRender.filter(comp => {
                 const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(comp.title.toUpperCase());
-                const isConjuntoNovo = isCorePart && (currentSelection.triage_parts || []).some(p => 
-                    (p.item_name || '').toUpperCase().trim() === comp.title.toUpperCase() && 
-                    (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
-                );
-                return !isConjuntoNovo;
+                if (isOsConjuntoNovo && isCorePart) {
+                    return false; // Esconde todas as 4 peças se a OS for conjunto novo
+                }
+                return true;
             });
 
             grid.innerHTML = filteredToRender.map(comp => {
