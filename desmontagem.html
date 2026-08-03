@@ -514,7 +514,7 @@
                 // 4. Lógica de "Conjunto Novo" (Troca Full)
                 const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(comp.title.toUpperCase());
                 const isConjuntoNovo = isCorePart && (currentSelection.triage_parts || []).some(p => 
-                    p.item_name.toUpperCase().trim() === comp.title.toUpperCase() && 
+                    (p.item_name || '').toUpperCase().trim() === comp.title.toUpperCase() && 
                     (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
                 );
 
