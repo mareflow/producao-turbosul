@@ -402,6 +402,14 @@
                 if (!error && trackingData) {
                     currentSelection.tracking = trackingData;
                 }
+
+                // Busca das decisões de vendas para saber se é Conjunto Novo
+                const { data: triagePartsData } = await supabaseClient
+                    .from('triage_parts')
+                    .select('*')
+                    .eq('service_order_id', os.id);
+                
+                currentSelection.triage_parts = triagePartsData || [];
             } catch (e) {
                 console.error("Erro ao carregar rastreio na Desmontagem:", e);
             }
@@ -503,12 +511,19 @@
                 const statusPeca = trk ? (trk.status || '').toUpperCase().trim() : 'AGUARDANDO';
                 const isPendingOrder = (statusPeca === 'AGUARDANDO_COMPRA');
                 
-                // 3. A peça é bloqueada se já foi enviada OU se está aguardando compra
-                const isBlocked = isSent || isPendingOrder;
+                // 4. Lógica de "Conjunto Novo" (Troca Full)
+                const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(comp.title.toUpperCase());
+                const isConjuntoNovo = isCorePart && (currentSelection.triage_parts || []).some(p => 
+                    p.item_name.toUpperCase().trim() === comp.title.toUpperCase() && 
+                    (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
+                );
+
+                // A peça é bloqueada se já foi enviada OU se está aguardando compra OU se for Conjunto Novo
+                const isBlocked = isSent || isPendingOrder || isConjuntoNovo;
                 const cardStyle = isBlocked ? 'opacity-40 grayscale pointer-events-none' : '';
                 
-                // Atualiza o contador de peças pendentes
-                if (!isSent && !isPendingOrder) {
+                // Atualiza o contador de peças pendentes (Conjunto Novo não trava o botão de concluir limpeza, pois pula etapa)
+                if (!isSent && !isPendingOrder && !isConjuntoNovo) {
                     todasPecasEnviadas = false; 
                 }
 
@@ -516,7 +531,10 @@
                 let badgeText = 'Desmontagem';
                 let badgeColor = 'bg-turbo-teal';
 
-                if (isPendingOrder) {
+                if (isConjuntoNovo) {
+                    badgeText = 'CONJUNTO NOVO';
+                    badgeColor = 'bg-amber-500';
+                } else if (isPendingOrder) {
                     badgeText = 'AGUARDANDO COMPRA';
                     badgeColor = 'bg-amber-500 animate-pulse';
                 } else if (comp.isSpecial) {
