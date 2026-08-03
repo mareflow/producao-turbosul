@@ -579,6 +579,7 @@
                 coreParts.includes((p.item_name || "").toUpperCase().trim()) && 
                 (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
             );
+            window.currentIsTrocaConjunto = isTrocaConjunto;
 
             if (isTrocaConjunto) {
                 (items || []).forEach(p => {
@@ -1043,6 +1044,39 @@
         document.getElementById('close-details-modal-btn').onclick = () => document.getElementById('details-modal').classList.add('hidden');
 
         async function sincronizarPeca(btn, partName, availability) {
+            const coreParts = ["EIXO", "ROTOR", "CCE", "REPAROS"];
+            const pName = partName.toUpperCase().trim();
+
+            if (window.currentIsTrocaConjunto && coreParts.includes(pName)) {
+                // Sincroniza todas as 4 peças do Conjunto Rotativo simultaneamente
+                coreParts.forEach(cp => {
+                    const div = document.querySelector(`div[data-name="${cp}"]`);
+                    if (div) {
+                        const parent = div.querySelector('.flex.bg-slate-100');
+                        if (parent) {
+                            parent.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                            const targetBtn = availability === 'STOCK' ? parent.querySelector('.btn-toggle-stock') : parent.querySelector('.btn-toggle-order');
+                            if (targetBtn) targetBtn.classList.add('active');
+                        }
+                    }
+                });
+
+                try {
+                    const osId = selecionada._supabaseId || selecionada.id;
+                    const requests = coreParts.map(cp => 
+                        fetch(API_SYNC, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ os_id: osId, part_name: cp, availability: availability })
+                        })
+                    );
+                    await Promise.all(requests);
+                } catch (e) {
+                    alert("❌ Erro ao salvar disponibilidade do Conjunto Rotativo.");
+                }
+                return;
+            }
+
+            // Fluxo normal para outras peças
             const parent = btn.parentElement;
             const prevActive = parent.querySelector('button.active');
             parent.querySelectorAll('button').forEach(b => b.classList.remove('active'));
@@ -1051,7 +1085,7 @@
                 const osId = selecionada._supabaseId || selecionada.id;
                 const response = await fetch(API_SYNC, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ os_id: osId, part_name: partName.toUpperCase().trim(), availability: availability })
+                    body: JSON.stringify({ os_id: osId, part_name: pName, availability: availability })
                 });
                 if (!response.ok) throw new Error("Erro no servidor");
             } catch (e) {

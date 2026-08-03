@@ -221,8 +221,12 @@
                 const { data: allTrackings } = await supabaseClient
                     .from('component_tracking').select('*').in('service_order_id', osIds);
 
+                const { data: triageParts } = await supabaseClient
+                    .from('triage_parts').select('*').in('service_order_id', osIds);
+
                 queueData = (orders || []).map(os => {
                     os.full_tracking = (allTrackings || []).filter(t => t.service_order_id === os.id);
+                    os.triage_parts = (triageParts || []).filter(t => t.service_order_id === os.id);
                     return os;
                 });
 
@@ -301,11 +305,16 @@
                 return 'NUCLEO_EM_BALANCEAMENTO';
             }
 
-            const isConjuntoBalanceado = conjuntoRotativo && (
+            const isConjuntoNovo = (selectedOS.triage_parts || []).some(p => 
+                ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || "").toUpperCase().trim()) && 
+                (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
+            );
+
+            const isConjuntoBalanceado = isConjuntoNovo || (conjuntoRotativo && (
                 conjuntoRotativo.status === 'Finalizado' || 
                 conjuntoRotativo.status === 'BALANCEADO' || 
                 stageConjunto === 'MONTAGEM'
-            );
+            ));
 
             if (isConjuntoBalanceado) {
                 const ctStage = ct ? (ct.target_sector || ct.current_stage || ct.stage || '').toUpperCase() : '';
@@ -389,7 +398,16 @@
 
                 renderPecasCards({ Eixo: eixo, Rotor: rotor, CCE: cce, Reparos: reparos });
             } else {
-                document.getElementById('assembly-step-badge').innerText = "Etapa 2: Carcaçamento (Housings)";
+                const isConjuntoNovo = (selectedOS.triage_parts || []).some(p => 
+                    ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || "").toUpperCase().trim()) && 
+                    (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
+                );
+
+                const badgeText = isConjuntoNovo 
+                    ? "Etapa 2: Carcaçamento (Housings) — <span class='text-amber-200'>CONJUNTO NOVO</span>" 
+                    : "Etapa 2: Carcaçamento (Housings)";
+                
+                document.getElementById('assembly-step-badge').innerHTML = badgeText;
                 
                 const ct = tracking.find(t => (t.component_name || t.component || '').toUpperCase() === 'CT');
                 const cco = tracking.find(t => (t.component_name || t.component || '').toUpperCase() === 'CCO');
