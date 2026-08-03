@@ -222,7 +222,7 @@
                     .from('component_tracking').select('*').in('service_order_id', osIds);
 
                 const { data: triageParts } = await supabaseClient
-                    .from('triage_parts').select('*').in('service_order_id', osIds);
+                    .from('checklist_analysis_general').select('*').in('service_order_id', osIds);
 
                 queueData = (orders || []).map(os => {
                     os.full_tracking = (allTrackings || []).filter(t => t.service_order_id === os.id);

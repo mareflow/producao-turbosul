@@ -405,7 +405,7 @@
 
                 // Busca das decisões de vendas para saber se é Conjunto Novo
                 const { data: triagePartsData } = await supabaseClient
-                    .from('triage_parts')
+                    .from('checklist_analysis_general')
                     .select('*')
                     .eq('service_order_id', os.id);
                 
