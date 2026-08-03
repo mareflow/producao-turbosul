@@ -495,7 +495,17 @@
             
             let todasPecasEnviadas = true;
 
-            grid.innerHTML = allToRender.map(comp => {
+            // Filtra os itens que são "CONJUNTO NOVO" para não renderizar na tela de desmontagem
+            const filteredToRender = allToRender.filter(comp => {
+                const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(comp.title.toUpperCase());
+                const isConjuntoNovo = isCorePart && (currentSelection.triage_parts || []).some(p => 
+                    (p.item_name || '').toUpperCase().trim() === comp.title.toUpperCase() && 
+                    (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
+                );
+                return !isConjuntoNovo;
+            });
+
+            grid.innerHTML = filteredToRender.map(comp => {
                 // Busca o rastreio da peça
                 const trk = (currentSelection.tracking || []).find(t => 
                     (t.component_name || t.component || '').toUpperCase() === comp.title.toUpperCase()
@@ -511,19 +521,12 @@
                 const statusPeca = trk ? (trk.status || '').toUpperCase().trim() : 'AGUARDANDO';
                 const isPendingOrder = (statusPeca === 'AGUARDANDO_COMPRA');
                 
-                // 4. Lógica de "Conjunto Novo" (Troca Full)
-                const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(comp.title.toUpperCase());
-                const isConjuntoNovo = isCorePart && (currentSelection.triage_parts || []).some(p => 
-                    (p.item_name || '').toUpperCase().trim() === comp.title.toUpperCase() && 
-                    (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
-                );
-
-                // A peça é bloqueada se já foi enviada OU se está aguardando compra OU se for Conjunto Novo
-                const isBlocked = isSent || isPendingOrder || isConjuntoNovo;
+                // A peça é bloqueada se já foi enviada OU se está aguardando compra
+                const isBlocked = isSent || isPendingOrder;
                 const cardStyle = isBlocked ? 'opacity-40 grayscale pointer-events-none' : '';
                 
-                // Atualiza o contador de peças pendentes (Conjunto Novo não trava o botão de concluir limpeza, pois pula etapa)
-                if (!isSent && !isPendingOrder && !isConjuntoNovo) {
+                // Atualiza o contador de peças pendentes
+                if (!isSent && !isPendingOrder) {
                     todasPecasEnviadas = false; 
                 }
 
@@ -531,10 +534,7 @@
                 let badgeText = 'Desmontagem';
                 let badgeColor = 'bg-turbo-teal';
 
-                if (isConjuntoNovo) {
-                    badgeText = 'CONJUNTO NOVO';
-                    badgeColor = 'bg-amber-500';
-                } else if (isPendingOrder) {
+                if (isPendingOrder) {
                     badgeText = 'AGUARDANDO COMPRA';
                     badgeColor = 'bg-amber-500 animate-pulse';
                 } else if (comp.isSpecial) {
