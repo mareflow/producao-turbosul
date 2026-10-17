@@ -145,51 +145,56 @@
                             <!-- Itens Adicionais (Identificação pelo Analista) -->
                             <div class="col-span-3 grid grid-cols-4 gap-4">
                                 <!-- ATUADOR -->
-                                <div class="space-y-1 p-2 border rounded-lg bg-white transition-all duration-200">
-                                    <p class="text-xs font-medium text-gray-700">ATUADOR</p>
+                                <div id="card-actuator" class="space-y-1 p-2 border border-slate-300 rounded-lg bg-slate-200 text-slate-800 transition-all duration-200">
+                                    <p class="text-xs font-bold text-slate-700">ATUADOR</p>
                                     <div class="flex items-center space-x-2">
-                                        <input type="checkbox" id="check-actuator" class="h-4 w-4 text-brand-blue border-gray-300 rounded">
-                                        <label for="check-actuator" class="text-sm">Veio?</label>
+                                        <input type="checkbox" id="check-actuator" class="h-4 w-4 text-brand-blue border-gray-400 rounded cursor-pointer">
+                                        <label for="check-actuator" class="text-sm font-semibold text-slate-700 cursor-pointer">Veio?</label>
                                     </div>
                                     <select id="status-actuator" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
                                         <option value="PEÇA OK">PEÇA OK</option>
                                         <option value="TROCAR">TROCAR</option>
+                                        <option value="SEM TESTE">SEM TESTE</option>
+                                        <option value="NÃO RECEBIDO">NÃO RECEBIDO</option>
                                     </select>
                                 </div>
                                 <!-- GEOMETRIA VARIÁVEL -->
-                                <div class="space-y-1 p-2 border rounded-lg bg-white transition-all duration-200">
-                                    <p class="text-xs font-medium text-gray-700">GEOMETRIA VARIÁVEL</p>
+                                <div id="card-geometry" class="space-y-1 p-2 border border-slate-300 rounded-lg bg-slate-200 text-slate-800 transition-all duration-200">
+                                    <p class="text-xs font-bold text-slate-700">GEOMETRIA VARIÁVEL</p>
                                     <div class="flex items-center space-x-2">
-                                        <input type="checkbox" id="check-geometry" class="h-4 w-4 text-brand-blue border-gray-300 rounded">
-                                        <label for="check-geometry" class="text-sm">Veio?</label>
+                                        <input type="checkbox" id="check-geometry" class="h-4 w-4 text-brand-blue border-gray-400 rounded cursor-pointer">
+                                        <label for="check-geometry" class="text-sm font-semibold text-slate-700 cursor-pointer">Veio?</label>
                                     </div>
                                     <select id="status-geometry" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
                                         <option value="PEÇA OK">PEÇA OK</option>
                                         <option value="TROCAR">TROCAR</option>
+                                        <option value="NÃO RECEBIDO">NÃO RECEBIDO</option>
                                     </select>
                                 </div>
                                 <!-- CANOTE DA GEOMETRIA -->
-                                <div class="space-y-1 p-2 border rounded-lg bg-white transition-all duration-200">
-                                    <p class="text-xs font-medium text-gray-700">CANOTE DA GEOMETRIA</p>
+                                <div id="card-geometryStem" class="space-y-1 p-2 border border-slate-300 rounded-lg bg-slate-200 text-slate-800 transition-all duration-200">
+                                    <p class="text-xs font-bold text-slate-700">CANOTE DA GEOMETRIA</p>
                                     <div class="flex items-center space-x-2">
-                                        <input type="checkbox" id="check-geometryStem" class="h-4 w-4 text-brand-blue border-gray-300 rounded">
-                                        <label for="check-geometryStem" class="text-sm">Veio?</label>
+                                        <input type="checkbox" id="check-geometryStem" class="h-4 w-4 text-brand-blue border-gray-400 rounded cursor-pointer">
+                                        <label for="check-geometryStem" class="text-sm font-semibold text-slate-700 cursor-pointer">Veio?</label>
                                     </div>
                                     <select id="status-geometryStem" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
                                         <option value="PEÇA OK">PEÇA OK</option>
                                         <option value="TROCAR">TROCAR</option>
+                                        <option value="NÃO RECEBIDO">NÃO RECEBIDO</option>
                                     </select>
                                 </div>
                                 <!-- FLANGE DA GEOMETRIA -->
-                                <div class="space-y-1 p-2 border rounded-lg bg-white transition-all duration-200">
-                                    <p class="text-xs font-medium text-gray-700">FLANGE DA GEOMETRIA</p>
+                                <div id="card-geometryFlange" class="space-y-1 p-2 border border-slate-300 rounded-lg bg-slate-200 text-slate-800 transition-all duration-200">
+                                    <p class="text-xs font-bold text-slate-700">FLANGE DA GEOMETRIA</p>
                                     <div class="flex items-center space-x-2">
-                                        <input type="checkbox" id="check-geometryFlange" class="h-4 w-4 text-brand-blue border-gray-300 rounded">
-                                        <label for="check-geometryFlange" class="text-sm">Veio?</label>
+                                        <input type="checkbox" id="check-geometryFlange" class="h-4 w-4 text-brand-blue border-gray-400 rounded cursor-pointer">
+                                        <label for="check-geometryFlange" class="text-sm font-semibold text-slate-700 cursor-pointer">Veio?</label>
                                     </div>
                                     <select id="status-geometryFlange" onchange="updateStatusSelectStyle(this)" class="w-full px-2 py-1 text-xs border rounded-lg font-bold">
                                         <option value="PEÇA OK">PEÇA OK</option>
                                         <option value="TROCAR">TROCAR</option>
+                                        <option value="NÃO RECEBIDO">NÃO RECEBIDO</option>
                                     </select>
                                 </div>
                             </div>
@@ -205,6 +210,7 @@
                                     <option value="PEÇA OK">PEÇA OK</option>
                                     <option value="RECONDICIONAR">RECONDICIONAR</option>
                                     <option value="TROCAR">TROCAR</option>
+                                    <option value="NÃO AVALIADO">NÃO AVALIADO</option>
                                 </select>
                             </div>
                             <!-- CCE -->
@@ -653,6 +659,10 @@
             const isStandby = order.status === 'Standby / Aguardando Casco' || order.trade_in_option === 'Standby';
             const urgencyText = order.urgency || 'Normal';
             const urgencyClass = getUrgencyBadge(urgencyText);
+            const isItajai = (order.unidade || '').toUpperCase().trim() === 'ITAJAI';
+            const unitBadge = isItajai
+                ? `<span class="inline-flex items-center text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200"><i class="fa-solid fa-location-dot mr-0.5 text-[8px]"></i> Itajaí</span>`
+                : '';
             
             let actionButtons = '';
             if (isStandby) {
@@ -669,9 +679,13 @@
                      data-order-id="${order.id}" 
                      data-status="${order.status}">
                     <div class="pointer-events-none">
-                        <p class="text-base font-bold text-gray-800 mb-1 flex justify-between items-center">${order.business_id}
+                        <div class="flex justify-between items-center mb-1">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-base font-bold text-gray-800">${order.business_id}</span>
+                                ${unitBadge}
+                            </div>
                             <span class="inline-block text-xs font-medium ${urgencyClass} px-2 py-0.5 rounded-full">${urgencyText}</span>
-                        </p>
+                        </div>
                         <p class="text-sm text-gray-600">${order.model}</p>
                         <p class="text-xs text-gray-500">${order.client}</p>
                     </div>
@@ -689,13 +703,16 @@
             // Tab 3: Conteúdo com o checkbox CONDENAR GLOBAL
             const tab3Content = `
                 <!-- Checkbox Global Condenar Caracol -->
-                <div class="p-4 mb-4 border border-red-300 rounded-lg bg-white flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
-                        <input type="checkbox" id="condenar-caracol-check" class="h-5 w-5 text-red-600 border-red-300 rounded focus:ring-red-500">
-                        <label for="condenar-caracol-check" class="text-sm font-bold text-red-700">CONDENAR CARACOL COMPLETO (TROCAR)</label>
+                <div class="p-4 mb-4 border-2 border-red-300 rounded-lg bg-red-50/70 flex items-center justify-between shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <input type="checkbox" id="condenar-caracol-check" class="h-5 w-5 text-red-600 border-red-400 rounded focus:ring-red-500 cursor-pointer">
+                        <div>
+                            <label for="condenar-caracol-check" class="text-sm font-black text-red-800 cursor-pointer">CONDENAR CARACOL COMPLETO (TROCAR)</label>
+                            <p class="text-xs text-red-600 font-medium">Condena o caracol integralmente sem necessidade de registrar os serviços e etapas individuais.</p>
+                        </div>
                     </div>
                 </div>
-                <div class="space-y-4">
+                <div id="caracol-subitems-container" class="space-y-4 transition-all duration-200">
                     ${createContent('tab3', STATUS_OPTIONS_CARACOL)}
                 </div>
             `;
@@ -727,7 +744,12 @@
             const select = element.target ? element.target : element;
             if (!select || !select.classList) return;
 
-            select.classList.remove('bg-slate-400', 'bg-green-500', 'bg-red-600', 'bg-yellow-500', 'text-white', 'opacity-50', 'grayscale', 'animate-pulse');
+            select.classList.remove(
+                'bg-slate-400', 'bg-slate-300', 'bg-slate-200', 'bg-slate-600', 'bg-slate-700', 'bg-slate-800',
+                'bg-green-500', 'bg-red-600', 'bg-yellow-500', 'bg-orange-500', 
+                'text-white', 'text-slate-700', 'text-slate-800', 'text-slate-500',
+                'opacity-50', 'opacity-40', 'grayscale', 'animate-pulse'
+            );
             
             const value = select.value;
             
@@ -737,10 +759,14 @@
                 select.classList.add('bg-yellow-500', 'text-white');
             } else if (value === 'TROCAR' || value === 'TROCAR PEÇA' || value.includes('TROCAR')) {
                 select.classList.add('bg-red-600', 'text-white');
+            } else if (value === 'SEM TESTE') {
+                select.classList.add('bg-orange-500', 'text-white');
+            } else if (value === 'NÃO AVALIADO') {
+                select.classList.add('bg-slate-600', 'text-white');
             } else if (value === 'ITEM FALTANTE') {
                 select.classList.add('bg-slate-800', 'text-white');
             } else if (value === 'NÃO RECEBIDO') {
-                select.classList.add('bg-slate-200', 'text-slate-500', 'opacity-50', 'grayscale');
+                select.classList.add('bg-slate-600', 'text-white');
             } else {
                 select.classList.add('bg-slate-400', 'text-white');
             }
@@ -813,6 +839,10 @@
                     badgeColor = "bg-yellow-500 text-white";
                 } else if (status === 'TROCAR' || status === 'TROCAR PEÇA' || status.includes('TROCAR')) {
                     badgeColor = "bg-red-600 text-white";
+                } else if (status === 'SEM TESTE' || status.includes('SEM TESTE')) {
+                    badgeColor = "bg-orange-500 text-white";
+                } else if (status === 'NÃO AVALIADO' || status.includes('NÃO AVALIADO')) {
+                    badgeColor = "bg-slate-600 text-white";
                 } else if (status === 'ITEM FALTANTE') {
                     badgeColor = "bg-slate-800 text-white";
                 }
@@ -889,7 +919,11 @@
                 'geometryFlange': 'Flange da Geometria'
             };
 
+            const condemnCaracol = document.getElementById('condenar-caracol-check');
+            const isCaracolCondenado = condemnCaracol && condemnCaracol.checked;
+
             Object.keys(ANALYSIS_ITEMS).forEach(tab => {
+                if (tab === 'tab3' && isCaracolCondenado) return; // Ignora os itens individuais do caracol
                 ANALYSIS_ITEMS[tab].forEach(item => {
                     const cleanName = item.replace(/\s+/g, '_').toLowerCase();
                     const el = document.getElementById(`status-${cleanName}`);
@@ -903,6 +937,10 @@
                     }
                 });
             });
+
+            if (isCaracolCondenado) {
+                trocasInternas.push("CARACOL COMPLETO (TROCAR)");
+            }
 
             ['actuator', 'geometry', 'geometryStem', 'geometryFlange'].forEach(id => {
                 const el = document.getElementById(`status-${id}`);
@@ -1068,14 +1106,17 @@
                     
                     // Função para habilitar/desabilitar o veredito baseada no checkbox
                     const toggleStatus = (isChecked) => {
+                        const parent = statusEl.parentElement;
                         if (isChecked) {
                             statusEl.disabled = false;
-                            statusEl.parentElement.classList.remove('opacity-40', 'grayscale');
+                            parent.classList.remove('bg-slate-200', 'border-slate-300', 'opacity-40', 'grayscale');
+                            parent.classList.add('bg-white', 'border-blue-400', 'shadow-sm');
                             if (statusEl.value === "NÃO RECEBIDO") statusEl.value = "PEÇA OK";
                         } else {
                             statusEl.value = "NÃO RECEBIDO";
                             statusEl.disabled = true;
-                            statusEl.parentElement.classList.add('opacity-40', 'grayscale');
+                            parent.classList.remove('bg-white', 'border-blue-400', 'shadow-sm', 'opacity-40', 'grayscale');
+                            parent.classList.add('bg-slate-200', 'border-slate-300');
                         }
                         updateStatusSelectStyle(statusEl);
                     };
@@ -1154,35 +1195,23 @@
         }
 
         async function loadAnalysisOrders() { 
-            const WEBHOOK_GET = WEBHOOK_GET_ANALYSIS;
-            
             filaContainer.innerHTML = '';
             loadingMessage.classList.remove('hidden');
             
             try {
-                const response = await fetch(WEBHOOK_GET, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+                // 🔄 Busca direto do Supabase (sem dependência de webhook externo)
+                const { data: orders, error } = await supabaseClient
+                    .from('service_orders')
+                    .select('*')
+                    .in('status', ['Aguardando Análise Técnica', 'Em Análise Técnica', 'Standby / Aguardando Casco'])
+                    .eq('is_blocked', false)
+                    .order('created_at', { ascending: true });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Falha HTTP (Status: ${response.status}). Resposta: ${errorText.substring(0, 50)}...`);
-                }
-
-                const text = await response.text();
-                let responseJson = {};
-                if (text) {
-                    try {
-                        responseJson = JSON.parse(text);
-                    } catch (e) {
-                        responseJson = { data: [] };
-                    }
-                } else {
-                    responseJson = { data: [] };
-                }
+                if (error) throw error;
                 
-                let orders = responseJson.data; 
-                if (!Array.isArray(orders)) { orders = Array.isArray(responseJson) ? responseJson : []; }
+                let rawOrders = orders || [];
                 
-                currentOrders = orders.map(rawOrder => {
+                currentOrders = rawOrders.map(rawOrder => {
                     const order = rawOrder.json || rawOrder;
                     order.entry_date = order.entry_date || order.created_at; 
                     return order;
@@ -1240,11 +1269,11 @@
             if (tabKey === 'tab3') {
                 const condemnCheck = document.getElementById('condenar-caracol-check');
                 if (condemnCheck && condemnCheck.checked) {
-                    data.push({
-                        name: "CONDENAR CARACOL COMPLETO",
+                    return [{
+                        name: "CONDENAR CARACOL COMPLETO (TROCAR)",
                         status: "TROCAR",
                         obs: "Condenado pela análise técnica."
-                    });
+                    }];
                 }
             }
 
@@ -1334,11 +1363,14 @@
         async function submitAnalysis() {
             if (!activeOSId) return;
             
+            // 1. Pré-abre a guia no clique do usuário para driblar o bloqueador de popup
+            const preTab = window.PDFGenerator ? window.PDFGenerator.createPreOpenedWindow("Gerando Laudo Técnico TurboSul...") : null;
+
             confirmAnalysisBtn.disabled = true;
             confirmAnalysisBtn.textContent = 'Enviando...';
 
             const payload = await collectFormData();
-            const orderData = currentOrders.find(o => o.id === activeOSId);
+            const orderData = currentOrders.find(o => o.id === activeOSId) || {};
             const checklistRows = [];
             const allItems = [...(payload.attachments || []), ...(payload.general_repairs || []), ...(payload.snail_checklist || [])];
             allItems.forEach(item => {
@@ -1347,18 +1379,30 @@
 
             try {
                 confirmAnalysisBtn.textContent = 'Gerando Laudo PDF...';
+                let pdfUrl = null;
                 try {
-                    await window.PDFGenerator.generateAnalysisPDF(
-                        { ...orderData, observation: payload.general_observations },
+                    pdfUrl = await window.PDFGenerator.generateAnalysisPDF(
+                        {
+                            ...orderData,
+                            pattern: payload.pattern,
+                            observation: payload.general_observations,
+                            maintenance_extras: payload.maintenance_extras
+                        },
                         checklistRows,
                         supabaseClient
                     );
                 } catch(e) {
                     console.error("PDF Error:", e);
-                    alert("ERRO AO GERAR PDF: " + e.message + " | " + e.toString());
-                    // Continua mesmo se o PDF falhar, para não travar a OS
+                    // Não trava o fluxo se o PDF falhar
                 }
                 
+                // Abre o PDF imediatamente na guia pré-aberta ou via link seguro
+                if (pdfUrl && window.PDFGenerator) {
+                    window.PDFGenerator.openSafely(pdfUrl, preTab);
+                } else if (preTab && !preTab.closed) {
+                    preTab.close();
+                }
+
                 confirmAnalysisBtn.textContent = 'Salvando Dados...';
 
                 const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -1367,12 +1411,11 @@
                 // Salva checklist se não tiver salvo (garantia dupla)
                 if (!isChecklistSaved) {
                     await supabaseClient.from('checklist_analysis_general').delete().eq('service_order_id', activeOSId);
-                    const checklistRows = [];
-                    const allItems = [...(payload.attachments || []), ...(payload.general_repairs || []), ...(payload.snail_checklist || [])];
+                    const dbRows = [];
                     allItems.forEach(item => {
-                        checklistRows.push({ service_order_id: activeOSId, item_name: item.name, status: item.status, observation: item.obs });
+                        dbRows.push({ service_order_id: activeOSId, item_name: item.name, status: item.status, observation: item.obs });
                     });
-                    if (checklistRows.length > 0) await supabaseClient.from('checklist_analysis_general').insert(checklistRows);
+                    if (dbRows.length > 0) await supabaseClient.from('checklist_analysis_general').insert(dbRows);
                 }
 
                 // Atualiza a OS para Aguardando Aprovação Comercial
@@ -1387,6 +1430,19 @@
                         action: 'ANÁLISE TÉCNICA CONCLUÍDA', description: 'O relatório técnico foi finalizado e a OS enviada para Vendas.'
                     });
                     closeAnalysisConfirmationModal();
+
+                    // Prepara o botão do laudo no modal de sucesso
+                    const pdfContainer = document.getElementById('pdf-container-success');
+                    const btnVerLaudo = document.getElementById('btn-ver-laudo');
+                    if (pdfContainer && btnVerLaudo && pdfUrl) {
+                        pdfContainer.classList.remove('hidden');
+                        btnVerLaudo.href = pdfUrl;
+                        btnVerLaudo.onclick = (e) => {
+                            e.preventDefault();
+                            window.open(pdfUrl, '_blank');
+                        };
+                    }
+
                     showAnalysisSavedModal();
                 } else {
                     document.getElementById('error-analysis-message').innerText = "Erro no servidor banco de dados: " + error.message;
@@ -1401,6 +1457,7 @@
                 document.getElementById('error-analysis-modal').classList.add('flex');
                 closeAnalysisConfirmationModal();
             } finally {
+                if (window.PDFGenerator) window.PDFGenerator.hideLoading();
                 confirmAnalysisBtn.disabled = false;
                 confirmAnalysisBtn.textContent = 'Sim, Finalizar Análise';
             }
@@ -1539,18 +1596,20 @@
             document.addEventListener('change', function(e) {
                 if (e.target && e.target.id === 'condenar-caracol-check') {
                     const isChecked = e.target.checked;
-                    const statusTarget = isChecked ? 'TROCAR' : 'NÃO INFORMADO';
-                    
-                    const tab3Div = document.getElementById('tab3');
-                    if (tab3Div) {
-                        const todosOsSelects = tab3Div.querySelectorAll('select');
-                        
-                        todosOsSelects.forEach(select => {
-                            select.value = statusTarget;
-                            updateStatusSelectStyle(select);
-                        });
-                        atualizarResumoGeral();
+                    const subContainer = document.getElementById('caracol-subitems-container');
+                    if (subContainer) {
+                        if (isChecked) {
+                            subContainer.classList.add('opacity-30', 'pointer-events-none');
+                            const todosOsSelects = subContainer.querySelectorAll('select');
+                            todosOsSelects.forEach(select => {
+                                select.value = 'NÃO INFORMADO';
+                                updateStatusSelectStyle(select);
+                            });
+                        } else {
+                            subContainer.classList.remove('opacity-30', 'pointer-events-none');
+                        }
                     }
+                    atualizarResumoGeral();
                 }
             });
 

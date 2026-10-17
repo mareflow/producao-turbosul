@@ -131,8 +131,14 @@
                         </div>
                         <p id="ref-orcamento" class="text-sm text-gray-500 mt-1">REF. ORÇAMENTO: ORC-XXX</p>
 
-                        <!-- Botões de PDF Dinâmicos -->
-                        <div id="pdf-buttons-container" class="flex gap-2 mt-3 hidden"></div>
+                        <!-- Botões de Documentos em PDF -->
+                        <div id="pdf-buttons-container" class="flex flex-wrap items-center gap-2 mt-3 p-2.5 bg-white border border-slate-200 rounded-lg shadow-sm">
+                            <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1"><i class="fa-solid fa-file-pdf text-red-600 mr-1"></i> Documentos:</span>
+                            <button type="button" id="btn-ver-laudo-tecnico" onclick="abrirOuGerarLaudoTecnico()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded-md text-xs uppercase shadow-sm transition flex items-center">
+                                <i class="fa-solid fa-file-signature mr-1.5"></i> Ver Laudo Técnico (PDF)
+                            </button>
+                            <div id="btn-container-vendas-pdf" class="inline-flex"></div>
+                        </div>
 
                         <!-- Ações Rápidas -->
                         <div class="mt-4 flex space-x-3 items-center">
@@ -317,11 +323,19 @@
                         d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
                 <h3 class="text-xl font-bold text-gray-800">Sucesso!</h3>
-                <p id="action-success-message" class="text-gray-600 mt-2">Ação realizada com sucesso.</p>
+                <p id="action-success-message" class="text-gray-600 mt-2 text-sm leading-relaxed">Ação realizada com sucesso.</p>
+
+                <!-- Botão de PDF gerado -->
+                <div id="modal-success-pdf-action" class="w-full mt-4 mb-2 hidden">
+                    <a id="modal-success-pdf-link" href="#" target="_blank"
+                        class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-xs uppercase tracking-wider text-center shadow-md transition">
+                        <i class="fa-solid fa-file-pdf mr-2"></i> Abrir Orçamento Comercial (PDF)
+                    </a>
+                </div>
             </div>
             <button id="action-success-ok-btn"
-                class="w-full bg-brand-blue hover:bg-brand-blue-dark text-white font-medium py-2 px-4 rounded-lg transition duration-150">
-                OK
+                class="w-full bg-brand-blue hover:bg-brand-blue-dark text-white font-bold py-2.5 px-4 rounded-lg transition duration-150 uppercase text-xs tracking-wider">
+                OK, Concluir
             </button>
         </div>
     </div>
@@ -592,11 +606,17 @@
         // --- CORREÇÃO 1: CRIAÇÃO DO SELETOR E ESTILO DINÂMICO ---
         function createDecisionSelect(itemName, techVerdict, initialDecision) {
             const cleanName = itemName.replace(/\s+/g, '_').toLowerCase();
-            const optionsList = ['SELECIONAR...', 'OK', 'RECONDICIONAR', 'TROCAR', 'TROCAR CONJUNTO'];
+            const normInitial = (initialDecision || '').toUpperCase().trim();
+            const optionsList = [
+                { value: '', label: 'SELECIONAR...' },
+                { value: 'OK', label: 'OK' },
+                { value: 'RECONDICIONAR', label: 'RECONDICIONAR' },
+                { value: 'TROCAR', label: 'TROCAR' },
+                { value: 'TROCAR CONJUNTO', label: 'TROCAR CONJUNTO (FULL)' }
+            ];
             const options = optionsList.map(opt => {
-                const val = opt === 'SELECIONAR...' ? '' : opt;
-                const isSelected = (val === initialDecision) ? 'selected' : '';
-                return `<option value="${val}" ${isSelected}>${opt}</option>`;
+                const isSelected = (opt.value === initialDecision || (opt.value === 'TROCAR CONJUNTO' && normInitial.includes('CONJUNTO'))) ? 'selected' : '';
+                return `<option value="${opt.value}" ${isSelected}>${opt.label}</option>`;
             }).join('');
 
             return `
@@ -783,32 +803,95 @@
             loadPDFButtons(order.id);
         }
 
-        async function loadPDFButtons(osId) {
-            const pdfContainer = document.getElementById('pdf-buttons-container');
-            if (pdfContainer) {
-                pdfContainer.innerHTML = '';
-                pdfContainer.classList.add('hidden');
+        async function abrirOuGerarLaudoTecnico() {
+            if (!activeOSId) {
+                alert('Selecione uma ordem de serviço primeiro.');
+                return;
+            }
+            const order = currentOrders.find(o => o.id === activeOSId);
+            if (!order) return;
 
-                try {
-                    const { data } = await supabaseClient.from('service_orders').select('sector_pdfs').eq('id', osId).single();
-                    if (data && data.sector_pdfs) {
-                        const pdfs = data.sector_pdfs;
-                        let hasPdf = false;
-                        if (pdfs.vendas) {
-                            pdfContainer.innerHTML += `<a href="${pdfs.vendas}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase shadow-sm"><i class="fa-solid fa-file-pdf mr-1"></i> Vendas</a>`;
-                            hasPdf = true;
-                        }
-                        if (pdfs.analise_tecnica) {
-                            pdfContainer.innerHTML += `<a href="${pdfs.analise_tecnica}" target="_blank" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase shadow-sm"><i class="fa-solid fa-file-pdf mr-1"></i> Análise</a>`;
-                            hasPdf = true;
-                        }
-                        if (pdfs.pre_vendas) {
-                            pdfContainer.innerHTML += `<a href="${pdfs.pre_vendas}" target="_blank" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase shadow-sm"><i class="fa-solid fa-file-pdf mr-1"></i> Pré-Vendas</a>`;
-                            hasPdf = true;
-                        }
-                        if (hasPdf) pdfContainer.classList.remove('hidden');
+            // Sempre regenera a partir do checklist atual (PDFs antigos salvos podem estar em branco)
+
+            // Pré-abre janela para evitar bloqueio de popup se precisar gerar agora
+            const preTab = window.PDFGenerator ? window.PDFGenerator.createPreOpenedWindow("Carregando Laudo Técnico TurboSul...") : null;
+            const btn = document.getElementById('btn-ver-laudo-tecnico');
+
+            try {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1.5"></i> Gerando...';
+                }
+
+                // Busca o checklist técnico do banco
+                const { data: techChecklist, error } = await supabaseClient
+                    .from('checklist_analysis_general')
+                    .select('*')
+                    .eq('service_order_id', order.id);
+
+                if (error) throw error;
+
+                const checklistItems = (techChecklist || []).map(c => ({
+                    name: c.item_name,
+                    status: c.status,
+                    obs: c.observation
+                }));
+
+                const pdfUrl = await window.PDFGenerator.generateAnalysisPDF(
+                    {
+                        ...order,
+                        pattern: order.pattern,
+                        observation: order.observation,
+                        maintenance_extras: order.maintenance_extras
+                    },
+                    checklistItems,
+                    supabaseClient
+                );
+
+                if (!order.sector_pdfs) order.sector_pdfs = {};
+                order.sector_pdfs.analise_tecnica = pdfUrl;
+
+                if (window.PDFGenerator) {
+                    window.PDFGenerator.openSafely(pdfUrl, preTab);
+                } else if (preTab && !preTab.closed) {
+                    preTab.location.href = pdfUrl;
+                }
+
+                await loadPDFButtons(order.id);
+            } catch (err) {
+                console.error("Erro ao gerar laudo:", err);
+                if (window.PDFGenerator) window.PDFGenerator.hideLoading();
+                alert("Não foi possível gerar o Laudo Técnico: " + (err.message || err));
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-file-signature mr-1.5"></i> Ver Laudo Técnico (PDF)';
+                }
+            }
+        }
+
+        async function loadPDFButtons(osId) {
+            const vendasPdfContainer = document.getElementById('btn-container-vendas-pdf');
+
+            try {
+                const { data } = await supabaseClient.from('service_orders').select('sector_pdfs').eq('id', osId).single();
+                const pdfs = data?.sector_pdfs || {};
+                
+                const activeOrder = currentOrders.find(o => o.id === osId);
+                if (activeOrder) activeOrder.sector_pdfs = pdfs;
+
+                if (vendasPdfContainer) {
+                    vendasPdfContainer.innerHTML = '';
+                    if (pdfs.vendas) {
+                        vendasPdfContainer.innerHTML = `
+                            <a href="${pdfs.vendas}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-md text-xs uppercase shadow-sm transition flex items-center">
+                                <i class="fa-solid fa-file-invoice mr-1.5"></i> Ver Orçamento Vendas (PDF)
+                            </a>
+                        `;
                     }
-                } catch (e) { }
+                }
+            } catch (e) {
+                console.warn("Erro ao carregar botões de PDF:", e);
             }
         }
 
@@ -860,8 +943,22 @@
             confirmActionBtn.textContent = 'Confirmar';
         }
 
-        function showActionSuccessModal(message) {
+        function showActionSuccessModal(message, pdfUrl = null) {
             actionSuccessMessage.textContent = message;
+            const pdfBox = document.getElementById('modal-success-pdf-action');
+            const pdfLink = document.getElementById('modal-success-pdf-link');
+            if (pdfBox && pdfLink) {
+                if (pdfUrl) {
+                    pdfBox.classList.remove('hidden');
+                    pdfLink.href = pdfUrl;
+                    pdfLink.onclick = (e) => {
+                        e.preventDefault();
+                        window.open(pdfUrl, '_blank');
+                    };
+                } else {
+                    pdfBox.classList.add('hidden');
+                }
+            }
             actionSuccessModal.classList.remove('hidden');
             actionSuccessModal.classList.add('flex');
         }
@@ -875,28 +972,79 @@
         // 3. AÇÕES RÁPIDAS E HISTÓRICO
         // ====================================================================
 
-        function executarAcaoLocal(tipo) {
+        function showToast(message, type = 'success') {
+            let toast = document.getElementById('comercial-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'comercial-toast';
+                document.body.appendChild(toast);
+            }
+            toast.className = `fixed bottom-6 right-6 z-[999999] flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl text-white font-bold text-sm transition-all duration-300 transform translate-y-10 opacity-0 ${
+                type === 'success' ? 'bg-emerald-600' : 'bg-blue-600'
+            }`;
+            const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-info';
+            toast.innerHTML = `<i class="fa-solid ${icon} text-lg"></i><span>${message}</span>`;
+            
+            requestAnimationFrame(() => {
+                toast.style.transform = 'translateY(0)';
+                toast.style.opacity = '1';
+            });
+
+            clearTimeout(toast._timeout);
+            toast._timeout = setTimeout(() => {
+                toast.style.transform = 'translateY(10px)';
+                toast.style.opacity = '0';
+            }, 3500);
+        }
+
+        async function executarAcaoLocal(tipo) {
             const selects = document.querySelectorAll('.decision-select-item');
+            const activeOrder = currentOrders.find(o => o.id === activeOSId);
 
             if (tipo === 'trocar') {
+                const coreParts = ["EIXO", "ROTOR", "REPAROS", "CCE", "EIXO ROTOR", "ROTOR COMPRESSOR", "CARCAÇA CENTRAL"];
+
                 selects.forEach(s => {
-                    const name = s.dataset.itemName;
-                    // Lógica TurboSul: Marca apenas as 4 peças físicas do Conjunto Rotativo para troca automática
-                    if (["EIXO", "ROTOR", "REPAROS", "CCE"].includes(name)) {
+                    const name = (s.dataset.itemName || '').toUpperCase().trim();
+                    const matchesCore = coreParts.some(cp => name === cp || name.includes(cp));
+
+                    if (matchesCore) {
                         s.value = 'TROCAR CONJUNTO';
+                        s.classList.remove('hidden'); // Garante que o dropdown continua visível na página
+                        const badge = s.parentElement.querySelector('.badge-conjunto');
+                        if (badge) badge.remove();
+
                         updateStatusSelectStyle(s);
 
-                        s.classList.add('hidden'); // Esconde o dropdown
-                        let parentTd = s.parentElement;
-                        if (!parentTd.querySelector('.badge-conjunto')) {
-                            parentTd.insertAdjacentHTML('beforeend', '<div class="badge-conjunto bg-red-600 text-white font-black text-xs px-3 py-2 border-2 border-red-700 rounded-lg text-center uppercase tracking-widest shadow">TROCAR CONJUNTO</div>');
+                        // Atualiza no checklist em memória
+                        if (activeOrder && activeOrder.checklist) {
+                            const it = activeOrder.checklist.find(c => {
+                                const dbName = (c.item_name || c.name || '').toUpperCase().trim();
+                                return dbName === name || coreParts.some(cp => dbName.includes(cp));
+                            });
+                            if (it) it.decisao_vendas = 'TROCAR CONJUNTO';
                         }
                     }
                 });
-                showActionSuccessModal('TROCA FULL: As 4 peças principais foram consolidadas como "TROCAR CONJUNTO".');
+
+                // Persiste imediatamente no Supabase para garantir segurança dos dados
+                if (activeOSId && supabaseClient) {
+                    try {
+                        for (const cp of ["EIXO", "ROTOR", "REPAROS", "CCE"]) {
+                            await supabaseClient.from('checklist_analysis_general')
+                                .update({ decisao_vendas: 'TROCAR CONJUNTO' })
+                                .eq('service_order_id', activeOSId)
+                                .ilike('item_name', `%${cp}%`);
+                        }
+                    } catch (err) {
+                        console.warn("Aviso ao salvar troca de conjunto no banco:", err);
+                    }
+                }
+
+                showToast('Status atualizado para "TROCAR CONJUNTO (FULL)".');
             } else if (tipo === 'reset') {
                 selects.forEach(s => {
-                    s.classList.remove('hidden'); // Mostra o dropdown novamente
+                    s.classList.remove('hidden');
                     const badge = s.parentElement.querySelector('.badge-conjunto');
                     if (badge) badge.remove();
 
@@ -912,8 +1060,15 @@
                         s.value = '';
                     }
                     updateStatusSelectStyle(s);
+
+                    const name = (s.dataset.itemName || '').toUpperCase().trim();
+                    if (activeOrder && activeOrder.checklist) {
+                        const it = activeOrder.checklist.find(c => (c.item_name || c.name || '').toUpperCase().trim() === name);
+                        if (it) it.decisao_vendas = s.value;
+                    }
                 });
-                showActionSuccessModal('RESET: Seleções retornaram para os vereditos da Análise Técnica.');
+
+                showToast('Decisões restauradas para os vereditos da Análise Técnica.', 'info');
             }
 
             validarDivergencias();
@@ -1165,22 +1320,31 @@
 
             // Listeners de Ações Rápidas (Troca Full / Reset)
             trocarConjuntoBtn.addEventListener('click', () => {
-                if (!activeOSId) return;
-                showQuickActionModal('trocar', 'TROCA TOTAL (FULL)', 'Deseja marcar todos os itens como TROCAR automaticamente?');
+                if (!activeOSId) {
+                    alert('Selecione uma ordem de serviço na fila primeiro.');
+                    return;
+                }
+                showQuickActionModal('trocar', 'TROCAR CONJUNTO (FULL)', 'Deseja marcar os componentes do Conjunto Rotativo (Eixo, Rotor, CCE e Reparos) como "TROCAR CONJUNTO"?');
             });
 
             resetDiagnosticoBtn.addEventListener('click', () => {
-                if (!activeOSId) return;
-                showQuickActionModal('reset', 'RESETAR DIAGNÓSTICO', 'Deseja limpar suas decisões e voltar para SELECIONAR?');
+                if (!activeOSId) {
+                    alert('Selecione uma ordem de serviço na fila primeiro.');
+                    return;
+                }
+                showQuickActionModal('reset', 'RESETAR DIAGNÓSTICO', 'Deseja restaurar as decisões para os vereditos originais da Análise Técnica?');
             });
 
-            confirmActionBtn.addEventListener('click', () => {
+            confirmActionBtn.addEventListener('click', async () => {
                 const action = confirmActionBtn.dataset.actionToConfirm;
-                if (action) { executarAcaoLocal(action); }
+                if (action) { await executarAcaoLocal(action); }
             });
 
             cancelActionBtn.addEventListener('click', closeQuickActionModal);
-            actionSuccessOkBtn.addEventListener('click', closeActionSuccessModal);
+            actionSuccessOkBtn.addEventListener('click', () => {
+                closeActionSuccessModal();
+                location.reload();
+            });
 
             // Listeners de UI e Histórico
             document.getElementById('historic-button').addEventListener('click', () => {
@@ -1286,23 +1450,30 @@
 
                 if (!osNumOficial.startsWith('O.S-')) osNumOficial = 'O.S-' + osNumOficial;
 
+                // Pré-abre a guia síncronamente no clique do usuário para vencer todos os bloqueadores de popup
+                const preTab = window.PDFGenerator ? window.PDFGenerator.createPreOpenedWindow("Gerando Orçamento Comercial TurboSul...") : null;
+
                 const btnConfirm = document.getElementById('confirm-generate-os-btn');
                 btnConfirm.disabled = true;
                 btnConfirm.textContent = 'Enviando...';
 
                 try {
                     const decisionElements = document.querySelectorAll('.decision-select-item');
+                    const activeOrder = currentOrders.find(o => o.id === activeOSId) || {};
+
+                    const decisions = Array.from(decisionElements).map(s => ({
+                        item_name: s.dataset.itemName,
+                        tech_verdict: s.dataset.techVerdict || 'NÃO INFORMADO',
+                        decisao_vendas: s.value
+                    }));
 
                     const payload = {
                         os_id: activeOSId,
                         user_id: await getCurrentUserUID(),
                         new_os_number: osNumOficial,
-                        is_divergent: false, // Forçado como false para evitar travamentos em banco e n8n
+                        is_divergent: false,
                         divergence_reason: "Liberado via fluxo direto de vendas",
-                        decisions: Array.from(decisionElements).map(s => ({
-                            item_name: s.dataset.itemName,
-                            decisao_vendas: s.value
-                        })),
+                        decisions: decisions,
                         previsao_saida: document.getElementById('previsao-saida').value,
                         horario_corte: document.getElementById('horario-corte').value,
                         local_despacho: document.getElementById('dispatch-location-select').value,
@@ -1315,7 +1486,7 @@
 
                     let newStatus = 'Aguardando Triagem';
                     if (payload.decisions && payload.decisions.length === 1 && payload.decisions[0].decisao_vendas === 'TROCAR CONJUNTO') {
-                        newStatus = 'Concluída'; // Se for trocar conjunto inteiro, finaliza direto e vai p/ qualidade/expedição dependendo da esteira? (Ajustar depois se precisar, manter Em Produção garante que caia na tela inicial de desmontagem).
+                        newStatus = 'Concluída';
                     }
 
                     const { error } = await supabaseClient.from('service_orders').update({
@@ -1327,7 +1498,7 @@
                         segunda_hora: payload.segunda_hora
                     }).eq('id', activeOSId);
 
-                    // Update the decisions in checklist_analysis_general
+                    // Atualiza as decisões no checklist_analysis_general
                     if (!error && payload.decisions) {
                         for (const d of payload.decisions) {
                             if (d.item_name && d.decisao_vendas) {
@@ -1348,39 +1519,56 @@
                         btnConfirm.textContent = 'Gerando Orçamento PDF...';
                         let urlFinal = null;
                         try {
-                            const orderData = currentOrders.find(o => o.id === activeOSId);
+                            // Inclui outros itens do checklist da ordem para que o documento mostre a visão completa
+                            const otherItems = (activeOrder.checklist || []).filter(c => {
+                                return !decisions.some(d => d.item_name.toUpperCase().trim() === (c.item_name || '').toUpperCase().trim());
+                            }).map(c => ({
+                                item_name: c.item_name,
+                                tech_verdict: c.status || 'NÃO INFORMADO',
+                                decisao_vendas: c.decisao_vendas || 'APROVADO'
+                            }));
+
+                            const fullItemsList = [...decisions, ...otherItems];
+
                             urlFinal = await window.PDFGenerator.generateComercialPDF(
-                                { ...orderData, business_id: payload.new_os_number, vendas_observacoes: payload.vendas_observacoes },
-                                payload.decisions,
+                                {
+                                    ...activeOrder,
+                                    business_id: payload.new_os_number,
+                                    ref_orcamento: activeOrder.business_id,
+                                    previsao_saida: payload.previsao_saida,
+                                    horario_corte: payload.horario_corte,
+                                    local_despacho: payload.local_despacho,
+                                    segunda_hora: payload.segunda_hora,
+                                    hull_status: activeOrder.hull_status || activeOrder.hull_state,
+                                    vendas_observacoes: payload.vendas_observacoes
+                                },
+                                fullItemsList,
                                 supabaseClient
                             );
                         } catch (e) {
                             console.error("PDF Error:", e);
-                            alert("ERRO AO GERAR PDF DO ORÇAMENTO: " + e.message + " | " + e.toString());
                         }
 
-                        const shouldOpenPdf = document.getElementById('open-pdf-comercial') ? document.getElementById('open-pdf-comercial').checked : true;
-
-                        if (urlFinal && shouldOpenPdf) {
-                            const link = document.createElement('a');
-                            link.href = urlFinal;
-                            link.target = '_blank';
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                        // Abre o PDF imediatamente na guia aberta ou fallback
+                        if (urlFinal && window.PDFGenerator) {
+                            window.PDFGenerator.openSafely(urlFinal, preTab);
+                        } else if (window.PDFGenerator) {
+                            window.PDFGenerator.hideLoading();
                         }
 
                         document.getElementById('modal-gerar-os').classList.add('hidden');
-                        showActionSuccessModal(`Sucesso! Orçamento convertido para ${osNumOficial}.`);
-                        setTimeout(() => location.reload(), 2000);
+                        showActionSuccessModal(`Sucesso! Orçamento convertido para ${osNumOficial}. Encaminhado para Triagem.`, urlFinal);
                     } else {
+                        if (window.PDFGenerator) window.PDFGenerator.hideLoading();
                         let errorText = error.message || "Erro desconhecido";
                         alert(`Erro ao salvar no servidor: ${errorText}`);
                         btnConfirm.disabled = false; btnConfirm.textContent = 'CONFIRMAR E ENVIAR';
                     }
                 } catch (err) {
                     console.error("Erro no envio:", err);
+                    if (window.PDFGenerator) window.PDFGenerator.hideLoading();
                     btnConfirm.disabled = false;
+                    btnConfirm.textContent = 'CONFIRMAR E ENVIAR';
                 }
             });
 

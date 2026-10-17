@@ -9,16 +9,19 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
+        .bg-turbo-blue { background-color: #2563EB; }
+        .text-turbo-blue { color: #2563EB; }
+        .border-turbo-blue { border-color: #2563EB; }
         .bg-turbo-teal { background-color: #0D9488; }
         .text-turbo-teal { color: #0D9488; }
         .border-turbo-teal { border-color: #0D9488; }
         .bg-turbo-orange { background-color: #EA580C; }
-        .os-selected { border-left: 4px solid #0D9488 !important; background-color: #f0fdfa !important; }
+        .os-selected { border-left: 4px solid #2563EB !important; background-color: #f0f9ff !important; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #0D9488; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #2563EB; border-radius: 10px; }
         .input-clean { background-color: #ffffff; border: 1px solid #d1d5db; color: #111827; transition: all 0.2s; }
-        .input-clean:focus { border-color: #0D9488; outline: none; box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.1); }
+        .input-clean:focus { border-color: #2563EB; outline: none; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1); }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen overflow-hidden">
@@ -76,19 +79,51 @@
             <!-- HEADER DO PROCESSO -->
             <div id="workspace-header" class="flex flex-col lg:flex-row justify-between gap-4 mb-6">
                 <!-- DETALHES DA OS -->
-                <div id="os-details-header" class="hidden flex-1 bg-turbo-teal rounded-2xl shadow-lg text-white p-6 min-h-[120px] flex-col justify-center relative overflow-hidden">
-                    <div class="relative z-10 ml-4 flex justify-between items-center w-full pr-8">
-                        <div>
-                            <h2 id="display-os" class="text-3xl font-black mb-1 italic tracking-tighter uppercase">OS-XXXX</h2>
-                            <p id="display-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest italic">CLIENTE | MODELO</p>
+                <div id="os-details-header" class="hidden flex-1 bg-blue-600 bg-turbo-blue rounded-2xl shadow-lg text-white p-6 min-h-[140px] flex flex-col justify-center relative overflow-hidden">
+                    <div class="relative z-10 flex flex-col justify-between w-full pr-8">
+                        <div class="flex flex-wrap justify-between items-start gap-4 mb-3">
+                            <div>
+                                <h2 id="display-os" class="text-3xl font-black mb-1 italic tracking-tighter uppercase">OS-XXXX</h2>
+                                <p id="display-desc" class="text-sm font-semibold opacity-95 uppercase tracking-wide">CLIENTE | MODELO</p>
+                            </div>
+                            <div class="flex space-x-3">
+                                <button type="button" onclick="carregarLinhaDoTempo(currentSelection?.id)" class="bg-slate-800 hover:bg-black text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2">
+                                    <i class="fa-solid fa-clock-rotate-left"></i> Histórico Completo
+                                </button>
+                                <button type="button" onclick="openSpecialModal()" class="bg-white/20 hover:bg-white/30 text-white border border-white/40 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                    + Adicionar Serviço Especial
+                                </button>
+                            </div>
                         </div>
-                        <div class="flex space-x-3">
-                            <button type="button" onclick="carregarLinhaDoTempo(currentSelection?.id)" class="bg-slate-800 hover:bg-black text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg">
-                                <i class="fa-solid fa-clock-rotate-left mr-2"></i> Histórico Completo
-                            </button>
-                            <button type="button" onclick="openSpecialModal()" class="bg-white/20 hover:bg-white/30 text-white border border-white/40 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                                + Adicionar Serviço Especial
-                            </button>
+
+                        <!-- METADADOS COMPLETOS DA OS -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/20 text-[11px]">
+                            <div>
+                                <span class="text-teal-200 block text-[9px] uppercase font-bold">Part Number (P/N)</span>
+                                <span id="current-os-pn" class="font-mono font-black text-white">---</span>
+                            </div>
+                            <div>
+                                <span class="text-teal-200 block text-[9px] uppercase font-bold">Número de Série (S/N)</span>
+                                <span id="current-os-sn" class="font-mono font-black text-white">---</span>
+                            </div>
+                            <div>
+                                <span class="text-teal-200 block text-[9px] uppercase font-bold">Marcação / Identificação</span>
+                                <span id="current-os-marcacao" class="font-black text-white">---</span>
+                            </div>
+                            <div>
+                                <span class="text-teal-200 block text-[9px] uppercase font-bold">Destino / Local</span>
+                                <span id="current-os-destino" class="font-black text-white">---</span>
+                            </div>
+                        </div>
+
+                        <!-- BADGES DE STATUS, URGÊNCIA E PEÇAS -->
+                        <div class="flex flex-wrap items-center gap-2 mt-3 pt-2 border-t border-white/10 text-[10px]">
+                            <span id="current-os-status-badge" class="px-2 py-0.5 rounded-full font-black uppercase bg-white text-turbo-teal shadow-sm">--</span>
+                            <span id="current-os-urgency-badge" class="px-2 py-0.5 rounded-full font-black uppercase bg-teal-900/60 text-white border border-white/30">--</span>
+                            <span class="text-[9px] uppercase font-bold opacity-80 ml-2">Rastreio de Peças:</span>
+                            <div id="current-os-components-pills" class="flex flex-wrap gap-1.5">
+                                <span class="text-[9px] opacity-75 italic">Carregando setores...</span>
+                            </div>
                         </div>
                     </div>
                     <i class="fa-solid fa-gear absolute right-[-20px] bottom-[-20px] text-white opacity-10 text-9xl"></i>
@@ -206,14 +241,22 @@
                         <label for="radio-padrao" id="label-padrao" class="flex items-center p-4 border-2 border-turbo-teal bg-teal-50 rounded-2xl cursor-pointer transition-all">
                             <input type="radio" id="radio-padrao" name="special-type" value="PADRAO" checked class="hidden" onchange="toggleRadioStyle()">
                             <i class="fa-solid fa-circle-check mr-2"></i>
-                            <span class="text-[10px] font-black uppercase tracking-tighter">Peça Padrão</span>
+                            <span class="text-[10px] font-black uppercase tracking-tighter">Peça Padrão (Produção)</span>
                         </label>
                         <!-- RETRABALHO -->
                         <label for="radio-retrabalho" id="label-retrabalho" class="flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer transition-all text-slate-400">
                             <input type="radio" id="radio-retrabalho" name="special-type" value="RETRABALHO" class="hidden" onchange="toggleRadioStyle()">
                             <i class="fa-solid fa-triangle-exclamation mr-2"></i>
-                            <span class="text-[10px] font-black uppercase tracking-tighter">Retrabalho</span>
+                            <span class="text-[10px] font-black uppercase tracking-tighter">Retrabalho (Linha Parada)</span>
                         </label>
+                    </div>
+                </div>
+                <!-- CAMPO DE OBSERVAÇÃO DE RETRABALHO (oculto por padrão) -->
+                <div id="retrabalho-obs-section" class="hidden">
+                    <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+                        <label class="block text-[10px] font-black text-red-600 uppercase mb-2 ml-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i>MOTIVO / DESCRIÇÃO DO RETRABALHO <span class="text-red-500">*</span></label>
+                        <textarea id="retrabalho-obs-input" rows="3" placeholder="Descreva o motivo do retrabalho, o que precisa ser refeito e a causa identificada..." class="w-full bg-white text-slate-800 rounded-xl px-4 py-3 text-xs font-medium outline-none border-2 border-red-200 focus:border-red-500 transition-all resize-none placeholder-red-300"></textarea>
+                        <p class="text-[9px] text-red-400 font-bold mt-1">⚠️ Campo obrigatório para registrar o retrabalho no histórico</p>
                     </div>
                 </div>
                 <div class="flex space-x-3 pt-6 border-t">
@@ -226,18 +269,55 @@
     
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/condenar_peca.js"></script>
 
 <!-- MODAL DE HISTÓRICO COMPLETO -->
-    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-[110]">
-        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+    <div id="details-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-[110] p-4">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center border-b pb-4 mb-4 sticky top-0 bg-white z-10">
-                <h3 class="text-xl font-black text-turbo-teal uppercase tracking-tighter">Histórico da OS</h3>
-                <button onclick="closeModal('details-modal')" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+                <div>
+                    <h3 class="text-xl font-black text-turbo-teal uppercase tracking-tight flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Histórico Completo da O.S.
+                    </h3>
+                    <p class="text-xs text-slate-500 font-medium">Informações técnicas completas e rastreabilidade de peças</p>
+                </div>
+                <button onclick="closeModal('details-modal')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center transition">&times;</button>
             </div>
             
-            <div class="grid grid-cols-2 gap-4 text-sm border-b pb-4 mb-4">
-                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Identificação</p><p id="detail-business-id" class="text-lg font-black text-slate-800">--</p></div>
-                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Modelo</p><p id="detail-model" class="text-slate-800 font-bold">--</p></div>
+            <!-- CARD DE DADOS COMPLETOS DA OS -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-5 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                    <span class="text-[10px] font-black uppercase text-slate-400 block">Número da O.S.</span>
+                    <span id="detail-business-id" class="font-black text-slate-800 text-sm">--</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black uppercase text-slate-400 block">Cliente</span>
+                    <span id="detail-client" class="font-bold text-slate-800 truncate block">--</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black uppercase text-slate-400 block">Modelo do Turbo</span>
+                    <span id="detail-model" class="font-bold text-slate-800">--</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black uppercase text-slate-400 block">Part Number (P/N)</span>
+                    <span id="detail-pn" class="font-mono font-bold text-turbo-teal">--</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black uppercase text-slate-400 block">Número de Série (S/N)</span>
+                    <span id="detail-sn" class="font-mono font-bold text-slate-700">--</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black uppercase text-slate-400 block">Identificação / Marcação</span>
+                    <span id="detail-marcacao" class="font-bold text-slate-700">--</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black uppercase text-slate-400 block">Destino / Local</span>
+                    <span id="detail-destino" class="font-bold text-slate-700">--</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black uppercase text-slate-400 block">Status Atual</span>
+                    <span id="detail-status" class="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase bg-teal-100 text-teal-800">--</span>
+                </div>
             </div>
 
             <div class="space-y-4 mb-6">
@@ -259,6 +339,7 @@
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        window.supabaseClient = supabaseClient;
 
         const API_QUEUE = 'https://webhook.mareflow.com.br/webhook/production/disassembly-queue';
         const API_ACTION = 'https://webhook.mareflow.com.br/webhook/production/disassembly-action';
@@ -313,11 +394,25 @@
                         .from('component_tracking')
                         .select('*')
                         .in('service_order_id', osIds);
+
+                    const { data: allTriageParts } = await supabaseClient
+                        .from('checklist_analysis_general')
+                        .select('service_order_id, item_name, decisao_vendas')
+                        .in('service_order_id', osIds);
                         
                     if (!trackError && trackings) {
                         rawQueue = rawQueue.filter(os => {
                             const osTracking = trackings.filter(t => t.service_order_id === os.id);
-                            const componentsToCheck = MASTER_COMPONENTS.map(c => c.title);
+                            const osTriage = (allTriageParts || []).filter(tp => tp.service_order_id === os.id);
+                            const isOsConjuntoNovo = osTriage.some(p => 
+                                ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || '').toUpperCase().trim()) && 
+                                (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
+                            );
+
+                            // Se for Conjunto Novo, as peças de núcleo (EIXO, ROTOR, CCE, REPAROS) não são checadas na Desmontagem
+                            const componentsToCheck = MASTER_COMPONENTS
+                                .map(c => c.title)
+                                .filter(compName => !(isOsConjuntoNovo && ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(compName.toUpperCase())));
                             
                             // Se ainda houver alguma peça cujo setor atual NÃO seja pós-desmontagem, mantém na fila
                             const hasPendingPiece = componentsToCheck.some(compName => {
@@ -376,19 +471,34 @@
                     .single();
                 
                 if (!osError && osFresh) {
-                    os.part_number = osFresh.part_number;
-                    os.trade_in_option = osFresh.trade_in_option;
-                    os.status = osFresh.status;
-                    os.identificacao_e_marcacao_code = osFresh.identificacao_e_marcacao_code;
-                    os.identificacao_e_marcacao_type = osFresh.identificacao_e_marcacao_type;
+                    Object.assign(os, osFresh);
                 }
             } catch (e) {
                 console.error("Erro ao carregar OS fresca do Supabase:", e);
             }
             
             // Exibe a identificação salva no banner do topo de forma isolada
-            const displayDesc = `${os.client} | ${os.model} | P.N: ${os.part_number || '---'}` + (os.identificacao_e_marcacao_code ? ` | ${os.identificacao_e_marcacao_type || ''} [ ${os.identificacao_e_marcacao_code} ]` : '');
+            const displayDesc = `${os.client || 'CLIENTE NÃO INFORMADO'} | ${os.model || 'MODELO NÃO INFORMADO'}`;
             document.getElementById('display-desc').innerText = displayDesc;
+            
+            // Popula os novos metadados completos no header
+            const elPn = document.getElementById('current-os-pn');
+            if (elPn) elPn.textContent = os.part_number || '---';
+
+            const elSn = document.getElementById('current-os-sn');
+            if (elSn) elSn.textContent = os.serial_number || '---';
+
+            const elMarc = document.getElementById('current-os-marcacao');
+            if (elMarc) elMarc.textContent = (os.identificacao_e_marcacao_code ? `${os.identificacao_e_marcacao_code} (${os.identificacao_e_marcacao_type || 'Marcação'})` : '---');
+
+            const elDestino = document.getElementById('current-os-destino');
+            if (elDestino) elDestino.textContent = os.local_despacho || '---';
+
+            const elStatus = document.getElementById('current-os-status-badge');
+            if (elStatus) elStatus.textContent = os.status || 'Em Produção';
+
+            const elUrg = document.getElementById('current-os-urgency-badge');
+            if (elUrg) elUrg.textContent = os.urgency || 'Normal';
             
 
 
@@ -410,8 +520,64 @@
                     .eq('service_order_id', os.id);
                 
                 currentSelection.triage_parts = triagePartsData || [];
+
+                // Se a OS for Conjunto Novo (Full), encaminha automaticamente as 4 peças do núcleo para a MONTAGEM
+                const isOsConjuntoNovo = (currentSelection.triage_parts || []).some(p => 
+                    ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || '').toUpperCase().trim()) && 
+                    (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
+                );
+
+                if (isOsConjuntoNovo) {
+                    const coreParts = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'];
+                    const needSync = coreParts.some(cp => {
+                        const trk = (currentSelection.tracking || []).find(t => (t.component_name || t.component || '').toUpperCase() === cp);
+                        return !trk || (trk.current_stage || '').toUpperCase().trim() === 'DESMONTAGEM';
+                    });
+
+                    if (needSync) {
+                        for (const cp of coreParts) {
+                            await supabaseClient
+                                .from('component_tracking')
+                                .upsert({
+                                    service_order_id: os.id,
+                                    component_name: cp,
+                                    current_stage: 'MONTAGEM',
+                                    status: 'CONJUNTO NOVO',
+                                    last_update: new Date().toISOString()
+                                }, { onConflict: 'service_order_id,component_name' });
+                        }
+                        const { data: refreshedTracking } = await supabaseClient
+                            .from('component_tracking')
+                            .select('*')
+                            .eq('service_order_id', os.id);
+                        if (refreshedTracking) currentSelection.tracking = refreshedTracking;
+                    }
+                }
             } catch (e) {
-                console.error("Erro ao carregar rastreio na Desmontagem:", e);
+                console.error("Erro ao sincronizar peças no Supabase:", e);
+            }
+
+            // Renderiza pills de localização das peças
+            const pillsCont = document.getElementById('current-os-components-pills');
+            if (pillsCont) {
+                if (currentSelection.tracking && currentSelection.tracking.length > 0) {
+                    pillsCont.innerHTML = currentSelection.tracking.map(t => {
+                        const comp = t.component_name || t.component || '';
+                        let stg = (t.current_stage || t.target_sector || 'FILA').toUpperCase().trim();
+                        const stat = (t.status || '').toUpperCase().trim();
+                        if (stat.includes('COMPRA') || stg.includes('COMPRA')) stg = 'COMPRA';
+                        const isHere = stg === 'DESMONTAGEM';
+                        let badgeStyle = isHere 
+                            ? 'bg-amber-400 text-amber-950 font-black' 
+                            : 'bg-white/20 text-white font-semibold border border-white/30';
+                        if (stg === 'COMPRA') {
+                            badgeStyle = 'bg-orange-500 text-white font-black border border-orange-400';
+                        }
+                        return `<span class="px-2 py-0.5 rounded text-[9px] uppercase ${badgeStyle}">${comp}: ${stg}</span>`;
+                    }).join('');
+                } else {
+                    pillsCont.innerHTML = '<span class="text-[9px] opacity-75 italic">Todas as peças aguardando desmonte inicial</span>';
+                }
             }
 
             // Remove bloqueios de divergência da tela, se houver
@@ -510,12 +676,12 @@
                 // --- LÓGICA DE BLOQUEIO CORRIGIDA ---
                 // 1. Verifica se a peça já foi enviada para outro setor
                 const stageAtual = trk ? (trk.current_stage || trk.stage || '').toUpperCase() : '';
-                const setoresPosteriores = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'MONTAGEM', 'BALANCEAMENTO', 'BANCADA DE USINAGEM'];
+                const setoresPosteriores = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'MONTAGEM', 'BALANCEAMENTO', 'BANCADA DE USINAGEM', 'COMPRA'];
                 const isSent = !!trk && setoresPosteriores.includes(stageAtual);
 
                 // 2. Verifica se a peça está aguardando compra, baseado no status do rastreador
                 const statusPeca = trk ? (trk.status || '').toUpperCase().trim() : 'AGUARDANDO';
-                const isPendingOrder = (statusPeca === 'AGUARDANDO_COMPRA');
+                const isPendingOrder = (statusPeca.includes('COMPRA') || stageAtual.includes('COMPRA'));
                 
                 // 3. Verifica se esta peça específica deve ser tratada como Conjunto Novo na UI
                 const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(comp.title.toUpperCase());
@@ -535,8 +701,8 @@
                 let badgeColor = 'bg-turbo-teal';
 
                 if (isThisPartConjuntoNovo) {
-                    badgeText = 'CONJUNTO NOVO';
-                    badgeColor = 'bg-amber-500';
+                    badgeText = 'CONJUNTO NOVO (MONTAGEM)';
+                    badgeColor = 'bg-amber-500 font-black';
                 } else if (isPendingOrder) {
                     badgeText = 'AGUARDANDO COMPRA';
                     badgeColor = 'bg-amber-500 animate-pulse';
@@ -563,18 +729,36 @@
                     const savedLog = Array.isArray(trackingData) ? trackingData.find(log => log.service === item) : null;
                     
                     const timerKey = `timer_${currentSelection.id}_${comp.title}_${item}`;
+                    const pausedKey = `timer_paused_${currentSelection.id}_${comp.title}_${item}`;
                     const isActive = localStorage.getItem(timerKey) !== null;
+                    const pausedTimeStr = localStorage.getItem(pausedKey);
+                    const isPaused = !isActive && pausedTimeStr !== null && parseInt(pausedTimeStr, 10) > 0;
 
                     let timeBadgeHtml = "";
                     let actionBtnHtml = "";
 
-                    if (savedLog) {
+                    if (isActive) {
+                        timeBadgeHtml = `<span id="badge-${comp.title}-${cleanItemName}" class="text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded font-black animate-pulse border border-orange-100">00:00</span>`;
+                        actionBtnHtml = `
+                            <button type="button" onclick="pauseServiceTimer('${comp.title}', '${item}')" class="text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold py-1 px-2.5 rounded-lg transition-all uppercase text-[9px] tracking-wider mr-1 shadow-sm" title="Pausar cronômetro"><i class="fa-solid fa-pause mr-1"></i> Pausar</button>
+                            <button type="button" onclick="stopServiceTimer('${comp.title}', '${item}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2.5 rounded-lg transition-all uppercase text-[9px] tracking-wider shadow-sm" title="Encerrar operação"><i class="fa-solid fa-stop mr-1"></i> Encerrar</button>
+                        `;
+                    } else if (isPaused) {
+                        const pausedSecs = parseInt(pausedTimeStr, 10);
+                        const pMin = Math.floor(pausedSecs / 60);
+                        const pSec = pausedSecs % 60;
+                        timeBadgeHtml = `<span id="badge-${comp.title}-${cleanItemName}" class="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-black border border-amber-200"><i class="fa-solid fa-pause mr-1 text-[8px]"></i> ${pMin}:${pSec.toString().padStart(2, '0')} (PAUSADO)</span>`;
+                        actionBtnHtml = `
+                            <button type="button" onclick="resumeServiceTimer('${comp.title}', '${item}')" class="text-xs bg-turbo-teal hover:bg-teal-700 text-white font-bold py-1 px-2.5 rounded-lg transition-all uppercase text-[9px] tracking-wider mr-1 shadow-sm" title="Retomar cronômetro"><i class="fa-solid fa-play mr-1"></i> Retomar</button>
+                            <button type="button" onclick="stopServiceTimer('${comp.title}', '${item}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2.5 rounded-lg transition-all uppercase text-[9px] tracking-wider shadow-sm" title="Encerrar operação"><i class="fa-solid fa-stop mr-1"></i> Encerrar</button>
+                        `;
+                    } else if (savedLog) {
                         const min = Math.floor(savedLog.duration_seconds / 60);
                         const sec = savedLog.duration_seconds % 60;
                         timeBadgeHtml = `<span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-black uppercase border border-emerald-100"><i class="fa-solid fa-clock mr-1"></i> ${min}:${sec.toString().padStart(2, '0')} min</span>`;
-                    } else if (isActive) {
-                        timeBadgeHtml = `<span id="badge-${comp.title}-${cleanItemName}" class="text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded font-black animate-pulse border border-orange-100">00:00</span>`;
-                        actionBtnHtml = `<button type="button" onclick="stopServiceTimer('${comp.title}', '${item}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider">Parar</button>`;
+                        actionBtnHtml = `
+                            <button type="button" onclick="resumeSavedServiceTimer('${comp.title}', '${item}', ${savedLog.duration_seconds})" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1 px-2 rounded-lg transition-all uppercase text-[9px] tracking-wider border border-slate-200 shadow-sm" title="Retomar contagem e somar mais tempo"><i class="fa-solid fa-play mr-1 text-[8px]"></i> Retomar</button>
+                        `;
                     } else {
                         actionBtnHtml = `<button type="button" onclick="startServiceTimer('${comp.title}', '${item}')" class="text-xs bg-turbo-teal hover:bg-teal-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-play mr-1"></i> Iniciar</button>`;
                     }
@@ -592,15 +776,68 @@
                         </div>`;
                 }).join('');
 
-                return `<div class="bg-white rounded-3xl shadow-sm border-2 border-slate-100 flex flex-col p-6 ${cardStyle}" id="card-comp-${comp.title.replace(/\s+/g, '-')}"><div class="flex justify-between items-center mb-6"><h4 class="text-2xl font-black text-slate-800 tracking-tighter uppercase">${comp.title}</h4><span class="text-[10px] font-black uppercase px-4 py-1.5 ${badgeColor} text-white rounded-full tracking-widest">${badgeText}</span></div><div class="flex-1 flex flex-col"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 italic">EXCUTAR PROCESSOS:</p><div class="space-y-1 mb-8">${itemHtml}</div><hr class="border-slate-100 mb-6"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">ENCAMINHAR PARA:</p><div class="grid grid-cols-2 gap-2"><button onclick="sendPieceToSector('${comp.title}', 'RETIFICA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Retífica</button><button onclick="sendPieceToSector('${comp.title}', 'SOLDA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Solda</button><button onclick="sendPieceToSector('${comp.title}', 'METROLOGIA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Metrologia</button><button onclick="sendPieceToSector('${comp.title}', 'BANCADA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Bancada</button>${comp.title.toUpperCase() === 'EIXO' ? `
+                let bodyContentHtml = '';
+                if (isThisPartConjuntoNovo) {
+                    bodyContentHtml = `
+                        <div class="flex-1 flex flex-col justify-center items-center p-6 bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl text-center my-4">
+                            <i class="fa-solid fa-box-open text-3xl text-amber-500 mb-2"></i>
+                            <h5 class="text-xs font-black text-amber-900 uppercase">Peça do Conjunto Novo</h5>
+                            <p class="text-[10px] text-amber-700 mt-1 font-medium">Substituída pelo conjunto rotativo novo de fábrica. Vai direto para a Montagem Final (Carcaçamento).</p>
+                            <span class="mt-3 px-3 py-1 bg-amber-200 text-amber-900 rounded-full text-[9px] font-black uppercase tracking-wider">Direto p/ Carcaçamento</span>
+                        </div>
+                    `;
+                } else {
+                    bodyContentHtml = `
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 italic">EXECUTAR PROCESSOS:</p>
+                        <div class="space-y-1 mb-8">${itemHtml}</div>
+                        <hr class="border-slate-100 mb-6">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">ENCAMINHAR PARA:</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="sendPieceToSector('${comp.title}', 'RETIFICA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Retífica</button>
+                            <button onclick="sendPieceToSector('${comp.title}', 'SOLDA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Solda</button>
+                            <button onclick="sendPieceToSector('${comp.title}', 'METROLOGIA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Metrologia</button>
+                            <button onclick="sendPieceToSector('${comp.title}', 'BANCADA', this)" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition">Bancada</button>
+                            ${comp.title.toUpperCase() === 'EIXO' ? `
                                 <button onclick="sendPieceToSector('${comp.title}', 'BALANCEAMENTO', this)" class="col-span-2 py-3 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black uppercase rounded-lg transition shadow-md">Enviar p/ Balanceamento Solo</button>
                             ` : ''}
 
                             <button onclick="sendPieceToSector('${comp.title}', 'MONTAGEM', this)" class="col-span-2 py-4 bg-emerald-600 text-white text-[11px] font-black uppercase rounded-xl transition hover:bg-emerald-700 shadow-lg shadow-emerald-100 mt-2">Pronto p/ Montagem</button>
+
+                            <button type="button" onclick="CondenarPecaManager.abrirModal('${currentSelection.service_order_id || currentSelection.os_id || currentSelection.id}', '${currentSelection.business_id || ''}', '${comp.title}', 'DESMONTAGEM', () => onPecaCondenada('${comp.title}'))" class="col-span-2 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all mt-1">
+                                <i class="fa-solid fa-triangle-exclamation text-red-600"></i> Condenar Peça (Líder)
+                            </button>
                         </div>
+                    `;
+                }
+
+                // Banner de Retrabalho
+                const retraBannerHtml = (comp.type === 'RETRABALHO' && comp.retrabalhoObs) ? `
+                    <div class="bg-red-50 border-l-4 border-red-500 rounded-xl p-3 mb-4 flex items-start gap-2">
+                        <i class="fa-solid fa-triangle-exclamation text-red-500 mt-0.5 text-sm flex-shrink-0"></i>
+                        <div>
+                            <p class="text-[9px] font-black text-red-600 uppercase tracking-widest mb-0.5">RETRABALHO — MOTIVO:</p>
+                            <p class="text-xs text-red-700 font-medium leading-snug">${comp.retrabalhoObs}</p>
+                        </div>
+                    </div>` : '';
+
+                return `<div class="bg-white rounded-3xl shadow-sm border-2 ${comp.type === 'RETRABALHO' ? 'border-red-200' : 'border-slate-100'} flex flex-col p-6 ${cardStyle}" id="card-comp-${comp.title.replace(/\s+/g, '-')}">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h4 class="text-2xl font-black text-slate-800 tracking-tighter uppercase">${comp.title}</h4>
+                            ${comp.type === 'RETRABALHO' ? '<span class="text-[9px] font-black text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full uppercase tracking-widest inline-block mt-1"><i class="fa-solid fa-rotate-left mr-1"></i>Retrabalho</span>' : ''}
+                        </div>
+                        <span class="text-[10px] font-black uppercase px-4 py-1.5 ${badgeColor} text-white rounded-full tracking-widest">${badgeText}</span>
+                    </div>
+                    <div class="flex-1 flex flex-col">
+                        ${retraBannerHtml}
+                        ${bodyContentHtml}
                     </div>
                 </div>`;
             }).join('');
+
+            window.onPecaCondenada = function(compName) {
+                if (typeof fetchQueue === 'function') fetchQueue();
+            };
 
             const btnConcluir = document.getElementById('btn-concluir-desmontagem');
             if (btnConcluir) {
@@ -611,6 +848,16 @@
                     // Remove a OS da barra lateral esquerda, evitando OS fantasma
                     const sidebarCard = document.getElementById(`card-${currentSelection.id}`);
                     if (sidebarCard) sidebarCard.style.display = 'none';
+
+                    // Garante sincronização imediata no banco para 'Em Produção'
+                    if (currentSelection.status === 'Aguardando Desmontagem OS') {
+                        currentSelection.status = 'Em Produção';
+                        supabaseClient
+                            .from('service_orders')
+                            .update({ status: 'Em Produção', updated_at: new Date().toISOString() })
+                            .eq('id', currentSelection.id)
+                            .then();
+                    }
                 } else {
                     btnConcluir.disabled = true;
                     btnConcluir.className = "bg-gray-300 text-slate-400 cursor-not-allowed font-bold py-3 px-6 rounded-xl transition duration-200 uppercase text-xs tracking-wider shadow-md flex items-center justify-center";
@@ -619,8 +866,13 @@
         }
 
         // 5. AÇÕES E MODAIS
-function openSpecialModal() { 
+        function openSpecialModal() { 
             document.getElementById('special-item-name').value = ''; 
+            const obsInput = document.getElementById('retrabalho-obs-input');
+            if (obsInput) obsInput.value = '';
+            const rPadrao = document.getElementById('radio-padrao');
+            if (rPadrao) rPadrao.checked = true;
+            toggleRadioStyle();
             // Reseta o container para apenas uma linha vazia
             document.getElementById('dynamic-checklist-container').innerHTML = `
                 <div class="flex items-center space-x-2">
@@ -655,26 +907,29 @@ function openSpecialModal() {
         }
 		
 		function toggleRadioStyle() {
-            const selectedType = document.querySelector('input[name="special-type"]:checked').value;
+            const selectedType = document.querySelector('input[name="special-type"]:checked')?.value || 'PADRAO';
             const isRework = selectedType === 'RETRABALHO';
             
             const lblPadrao = document.getElementById('label-padrao');
             const lblRetrabalho = document.getElementById('label-retrabalho');
+            const obsSection = document.getElementById('retrabalho-obs-section');
 
             if (isRework) {
                 // Estilo Retrabalho (Vermelho)
                 lblRetrabalho.className = 'flex items-center p-4 border-2 rounded-2xl cursor-pointer bg-red-50 border-red-500 text-red-600 transition-all';
                 lblPadrao.className = 'flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer text-slate-400 transition-all';
+                if (obsSection) obsSection.classList.remove('hidden');
             } else {
                 // Estilo Padrão (Teal)
                 lblPadrao.className = 'flex items-center p-4 border-2 rounded-2xl cursor-pointer bg-teal-50 border-turbo-teal text-turbo-teal transition-all';
                 lblRetrabalho.className = 'flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer text-slate-400 transition-all';
+                if (obsSection) obsSection.classList.add('hidden');
             }
         }
 
         function addSpecialCard() {
             const name = document.getElementById('special-item-name').value.toUpperCase();
-            const type = document.querySelector('input[name="special-type"]:checked').value;
+            const type = document.querySelector('input[name="special-type"]:checked')?.value || 'PADRAO';
             
             // Coleta os itens do checklist dinâmico
             const inputs = document.querySelectorAll('.special-checklist-input');
@@ -685,11 +940,22 @@ function openSpecialModal() {
             // Se o cara não digitou nada no checklist, usa um padrão ou avisa
             if (customItems.length === 0) customItems.push("Serviço Geral");
 
+            let retrabalhoObs = '';
+            if (type === 'RETRABALHO') {
+                retrabalhoObs = (document.getElementById('retrabalho-obs-input')?.value || '').trim();
+                if (!retrabalhoObs) {
+                    alert('⚠️ Por favor, descreva o motivo/descrição do retrabalho antes de continuar.');
+                    document.getElementById('retrabalho-obs-input')?.focus();
+                    return;
+                }
+            }
+
             specialItemsList.push({ 
                 title: name, 
                 type: type, 
                 items: customItems, 
-                isSpecial: true 
+                isSpecial: true,
+                retrabalhoObs: retrabalhoObs
             });
 
             closeModal('modalSpecial');
@@ -760,6 +1026,15 @@ function openSpecialModal() {
                     // Redesenha o grid de componentes para aplicar o novo badge e as cores
                     renderComponentGrid();
                     
+                    // Se a OS ainda estava aguardando desmontagem, transiciona para Em Produção
+                    if (currentSelection.status === 'Aguardando Desmontagem OS') {
+                        currentSelection.status = 'Em Produção';
+                        await supabaseClient
+                            .from('service_orders')
+                            .update({ status: 'Em Produção', updated_at: new Date().toISOString() })
+                            .eq('id', currentSelection.id);
+                    }
+
                     console.log(`${pieceName} movido para ${sector}`);
                 } else {
                     throw new Error("Erro no servidor");
@@ -808,15 +1083,20 @@ function openSpecialModal() {
             
             const btn = document.getElementById('btn-salvar-checklist');
             btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Verificando Divergências...`;
-
             const rows = [];
+            const currentItemsMap = new Map();
             document.querySelectorAll('.status-select-disassembly').forEach(select => {
                 const itemName = select.dataset.itemName;
                 const cleanName = itemName.replace(/\s+/g, '_').toLowerCase();
                 const obsInput = document.getElementById(`obs-${cleanName}`);
-                const statusValue = select.value;
+                const statusValue = select.value.toUpperCase().trim();
                 
+                currentItemsMap.set(itemName.toUpperCase().trim(), {
+                    itemNameOriginal: itemName,
+                    status: statusValue,
+                    obs: obsInput ? obsInput.value.trim() : ''
+                });
+
                 if (statusValue !== 'NÃO INFORMADO') {
                     rows.push({
                         service_order_id: currentSelection.id,
@@ -843,41 +1123,82 @@ function openSpecialModal() {
 
                 if (baselineError) throw baselineError;
 
-                // 2. Compara os valores para detectar divergências (LÓGICA CORRIGIDA)
+                // 2. Compara rigorosamente TODOS os itens para detectar qualquer divergência
                 let hasDivergence = false;
                 const divergentItems = [];
+                const comparisonList = [];
 
-                rows.forEach(item => {
-                    // Busca se a peça foi avaliada na Análise Técnica
-                    const baseItem = baseline && baseline.find(b => b.item_name.toUpperCase().trim() === item.item_name.toUpperCase().trim());
-                    
-                    // Se não achou na Análise, o status base assumido é 'NÃO INFORMADO'
-                    const baseStatus = baseItem ? baseItem.status.toUpperCase().trim() : 'NÃO INFORMADO';
-                    const newStatus = item.status.toUpperCase().trim();
-
-                    // Se o status da Desmontagem for diferente da Análise Técnica
-                    if (baseStatus !== newStatus) {
-                        // Ignora divergência apenas se a Análise não avaliou e a Desmontagem marcou como "PEÇA OK" (pois não gera custo extra/imprevisto)
-                        if (baseStatus === 'NÃO INFORMADO' && newStatus === 'PEÇA OK') {
-                            // Não faz nada, é aceitável
-                        } else {
-                            // Qualquer outra diferença acusa divergência (Ex: Análise não viu e Desmontador quer trocar, ou Análise deu OK e Desmontador quer recondicionar)
-                            hasDivergence = true;
-                            divergentItems.push(`${item.item_name} (Análise: ${baseStatus} | Desmontagem: ${newStatus})`);
-                        }
-                    }
+                // Mapa da análise técnica
+                const baselineMap = new Map();
+                (baseline || []).forEach(b => {
+                    const bName = (b.item_name || '').toUpperCase().trim();
+                    const bStat = (b.status || 'NÃO INFORMADO').toUpperCase().trim();
+                    baselineMap.set(bName, bStat);
                 });
 
-                const executeSave = async (isAuthorized = false, supervisorName = "") => {
+                // Todos os itens conhecidos (da tela ou da análise)
+                const allItemKeys = new Set([...currentItemsMap.keys(), ...baselineMap.keys()]);
+
+                allItemKeys.forEach(key => {
+                    const curObj = currentItemsMap.get(key);
+                    const curStatus = curObj ? (curObj.status || 'NÃO INFORMADO').toUpperCase().trim() : 'NÃO INFORMADO';
+                    const baseStatus = (baselineMap.get(key) || 'NÃO INFORMADO').toUpperCase().trim();
+
+                    // Se ambos forem NÃO INFORMADO, não há divergência
+                    if (baseStatus === 'NÃO INFORMADO' && curStatus === 'NÃO INFORMADO') return;
+
+                    const displayItemName = curObj ? curObj.itemNameOriginal : key;
+                    const isDivergent = (baseStatus !== curStatus);
+
+                    if (isDivergent) {
+                        hasDivergence = true;
+                        divergentItems.push({
+                            itemName: displayItemName,
+                            analysisStatus: baseStatus,
+                            disassemblyStatus: curStatus,
+                            obs: curObj?.obs || ''
+                        });
+                    }
+
+                    comparisonList.push({
+                        itemName: displayItemName,
+                        analysisStatus: baseStatus,
+                        disassemblyStatus: curStatus,
+                        isDivergent: isDivergent,
+                        obs: curObj?.obs || ''
+                    });
+                });
+
+                window.currentComparisonList = comparisonList;
+
+                const executeSave = async (isAuthorized = false, supervisorName = "", supervisorObs = "") => {
                     const { error } = await supabaseClient
                         .from('checklist_desmontagem')
                         .upsert(rows, { onConflict: 'service_order_id,item_name' });
                     
                     if (error) throw error;
 
+                    let pdfUrl = null;
+
                     if (isAuthorized) {
-                        // Grava log detalhado de divergência no histórico geral da OS
-                        const detailsMsg = `Supervisor ${supervisorName} autorizou divergências na Desmontagem: ${divergentItems.join(', ')}`;
+                        // 1. Gera e faz upload automático do PDF de Auditoria de Divergências
+                        try {
+                            if (window.PDFGenerator && typeof window.PDFGenerator.generateDiscrepancyPDF === 'function') {
+                                pdfUrl = await window.PDFGenerator.generateDiscrepancyPDF(
+                                    currentSelection,
+                                    comparisonList,
+                                    { name: supervisorName || 'Líder Desmontagem', observation: supervisorObs },
+                                    supabaseClient
+                                );
+                            }
+                        } catch (pdfErr) {
+                            console.error('Erro ao gerar/enviar PDF de divergência:', pdfErr);
+                        }
+
+                        // 2. Grava log detalhado de divergência no histórico geral da OS
+                        const itemsSummary = divergentItems.map(d => `${d.itemName} (${d.analysisStatus} ➔ ${d.disassemblyStatus})`).join(', ');
+                        const detailsMsg = `Supervisor ${supervisorName} autorizou divergências na Desmontagem: ${itemsSummary}. Justificativa: "${supervisorObs}".${pdfUrl ? ` [PDF de Auditoria: ${pdfUrl}]` : ''}`;
+                        
                         await supabaseClient
                             .from('history_events')
                             .insert({
@@ -906,7 +1227,18 @@ function openSpecialModal() {
                         renderChecklistSummary(rows);
                     }
 
-                    document.getElementById('successMsg').innerText = "Checklist da Desmontagem salvo com sucesso!";
+                    const successMsgEl = document.getElementById('successMsg');
+                    if (isAuthorized && pdfUrl) {
+                        successMsgEl.innerHTML = `Checklist salvo e divergências autorizadas com sucesso!<br>
+                        <div class="mt-4">
+                            <a href="${pdfUrl}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-md transition-all">
+                                <i class="fa-solid fa-file-pdf"></i> Abrir Relatório de Auditoria PDF
+                            </a>
+                        </div>`;
+                    } else {
+                        successMsgEl.innerText = "Checklist da Desmontagem salvo com sucesso!";
+                    }
+
                     document.getElementById('modalSuccess').classList.remove('hidden');
                     return true;
                 };
@@ -916,10 +1248,34 @@ function openSpecialModal() {
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> 1. Salvar Checklist';
 
-                    // Abre o modal de senha e configura o aviso
-                    const modal = document.getElementById('modal-supervisor');
-                    document.getElementById('modal-supervisor-desc').innerHTML = `<b>Divergências detectadas:</b><br>${divergentItems.join('<br>')}<br><br>Digite a senha do líder para autorizar o salvamento.`;
+                    // Atualiza contador e renderiza os itens na lista rolável
+                    const badgeCount = document.getElementById('badge-divergence-count');
+                    if (badgeCount) {
+                        badgeCount.innerText = `${divergentItems.length} ${divergentItems.length === 1 ? 'Divergência' : 'Divergências'}`;
+                    }
+
+                    const listEl = document.getElementById('modal-supervisor-list');
+                    if (listEl) {
+                        listEl.innerHTML = divergentItems.map(item => `
+                            <div class="flex items-center justify-between p-2 rounded-xl bg-white border border-red-100 shadow-sm text-left">
+                                <span class="font-bold text-slate-800 text-[11px] truncate max-w-[200px]" title="${item.itemName}">${item.itemName}</span>
+                                <div class="flex items-center space-x-1.5 shrink-0 text-[10px]">
+                                    <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-bold" title="Status na Análise Técnica">
+                                        Análise: ${item.analysisStatus}
+                                    </span>
+                                    <i class="fa-solid fa-arrow-right text-[8px] text-slate-400"></i>
+                                    <span class="px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 font-bold" title="Status na Desmontagem">
+                                        Desmonte: ${item.disassemblyStatus}
+                                    </span>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+
+                    document.getElementById('input-supervisor-observation').value = '';
                     document.getElementById('input-supervisor-password').value = '';
+                    
+                    const modal = document.getElementById('modal-supervisor');
                     modal.style.display = 'flex';
 
                     // Configura o evento do botão de autorização (Validando senha + observação obrigatória)
@@ -933,6 +1289,10 @@ function openSpecialModal() {
                         }
 
                         if (pass === 'TURBOSUL2026') {
+                            const confirmBtn = document.getElementById('btn-confirm-supervisor');
+                            confirmBtn.disabled = true;
+                            confirmBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-1"></i> Gravando e Gerando PDF...`;
+
                             closeSupervisorModal(true); // <-- Avisa que foi autorizado para não bloquear
                             
                             // Garante forçadamente que a tela dos cards está livre
@@ -941,7 +1301,10 @@ function openSpecialModal() {
 
                             btn.disabled = true;
                             btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Gravando...`;
-                            await executeSave(true, `Líder Desmontagem (Obs: "${obs}")`);
+                            await executeSave(true, 'Líder Desmontagem', obs);
+                            
+                            confirmBtn.disabled = false;
+                            confirmBtn.innerHTML = `<i class="fa-solid fa-file-signature"></i> Autorizar e Salvar`;
                         } else {
                             alert("❌ Senha incorreta! Autorização negada.");
                         }
@@ -980,10 +1343,10 @@ function openSpecialModal() {
             btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Processando...`;
 
             try {
-                let targetStatus = type === 'START' ? 'Em Desmontagem' : 'Aguardando Orçamento';
+                let targetStatus = type === 'START' ? 'Em Desmontagem Operacional' : 'Em Produção';
                 const { error } = await supabaseClient
                     .from('service_orders')
-                    .update({ status: targetStatus })
+                    .update({ status: targetStatus, updated_at: new Date().toISOString() })
                     .eq('id', currentSelection.id);
 
                 if (!error) {
@@ -991,7 +1354,7 @@ function openSpecialModal() {
                         service_order_id: currentSelection.id,
                         user_id: USER_ID,
                         action: type === 'START' ? 'INÍCIO DESMONTAGEM' : 'FIM DESMONTAGEM',
-                        description: type === 'START' ? 'Desmontagem iniciada.' : 'Desmontagem concluída, OS enviada para orçamento.'
+                        description: type === 'START' ? 'Desmontagem iniciada.' : 'Desmontagem concluída e liberada para os setores de produção.'
                     });
                     document.getElementById('modalSuccess').classList.remove('hidden'); 
                     if(type === 'FINISH') window.location.reload(); 
@@ -1031,9 +1394,15 @@ function openSpecialModal() {
             if (!osId) return;
             const os = currentSelection;
             
-            // Preenche dados básicos no modal
-            document.getElementById('detail-business-id').textContent = os.business_id;
-            document.getElementById('detail-model').textContent = os.model;
+            // Preenche dados completos da OS no cabeçalho do Modal
+            document.getElementById('detail-business-id').textContent = os.business_id || '--';
+            document.getElementById('detail-client').textContent = os.client || '--';
+            document.getElementById('detail-model').textContent = os.model || '--';
+            document.getElementById('detail-pn').textContent = os.part_number || '--';
+            document.getElementById('detail-sn').textContent = os.serial_number || '--';
+            document.getElementById('detail-marcacao').textContent = (os.identificacao_e_marcacao_code ? `${os.identificacao_e_marcacao_code} (${os.identificacao_e_marcacao_type || 'Marcação'})` : '--');
+            document.getElementById('detail-destino').textContent = os.local_despacho || '--';
+            document.getElementById('detail-status').textContent = os.status || '--';
             
             const extras = typeof os.maintenance_extras === 'string' ? JSON.parse(os.maintenance_extras) : os.maintenance_extras;
             document.getElementById('detail-maintenance-extras').innerHTML = formatMaintenanceExtras(extras);
@@ -1052,13 +1421,37 @@ function openSpecialModal() {
                     .order('timestamp', { ascending: true });
 
                 if (!error && events && events.length > 0) {
-                    timeline.innerHTML = events.map(ev => `
-                        <div class="relative pb-3">
-                            <div class="absolute -left-[21px] top-1 w-3 h-3 bg-turbo-teal rounded-full border-2 border-white"></div>
+                    timeline.innerHTML = events.map(ev => {
+                        const isDivergence = ev.action?.toLowerCase().includes('divergência') || 
+                                             ev.action?.toLowerCase().includes('divergencia') ||
+                                             ev.details?.toLowerCase().includes('divergên') ||
+                                             ev.details?.toLowerCase().includes('divergen');
+                        
+                        if (isDivergence) {
+                            return `
+                            <div class="relative pb-4 border-l-2 border-amber-500 pl-4 ml-2">
+                                <div class="absolute -left-[9px] top-1 w-4 h-4 bg-amber-500 rounded-full border-2 border-white shadow flex items-center justify-center text-[8px] text-white font-bold">!</div>
+                                <div class="bg-amber-50 border border-amber-300 rounded-xl p-3 shadow-sm">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="bg-amber-500 text-white font-black text-[9px] uppercase px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                                            <i class="fa-solid fa-triangle-exclamation"></i> Divergência Assinalada
+                                        </span>
+                                        <span class="text-[10px] text-amber-800 font-bold">${new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
+                                    </div>
+                                    <p class="text-xs font-black text-amber-950 uppercase tracking-tight">${ev.action}</p>
+                                    ${ev.details ? `<div class="text-[10px] text-amber-900 bg-amber-100/70 rounded p-2 mt-1.5 font-medium border border-amber-200">${ev.details}</div>` : ''}
+                                </div>
+                            </div>`;
+                        }
+
+                        return `
+                        <div class="relative pb-4 border-l-2 border-turbo-teal pl-4 ml-2">
+                            <div class="absolute -left-[9px] top-1 w-4 h-4 bg-turbo-teal rounded-full border-2 border-white shadow-sm"></div>
                             <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight">${ev.action}</p>
-                            <p class="text-[10px] text-slate-500 font-medium">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
-                            ${ev.details ? `<p class="text-[9px] text-slate-400 italic">"${ev.details}"</p>` : ''}
-                        </div>`).join('');
+                            <p class="text-[10px] text-slate-500 font-medium mt-1">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
+                            ${ev.details ? `<p class="text-[9px] text-turbo-teal italic mt-1 font-semibold leading-relaxed">"${ev.details}"</p>` : ''}
+                        </div>`;
+                    }).join('');
                 } else { 
                     timeline.innerHTML = '<p class="text-xs text-slate-400 italic text-center">Nenhum evento registrado ainda.</p>'; 
                 }
@@ -1075,10 +1468,48 @@ function openSpecialModal() {
             return items.length > 0 ? items.join('') : '<li class="text-slate-400">Nenhum item adicional.</li>';
         }
 		
-		// INICIA O CRONÔMETRO DE UM SERVIÇO ESPECÍFICO (SALVA INÍCIO NO LOCALSTORAGE)
+		// INICIA O CRONÔMETRO DE UM SERVIÇO ESPECÍFICO (DESMONTAGEM)
         function startServiceTimer(componentName, serviceName) {
             if (!currentSelection) return;
             const timerKey = `timer_${currentSelection.id}_${componentName}_${serviceName}`;
+            const pausedKey = `timer_paused_${currentSelection.id}_${componentName}_${serviceName}`;
+            localStorage.setItem(timerKey, new Date().toISOString());
+            if (!localStorage.getItem(pausedKey)) localStorage.setItem(pausedKey, '0');
+            renderComponentGrid();
+        }
+
+        // PAUSA O CRONÔMETRO E ACUMULA OS SEGUNDOS JÁ DECORRIDOS
+        function pauseServiceTimer(componentName, serviceName) {
+            if (!currentSelection) return;
+            const timerKey = `timer_${currentSelection.id}_${componentName}_${serviceName}`;
+            const pausedKey = `timer_paused_${currentSelection.id}_${componentName}_${serviceName}`;
+            
+            const startTimeStr = localStorage.getItem(timerKey);
+            if (!startTimeStr) return;
+
+            const elapsedSeconds = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+            const prevPaused = parseInt(localStorage.getItem(pausedKey) || '0', 10);
+            
+            localStorage.setItem(pausedKey, (prevPaused + elapsedSeconds).toString());
+            localStorage.removeItem(timerKey);
+            
+            renderComponentGrid();
+        }
+
+        // RETOMA O CRONÔMETRO A PARTIR DO PONTO EM QUE FOI PAUSADO
+        function resumeServiceTimer(componentName, serviceName) {
+            if (!currentSelection) return;
+            const timerKey = `timer_${currentSelection.id}_${componentName}_${serviceName}`;
+            localStorage.setItem(timerKey, new Date().toISOString());
+            renderComponentGrid();
+        }
+
+        // RETOMA UM SERVIÇO JÁ CONCLUÍDO/SALVO ANTERIORMENTE (SOMA AO TEMPO EXISTENTE)
+        function resumeSavedServiceTimer(componentName, serviceName, existingDurationSeconds) {
+            if (!currentSelection) return;
+            const timerKey = `timer_${currentSelection.id}_${componentName}_${serviceName}`;
+            const pausedKey = `timer_paused_${currentSelection.id}_${componentName}_${serviceName}`;
+            localStorage.setItem(pausedKey, (existingDurationSeconds || 0).toString());
             localStorage.setItem(timerKey, new Date().toISOString());
             renderComponentGrid();
         }
@@ -1087,14 +1518,29 @@ function openSpecialModal() {
         async function stopServiceTimer(componentName, serviceName) {
             if (!currentSelection) return;
             const timerKey = `timer_${currentSelection.id}_${componentName}_${serviceName}`;
-            const startTimeStr = localStorage.getItem(timerKey);
+            const pausedKey = `timer_paused_${currentSelection.id}_${componentName}_${serviceName}`;
             
-            if (!startTimeStr) return;
-            localStorage.removeItem(timerKey);
+            const startTimeStr = localStorage.getItem(timerKey);
+            const pausedTime = parseInt(localStorage.getItem(pausedKey) || '0', 10);
+            
+            if (!startTimeStr && pausedTime === 0) return;
 
-            const startTime = new Date(startTimeStr);
-            const endTime = new Date();
-            const durationSeconds = Math.max(1, Math.floor((endTime - startTime) / 1000));
+            let activeElapsed = 0;
+            let endTime = new Date();
+            let startTime = new Date();
+
+            if (startTimeStr) {
+                startTime = new Date(startTimeStr);
+                activeElapsed = Math.floor((endTime - startTime) / 1000);
+            } else {
+                endTime = new Date();
+                startTime = new Date(endTime.getTime() - (pausedTime * 1000));
+            }
+
+            const durationSeconds = Math.max(1, activeElapsed + pausedTime);
+
+            localStorage.removeItem(timerKey);
+            localStorage.removeItem(pausedKey);
 
             // Busca o registro de rastreio atual para atualizar o JSONB tracking_data
             let trackingData = [];
@@ -1331,18 +1777,26 @@ function openSpecialModal() {
                 document.querySelectorAll('[id^="badge-"]').forEach(badge => {
                     const idParts = badge.id.split('-');
                     const compTitle = idParts[1];
-                    const cleanItemName = idParts[2];
+                    const cleanItemName = idParts.slice(2).join('-');
                     
                     const prefix = `timer_${currentSelection.id}_${compTitle}_`;
                     for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
-                        if (key && key.startsWith(prefix)) {
-                            const startTimeStr = localStorage.getItem(key);
-                            if (startTimeStr) {
-                                const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
-                                const min = Math.floor(elapsed / 60);
-                                const sec = elapsed % 60;
-                                badge.innerText = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+                        if (key && key.startsWith(prefix) && !key.startsWith(`timer_paused_`)) {
+                            const serviceNameFromKey = key.replace(prefix, '');
+                            const cleanServiceFromKey = serviceNameFromKey.replace(/\s+/g, '_').toLowerCase();
+                            
+                            if (cleanServiceFromKey === cleanItemName) {
+                                const startTimeStr = localStorage.getItem(key);
+                                const pausedKey = `timer_paused_${currentSelection.id}_${compTitle}_${serviceNameFromKey}`;
+                                const pausedSecs = parseInt(localStorage.getItem(pausedKey) || '0', 10);
+                                if (startTimeStr) {
+                                    const elapsed = Math.floor((new Date() - new Date(startTimeStr)) / 1000);
+                                    const totalSec = elapsed + pausedSecs;
+                                    const min = Math.floor(totalSec / 60);
+                                    const sec = totalSec % 60;
+                                    badge.innerText = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+                                }
                             }
                         }
                     }
@@ -1375,27 +1829,120 @@ function openSpecialModal() {
 		
     </script>
 <!-- MODAL: SENHA DO SUPERVISOR PARA LIBERAÇÃO DE DIVERGÊNCIA -->
-    <div id="modal-supervisor" style="display: none;" class="fixed inset-0 bg-slate-900/80 z-[300] flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center border-t-8 border-red-500">
-            <div class="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fa-solid fa-key text-3xl"></i>
+    <div id="modal-supervisor" style="display: none;" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 sm:p-7 border-t-8 border-red-500 flex flex-col max-h-[92vh] overflow-hidden">
+            <!-- Header -->
+            <div class="flex items-start justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm border border-red-100">
+                        <i class="fa-solid fa-shield-halved text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-black text-slate-800 uppercase tracking-tight">Divergência Detectada!</h3>
+                        <p class="text-[11px] text-slate-500 font-medium">Os vereditos da Desmontagem diferem da Análise Técnica original.</p>
+                    </div>
+                </div>
+                <span id="badge-divergence-count" class="px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0">
+                    0 Divergências
+                </span>
             </div>
-            <h3 class="text-xl font-black text-slate-800 uppercase tracking-tighter mb-2">Divergência Detectada!</h3>
-            <p id="modal-supervisor-desc" class="text-[11px] text-slate-500 font-medium italic mb-4">Os vereditos selecionados divergem da Análise Técnica original. Digite a senha do líder para autorizar.</p>
-            
-            <!-- Novo campo de Observação/Justificativa do Líder -->
-            <textarea id="input-supervisor-observation" placeholder="Escreva a justificativa/observação..." rows="2" class="w-full bg-slate-100 border-2 border-transparent focus:border-red-500 rounded-2xl px-5 py-3 text-xs font-bold outline-none mb-3 resize-none"></textarea>
-            
-            <input type="password" id="input-supervisor-password" placeholder="Digite a senha..." class="w-full bg-slate-100 border-2 border-transparent focus:border-red-500 rounded-2xl px-5 py-3 text-sm font-bold text-center outline-none mb-6">
-            
-            <div class="flex space-x-3">
-                <button type="button" onclick="closeSupervisorModal()" class="flex-1 bg-slate-100 text-slate-400 font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-slate-200">Cancelar</button>
-                <button type="button" id="btn-confirm-supervisor" class="flex-[2] bg-red-600 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest shadow-lg hover:bg-red-700">Autorizar</button>
+
+            <!-- Barra de Ação Rápida de Prévia de PDF -->
+            <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 my-3 text-xs">
+                <span class="text-[11px] text-slate-600 font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-invoice text-red-500"></i> Relatório de Auditoria e Divergências
+                </span>
+                <button type="button" onclick="previewDivergencePDF()" class="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 rounded-lg text-[11px] font-black transition-all shadow-sm">
+                    <i class="fa-solid fa-file-pdf"></i> Visualizar Relatório PDF
+                </button>
+            </div>
+
+            <!-- Lista Rolável com Altura Limitada (Impede overflow na tela) -->
+            <div class="flex-1 overflow-hidden flex flex-col min-h-0 mb-3">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                    Itens com Divergência Técnica:
+                </label>
+                <div id="modal-supervisor-list" class="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-48 border border-slate-200 bg-slate-50/60 rounded-xl p-2.5 text-xs">
+                    <!-- Itens injetados dinamicamente via JS -->
+                </div>
+            </div>
+
+            <!-- Formulário de Justificativa e Senha -->
+            <div class="space-y-2.5 pt-2 border-t border-slate-100">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-600 uppercase tracking-wider mb-1">
+                        Justificativa / Observação do Supervisor <span class="text-red-500">*</span>:
+                    </label>
+                    <textarea id="input-supervisor-observation" placeholder="Descreva a justificativa para a aprovação das divergências..." rows="2" class="w-full bg-slate-50 border border-slate-200 focus:border-red-500 focus:bg-white rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none resize-none transition-all"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-[10px] font-black text-slate-600 uppercase tracking-wider mb-1">
+                        Senha de Autorização do Líder <span class="text-red-500">*</span>:
+                    </label>
+                    <input type="password" id="input-supervisor-password" placeholder="Digite a senha do líder..." class="w-full bg-slate-50 border border-slate-200 focus:border-red-500 focus:bg-white rounded-xl px-3.5 py-2 text-xs font-bold text-center tracking-wider text-slate-800 outline-none transition-all">
+                </div>
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="flex space-x-3 pt-3 mt-2 border-t border-slate-100">
+                <button type="button" onclick="closeSupervisorModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black py-3 rounded-xl uppercase text-xs tracking-wider transition-all">
+                    Cancelar
+                </button>
+                <button type="button" id="btn-confirm-supervisor" class="flex-[2] bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-xl uppercase text-xs tracking-wider shadow-lg shadow-red-600/30 transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-file-signature"></i> Autorizar e Salvar
+                </button>
             </div>
         </div>
     </div>
 
     <script>
+        async function handleAction(actionType) {
+            if (actionType === 'FINISH') {
+                if (!currentSelection) return;
+                const btn = document.getElementById('btn-concluir-desmontagem');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Liberando OS...`;
+                }
+
+                try {
+                    // Atualiza status da OS para "Em Produção"
+                    const { error: errUpdate } = await supabaseClient
+                        .from('service_orders')
+                        .update({ 
+                            status: 'Em Produção'
+                        })
+                        .eq('id', currentSelection.id);
+
+                    if (errUpdate) throw errUpdate;
+
+                    // Registra evento no histórico
+                    await supabaseClient.from('history_events').insert({
+                        service_order_id: currentSelection.id,
+                        action: 'DESMONTAGEM CONCLUÍDA',
+                        details: 'Todas as peças foram desmontadas e encaminhadas para seus respectivos setores na produção.',
+                        timestamp: new Date().toISOString()
+                    });
+
+                    alert(`✅ Desmontagem da OS ${currentSelection.business_id} concluída com sucesso! Peças liberadas para a produção.`);
+                    
+                    document.getElementById('welcome-screen').classList.remove('hidden');
+                    document.getElementById('os-details-header').classList.add('hidden');
+                    document.getElementById('main-workspace').classList.add('hidden');
+                    currentSelection = null;
+                    await loadDisassemblyQueue();
+                } catch (e) {
+                    console.error("Erro ao finalizar desmontagem:", e);
+                    alert("Erro ao finalizar desmontagem: " + (e.message || e));
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = "2. Concluir Limpeza e Liberar OS";
+                    }
+                }
+            }
+        }
+
         function closeSupervisorModal(isAuthorized = false) {
             document.getElementById('modal-supervisor').style.display = 'none';
             
@@ -1408,7 +1955,34 @@ function openSpecialModal() {
                 alert("⚠️ Divergência não autorizada. As operações desta OS foram bloqueadas.");
             }
         }
+
+        async function previewDivergencePDF() {
+            if (!window.currentComparisonList || !currentSelection) {
+                alert("Nenhum dado comparativo disponível para visualização.");
+                return;
+            }
+            const obs = document.getElementById('input-supervisor-observation')?.value.trim() || 'Pré-visualização do Relatório de Auditoria Técnica';
+            try {
+                if (!window.PDFGenerator || typeof window.PDFGenerator.generateDiscrepancyPDF !== 'function') {
+                    alert("Módulo de geração de PDF ainda carregando. Tente novamente em alguns instantes.");
+                    return;
+                }
+                const pdfUrl = await window.PDFGenerator.generateDiscrepancyPDF(
+                    currentSelection,
+                    window.currentComparisonList,
+                    { name: 'Líder Desmontagem (Prévia)', observation: obs },
+                    null
+                );
+                if (pdfUrl) {
+                    window.open(pdfUrl, '_blank');
+                }
+            } catch (e) {
+                console.error("Erro ao gerar prévia do PDF:", e);
+                alert("Erro ao abrir prévia do PDF: " + (e.message || e));
+            }
+        }
     </script>
+    <script src="js/pdf_generator.js"></script>
     <script src="js/auth.js"></script>
 </body>
 </html>

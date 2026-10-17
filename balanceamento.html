@@ -57,7 +57,7 @@
         <main class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 custom-scroll">
             <!-- HEADER GLOBAL DE PRODUTIVIDADE E OS -->
             <div id="workspace-header" class="flex flex-col lg:flex-row justify-between gap-6 mb-6">
-                <div id="os-details-header" class="hidden bg-turbo-blue rounded-3xl shadow-lg text-white p-6 min-h-[140px] flex-1 flex-col justify-center relative overflow-hidden">
+                <div id="os-details-header" class="hidden bg-blue-600 bg-turbo-blue rounded-3xl shadow-lg text-white p-6 min-h-[140px] flex-1 flex-col justify-center relative overflow-hidden">
                     <div class="relative z-10 ml-4">
                         <h2 id="display-os" class="text-3xl font-black mb-1 italic tracking-tighter uppercase">OS-XXXX</h2>
                         <p id="display-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest italic">CLIENTE | MODELO</p>
@@ -125,12 +125,17 @@
                         </div>
                     </div>
 
-                    <div class="flex gap-4">
-                        <button id="btn-reprovar-balanceamento" onclick="reprovarBalanceamento()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-5 rounded-2xl uppercase text-xs tracking-widest transition-all shadow-lg">
-                            <i class="fa-solid fa-circle-xmark mr-2"></i> Reprovar e Parar
-                        </button>
-                        <button id="btn-concluir-balanceamento" onclick="confirmarConclusao()" class="flex-[2] bg-purple-600 hover:bg-purple-700 text-white font-black py-5 rounded-2xl uppercase text-xs tracking-widest transition-all shadow-lg">
-                            <i class="fa-solid fa-circle-check mr-2"></i> Finalizar Balanceamento e Enviar
+                    <div class="flex flex-col gap-3">
+                        <div class="flex gap-4">
+                            <button id="btn-reprovar-balanceamento" onclick="reprovarBalanceamento()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-5 rounded-2xl uppercase text-xs tracking-widest transition-all shadow-lg">
+                                <i class="fa-solid fa-circle-xmark mr-2"></i> Reprovar e Parar
+                            </button>
+                            <button id="btn-concluir-balanceamento" onclick="confirmarConclusao()" class="flex-[2] bg-purple-600 hover:bg-purple-700 text-white font-black py-5 rounded-2xl uppercase text-xs tracking-widest transition-all shadow-lg">
+                                <i class="fa-solid fa-circle-check mr-2"></i> Finalizar Balanceamento e Enviar
+                            </button>
+                        </div>
+                        <button type="button" id="btn-condenar-balanceamento" onclick="acionarCondenarBalanceamento()" class="w-full bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-black py-3 rounded-2xl uppercase text-xs tracking-widest transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-red-600"></i> Condenar Peça (Líder)
                         </button>
                     </div>
                 </div>
@@ -183,6 +188,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/condenar_peca.js"></script>
     <script>
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
@@ -198,14 +204,23 @@
 
         async function fetchQueue() {
             try {
-                // 🔄 Busca direto do Supabase - peças com current_stage = BALANCEAMENTO
+                // 🔄 Busca direto do Supabase - peças com current_stage = BALANCEAMENTO ou OS em Aguardando Balanceamento
                 const { data: trackings, error: tErr } = await supabaseClient
                     .from('component_tracking')
                     .select('service_order_id')
                     .eq('current_stage', 'BALANCEAMENTO');
                 if (tErr) throw tErr;
 
-                const osIds = [...new Set((trackings || []).map(t => t.service_order_id))];
+                const { data: ordersAguardando } = await supabaseClient
+                    .from('service_orders')
+                    .select('id')
+                    .eq('status', 'Aguardando Balanceamento');
+
+                const osIds = [...new Set([
+                    ...(trackings || []).map(t => t.service_order_id),
+                    ...(ordersAguardando || []).map(o => o.id)
+                ])].filter(Boolean);
+
                 if (osIds.length === 0) { queueData = []; renderSidebar(); return; }
 
                 const { data: orders, error: oErr } = await supabaseClient
@@ -216,11 +231,46 @@
                 const { data: allTrackings } = await supabaseClient
                     .from('component_tracking').select('*').in('service_order_id', osIds);
 
-                queueData = (orders || []).map(os => {
+                const { data: allTriageParts } = await supabaseClient
+                    .from('checklist_analysis_general')
+                    .select('service_order_id, item_name, decisao_vendas')
+                    .in('service_order_id', osIds);
+
+                let rawQueue = (orders || []).map(os => {
                     os.full_tracking = (allTrackings || []).filter(t => t.service_order_id === os.id);
+                    os.triage_parts = (allTriageParts || []).filter(tp => tp.service_order_id === os.id);
                     return os;
                 });
 
+                // Regra de Exibição na Fila do Balanceamento:
+                // Se a OS tiver PEÇA INTEIRA com current_stage === 'BALANCEAMENTO', ou status geral 'Aguardando Balanceamento',
+                // ela está no estágio de Balanceamento Final (pós-carcaçamento na Montagem) e SEMPRE deve ser listada!
+                rawQueue = rawQueue.filter(os => {
+                    const activeBalancing = (os.full_tracking || []).filter(t => (t.current_stage || '').toUpperCase().trim() === 'BALANCEAMENTO');
+                    const hasPecaInteira = activeBalancing.some(t => {
+                        const name = (t.component_name || t.component || '').toUpperCase().trim();
+                        return name === 'PEÇA INTEIRA' || name === 'PECA INTEIRA';
+                    });
+                    const isStatusAguardandoBal = (os.status || '').toUpperCase().trim() === 'AGUARDANDO BALANCEAMENTO';
+
+                    // Balanceamento Final pós-carcaçamento sempre deve aparecer!
+                    if (hasPecaInteira || isStatusAguardandoBal) return true;
+
+                    if (activeBalancing.length === 0) return false;
+
+                    // Se for Conjunto Novo (Full), o balanceamento de núcleo isolado (Eixo / Conjunto Rotativo) é pulado
+                    const isConjuntoNovo = (os.triage_parts || []).some(p => 
+                        ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || "").toUpperCase().trim()) && 
+                        (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
+                    );
+
+                    if (!isConjuntoNovo) return true;
+
+                    // Se for conjunto novo e não está no balanceamento final de peça inteira, não balanceia núcleo
+                    return false;
+                });
+
+                queueData = rawQueue;
                 renderSidebar();
             } catch (e) { console.error("Erro na fila:", e); }
         }
@@ -297,22 +347,41 @@
             
             const eixo = tracking.find(t => (t.component_name || t.component || '').toUpperCase() === 'EIXO');
             const conjuntoRotativo = tracking.find(t => (t.component_name || t.component || '').toUpperCase() === 'CONJUNTO ROTATIVO');
-            const pecaCompleta = tracking.find(t => (t.component_name || t.component || '').toUpperCase() === 'PEÇA INTEIRA');
+            const pecaCompleta = tracking.find(t => {
+                const n = (t.component_name || t.component || '').toUpperCase().trim();
+                return n === 'PEÇA INTEIRA' || n === 'PECA INTEIRA';
+            });
 
-            const stageEixo = eixo ? (eixo.target_sector || eixo.current_stage || eixo.stage || '').toUpperCase() : '';
-            const stageConjunto = conjuntoRotativo ? (conjuntoRotativo.target_sector || conjuntoRotativo.current_stage || conjuntoRotativo.stage || '').toUpperCase() : '';
-            const stageCompleta = pecaCompleta ? (pecaCompleta.target_sector || pecaCompleta.current_stage || pecaCompleta.stage || '').toUpperCase() : '';
+            const stageEixo = eixo ? (eixo.target_sector || eixo.current_stage || eixo.stage || '').toUpperCase().trim() : '';
+            const stageConjunto = conjuntoRotativo ? (conjuntoRotativo.target_sector || conjuntoRotativo.current_stage || conjuntoRotativo.stage || '').toUpperCase().trim() : '';
+            const stageCompleta = pecaCompleta ? (pecaCompleta.target_sector || pecaCompleta.current_stage || pecaCompleta.stage || '').toUpperCase().trim() : '';
 
-            // Regra Corrigida: O componente permanece ativo no Balanceamento enquanto seu estágio físico atual for 'BALANCEAMENTO'
-            if (eixo && stageEixo === 'BALANCEAMENTO') {
-                return { name: 'EIXO', raw: eixo };
-            } else if (conjuntoRotativo && stageConjunto === 'BALANCEAMENTO') {
-                return { name: 'CONJUNTO ROTATIVO', raw: conjuntoRotativo };
-            } else if (pecaCompleta && stageCompleta === 'BALANCEAMENTO') {
-                return { name: 'PEÇA INTEIRA', raw: pecaCompleta };
-            } else {
+            const isAguardandoBal = ((selectedOS.status || '').toUpperCase().trim() === 'AGUARDANDO BALANCEAMENTO');
+
+            // 1. Se a PEÇA INTEIRA está em BALANCEAMENTO ou a OS chegou pós-carcaçamento (Aguardando Balanceamento)
+            if (pecaCompleta && stageCompleta === 'BALANCEAMENTO') {
                 return { name: 'PEÇA INTEIRA', raw: pecaCompleta };
             }
+            if (isAguardandoBal && pecaCompleta) {
+                return { name: 'PEÇA INTEIRA', raw: pecaCompleta };
+            }
+
+            // 2. Se o CONJUNTO ROTATIVO montado está em BALANCEAMENTO
+            if (conjuntoRotativo && stageConjunto === 'BALANCEAMENTO') {
+                return { name: 'CONJUNTO ROTATIVO', raw: conjuntoRotativo };
+            }
+
+            // 3. Se o EIXO solo está em BALANCEAMENTO
+            if (eixo && stageEixo === 'BALANCEAMENTO') {
+                return { name: 'EIXO', raw: eixo };
+            }
+
+            // Fallback
+            if (pecaCompleta) return { name: 'PEÇA INTEIRA', raw: pecaCompleta };
+            if (conjuntoRotativo) return { name: 'CONJUNTO ROTATIVO', raw: conjuntoRotativo };
+            if (eixo) return { name: 'EIXO', raw: eixo };
+
+            return { name: 'PEÇA INTEIRA', raw: null };
         }
 
         function processarTipoBalanceamento() {
@@ -570,6 +639,19 @@
             // Abre o primeiro modal de forma limpa
             document.getElementById('modal-reprova-motivo').classList.remove('hidden');
             document.getElementById('modal-reprova-motivo').classList.add('flex');
+        }
+
+        function acionarCondenarBalanceamento() {
+            if (!selectedOS) {
+                alert("Selecione uma Ordem de Serviço primeiro.");
+                return;
+            }
+            const { name } = getActiveBalancingComponent();
+            const osId = selectedOS.service_order_id || selectedOS.os_id || selectedOS.id;
+            const busId = selectedOS.business_id || '';
+            CondenarPecaManager.abrirModal(osId, busId, name, 'BALANCEAMENTO', () => {
+                fetchQueue();
+            });
         }
 
         // Configuração das ações internas dos novos modais de reprovação sequenciais

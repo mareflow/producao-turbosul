@@ -78,21 +78,63 @@
             
             <!-- HEADER DO PROCESSO -->
             <div id="workspace-header" class="flex flex-col lg:flex-row justify-between gap-4 mb-6">
-                <div id="os-details-header" class="hidden bg-turbo-blue text-white rounded-xl p-5 shadow-lg flex-1 relative overflow-hidden">
-                    <div class="relative z-10">
-                        <h2 id="current-os-id" class="text-3xl font-black italic">OS-3001</h2>
-                        <p id="current-os-desc" class="text-sm font-medium opacity-90 uppercase tracking-widest">CARREGANDO DADOS...</p>
+                <div id="os-details-header" class="hidden bg-blue-600 bg-turbo-blue text-white rounded-2xl p-6 shadow-xl flex-1 relative overflow-hidden">
+                    <div class="relative z-10 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center space-x-3">
+                                <h2 id="current-os-id" class="text-3xl font-black italic tracking-tight">OS-XXXX</h2>
+                                <span id="current-os-urgency-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-400 text-slate-900 shadow-sm">NORMAL</span>
+                                <span id="current-os-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-white/20 text-white border border-white/30">EM PRODUÇÃO</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="openSpecialServiceModal()" class="bg-white/20 hover:bg-white/30 text-white text-[10px] font-black px-3.5 py-2 rounded-xl uppercase tracking-wider transition border border-white/20 shadow-sm">
+                                    <i class="fa-solid fa-plus mr-1"></i> Serviço Especial
+                                </button>
+                                <button onclick="carregarLinhaDoTempo()" class="bg-white hover:bg-slate-100 text-blue-700 text-[10px] font-black px-3.5 py-2 rounded-xl uppercase tracking-wider transition shadow-md">
+                                    <i class="fa-solid fa-clock-rotate-left mr-1"></i> Histórico OS
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Cliente e Modelo -->
+                        <div class="flex flex-wrap items-center gap-2 text-sm">
+                            <span class="font-extrabold text-white tracking-wide uppercase" id="current-os-client">CLIENTE</span>
+                            <span class="text-white/60">•</span>
+                            <span class="font-medium text-white/90 uppercase tracking-wide" id="current-os-model">MODELO</span>
+                        </div>
+
+                        <!-- Dados Técnicos Completos (Part Number, Serial, Marcação, Destino, Previsão) -->
+                        <div id="current-os-meta-grid" class="flex flex-wrap gap-2 pt-1">
+                            <div class="bg-black/20 backdrop-blur-sm border border-white/10 px-3 py-1.5 rounded-lg flex items-center space-x-2 text-[11px]">
+                                <span class="text-white/60 font-bold uppercase text-[9px]">P.N:</span>
+                                <span id="current-os-pn" class="font-black text-amber-300 font-mono">---</span>
+                            </div>
+                            <div class="bg-black/20 backdrop-blur-sm border border-white/10 px-3 py-1.5 rounded-lg flex items-center space-x-2 text-[11px]">
+                                <span class="text-white/60 font-bold uppercase text-[9px]">S/N:</span>
+                                <span id="current-os-sn" class="font-black text-white font-mono">---</span>
+                            </div>
+                            <div class="bg-black/20 backdrop-blur-sm border border-white/10 px-3 py-1.5 rounded-lg flex items-center space-x-2 text-[11px]">
+                                <span class="text-white/60 font-bold uppercase text-[9px]">Marcação:</span>
+                                <span id="current-os-marcacao" class="font-black text-cyan-300 font-mono">---</span>
+                            </div>
+                            <div class="bg-black/20 backdrop-blur-sm border border-white/10 px-3 py-1.5 rounded-lg flex items-center space-x-2 text-[11px]">
+                                <span class="text-white/60 font-bold uppercase text-[9px]"><i class="fa-solid fa-truck-fast mr-1"></i>Destino:</span>
+                                <span id="current-os-destino" class="font-bold text-white">---</span>
+                            </div>
+                            <div class="bg-black/20 backdrop-blur-sm border border-white/10 px-3 py-1.5 rounded-lg flex items-center space-x-2 text-[11px]">
+                                <span class="text-white/60 font-bold uppercase text-[9px]"><i class="fa-regular fa-calendar mr-1"></i>Saída:</span>
+                                <span id="current-os-previsao" class="font-bold text-white font-mono">---</span>
+                            </div>
+                        </div>
+
+                        <!-- Pílulas de Localização de Peças -->
+                        <div>
+                            <p class="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1.5">Rastreamento de Peças da OS:</p>
+                            <div id="current-os-components-pills" class="flex flex-wrap gap-1.5"></div>
+                        </div>
                     </div>
-                    <div class="absolute right-[-20px] top-[-20px] opacity-10">
+                    <div class="absolute right-[-20px] top-[-20px] opacity-10 pointer-events-none">
                         <i class="fa-solid fa-gears text-8xl"></i>
-                    </div>
-                    <div class="mt-4 flex space-x-3 relative z-10">
-                        <button onclick="openSpecialServiceModal()" class="bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wider transition">
-                            + Adicionar Serviço Especial
-                        </button>
-                        <button onclick="carregarLinhaDoTempo()" class="bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wider transition">
-                            <i class="fa-solid fa-clock-rotate-left mr-1"></i> Histórico OS
-                        </button>
                     </div>
                 </div>
 
@@ -170,6 +212,14 @@
                         </label>
                     </div>
                 </div>
+                <!-- CAMPO DE OBSERVAÇÃO DE RETRABALHO (oculto por padrão) -->
+                <div id="retrabalho-obs-section" class="hidden">
+                    <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+                        <label class="block text-[10px] font-black text-red-600 uppercase mb-2 ml-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i>MOTIVO / DESCRIÇÃO DO RETRABALHO <span class="text-red-500">*</span></label>
+                        <textarea id="retrabalho-obs-input" rows="3" placeholder="Descreva o motivo do retrabalho, o que precisa ser refeito e a causa identificada..." class="w-full bg-white text-slate-800 rounded-xl px-4 py-3 text-xs font-medium outline-none border-2 border-red-200 focus:border-red-500 transition-all resize-none placeholder-red-300"></textarea>
+                        <p class="text-[9px] text-red-400 font-bold mt-1">⚠️ Campo obrigatório para registrar o retrabalho no histórico</p>
+                    </div>
+                </div>
                 <div class="flex justify-end space-x-3 pt-6 border-t border-slate-50">
                     <button onclick="closeSpecialServiceModal()" class="bg-slate-500 text-white font-black px-8 py-3.5 rounded-xl uppercase text-xs tracking-widest hover:bg-slate-600 transition">Cancelar</button>
                     <button id="btn-add-special" disabled onclick="addSpecialCard()" class="bg-blue-300 text-white font-black px-10 py-3.5 rounded-xl uppercase text-xs tracking-widest transition-all cursor-not-allowed">Adicionar Item</button>
@@ -196,11 +246,13 @@
     <!-- JS LOGIC -->
     <!-- Biblioteca Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/condenar_peca.js"></script>
     <script>
         // Configurações Supabase
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        window.supabaseClient = supabaseClient;
 
         const API_QUEUE = 'https://webhook.mareflow.com.br/webhook/production/rectification-queue';
         const API_ACTION = 'https://webhook.mareflow.com.br/webhook/production/component-routing';
@@ -222,7 +274,10 @@
             ANEXOS: ["SERVIÇO GERAL RETÍFICA", "REVISÃO DE ACESSÓRIOS"]
         };
 
-        window.addEventListener('load', fetchQueue);
+        window.addEventListener('load', () => {
+            fetchQueue();
+            initLiveTimerTicker();
+        });
 
         async function fetchQueue() {
             try {
@@ -249,7 +304,10 @@
 
                 let rawQueue = (orders || []).map(os => {
                     os.full_tracking = (allTrackings || []).filter(t => t.service_order_id === os.id);
-                    os.components_to_render = os.full_tracking.map(t => t.component_name || t.component).filter(Boolean);
+                    os.components_to_render = os.full_tracking
+                        .filter(t => (t.current_stage || '').toUpperCase().trim() === 'RETIFICA')
+                        .map(t => t.component_name || t.component)
+                        .filter(Boolean);
                     return os;
                 });
 
@@ -296,8 +354,65 @@
             document.getElementById('os-details-header').classList.remove('hidden');
             document.getElementById('components-grid').classList.remove('hidden');
             document.getElementById('current-os-id').innerText = os.business_id;
-            document.getElementById('current-os-desc').innerText = `${os.model} | ${os.client}`;
+            const clientEl = document.getElementById('current-os-client');
+            if (clientEl) clientEl.innerText = os.client || 'CLIENTE NÃO INFORMADO';
+            const modelEl = document.getElementById('current-os-model');
+            if (modelEl) modelEl.innerText = os.model || 'MODELO NÃO INFORMADO';
+
+            const urgEl = document.getElementById('current-os-urgency-badge');
+            if (urgEl) {
+                const urg = (os.urgency || 'Normal').toUpperCase();
+                urgEl.innerText = urg;
+                if (urg === 'URGENTE') {
+                    urgEl.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-500 text-white shadow-sm animate-pulse';
+                } else if (urg === 'ALTA') {
+                    urgEl.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-orange-500 text-white shadow-sm';
+                } else {
+                    urgEl.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-400 text-slate-900 shadow-sm';
+                }
+            }
+
+            const statEl = document.getElementById('current-os-status-badge');
+            if (statEl) statEl.innerText = (os.status || 'Em Produção').toUpperCase();
+
+            const pnEl = document.getElementById('current-os-pn');
+            if (pnEl) pnEl.innerText = os.part_number || 'Não informado';
+
+            const snEl = document.getElementById('current-os-sn');
+            if (snEl) snEl.innerText = os.serial_number || 'Não informado';
+
+            const marcEl = document.getElementById('current-os-marcacao');
+            if (marcEl) {
+                const tipo = os.identificacao_e_marcacao_type ? os.identificacao_e_marcacao_type + ' ' : '';
+                const cod = os.identificacao_e_marcacao_code || '';
+                marcEl.innerText = (tipo || cod) ? `${tipo}[ ${cod} ]`.trim() : 'Não informado';
+            }
+
+            const destEl = document.getElementById('current-os-destino');
+            if (destEl) destEl.innerText = os.local_despacho || 'Não informado';
+
+            const prevEl = document.getElementById('current-os-previsao');
+            if (prevEl) {
+                prevEl.innerText = os.previsao_saida ? new Date(os.previsao_saida + (String(os.previsao_saida).length === 10 ? 'T12:00:00' : '')).toLocaleDateString('pt-BR') : 'A definir';
+            }
             
+            // Renderiza pílulas com status de localização de todas as peças da OS
+            const pillsContainer = document.getElementById('current-os-components-pills');
+            if (pillsContainer) {
+                const allTrack = selectedOS.full_tracking || [];
+                if (allTrack.length > 0) {
+                    pillsContainer.innerHTML = allTrack.map(t => {
+                        const cName = t.component_name || t.component;
+                        const cStage = (t.current_stage || t.stage || 'Desconhecido').toUpperCase().trim();
+                        const isHere = cStage === 'RETIFICA';
+                        const badgeBg = isHere ? 'bg-amber-400 text-slate-900 font-black shadow-sm' : 'bg-white/20 text-white font-medium';
+                        return `<span class="text-[9px] px-2 py-0.5 rounded-full ${badgeBg}">${cName}: ${cStage}${isHere ? ' (Aqui)' : ''}</span>`;
+                    }).join('');
+                } else {
+                    pillsContainer.innerHTML = '';
+                }
+            }
+
             // Os dados de tracking já vêm pré-carregados da fila inicial, deixando o clique instantâneo
             renderComponentCards();
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -307,29 +422,37 @@
             const grid = document.getElementById('components-grid');
             if (!grid || !selectedOS) return;
 
-            // Remove nomes duplicados vindos do banco
-            const baseComponentsUnicos = [...new Set(selectedOS.components_to_render || [])];
+            const trackingList = selectedOS.full_tracking || selectedOS.tracking || [];
+            // Remove nomes duplicados vindos do banco e filtra apenas as peças da Retífica
+            const baseComponentsUnicos = [...new Set(selectedOS.components_to_render || [])].filter(name => {
+                const trk = trackingList.find(t => (t.component === name || t.component_name === name));
+                return !trk || (trk.current_stage || '').toUpperCase().trim() === 'RETIFICA';
+            });
             
             const allComponents = [
                 ...baseComponentsUnicos.map(name => ({ name, isSpecial: false })),
-                ...specialItemsList.map(item => ({ name: item.title, isSpecial: true, type: item.type }))
+                ...specialItemsList.map(item => ({ name: item.title, isSpecial: true, type: item.type, retrabalhoObs: item.retrabalhoObs || '' }))
             ];
 
             if (allComponents.length === 0) {
-                grid.innerHTML = '<div class="col-span-full p-20 text-center"><p class="text-slate-400 font-black uppercase tracking-widest italic">Aguardando componentes serem liberados.</p></div>';
+                grid.innerHTML = `
+                    <div class="col-span-full p-16 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200">
+                        <i class="fa-solid fa-circle-check text-4xl text-emerald-500 mb-3"></i>
+                        <p class="text-slate-700 font-black text-sm uppercase">Nenhuma peça desta OS está na Retífica no momento.</p>
+                        <p class="text-slate-400 text-xs mt-1">Todas as peças estão em outros setores da oficina ou já foram encaminhadas.</p>
+                    </div>`;
                 return;
             }
 
             grid.innerHTML = allComponents.map(comp => {
                 const name = comp.name;
-                const trackingList = selectedOS.full_tracking || selectedOS.tracking || [];
                 const trk = trackingList.find(t => (t.component === name || t.component_name === name));
                 
                 const statusPeca = trk?.status || 'Aguardando';
                 const setorAtual = trk?.current_stage || trk?.stage || '';
                 
                 const setoresPosteriores = ['SOLDA', 'METROLOGIA', 'BANCADA', 'MONTAGEM', 'BALANCEAMENTO', 'BANCADA DE USINAGEM'];
-                const isSent = !!trk && setoresPosteriores.includes(setorAtual.toUpperCase().trim());
+                const isSent = !!trk && (setoresPosteriores.includes(setorAtual.toUpperCase().trim()) || setorAtual.toUpperCase().trim() !== 'RETIFICA');
                 
                 const cardStyle = isSent ? 'opacity-40 grayscale pointer-events-none' : '';
                 
@@ -365,11 +488,20 @@
                         const min = Math.floor(savedLog.duration_seconds / 60);
                         const sec = savedLog.duration_seconds % 60;
                         timeBadgeHtml = `<span class="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-black uppercase border border-emerald-100"><i class="fa-solid fa-clock mr-1"></i> ${min}:${sec.toString().padStart(2, '0')} min</span>`;
-                    } else if (isActive) {
-                        timeBadgeHtml = `<span id="badge-${name}-${cleanItemName}" class="text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded font-black animate-pulse border border-orange-100">00:00</span>`;
                         actionBtnHtml = `
-                            <button type="button" onclick="pauseServiceTimer('${name}', '${item}')" class="text-xs bg-orange-500 hover:bg-orange-600 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider mr-1"><i class="fa-solid fa-pause"></i></button>
-                            <button type="button" onclick="stopServiceTimer('${name}', '${item}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-stop mr-1"></i> Finalizar</button>
+                            <button type="button" onclick="resumeSavedServiceTimer('${name}', '${item}', ${savedLog.duration_seconds})" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1 px-2 rounded-lg transition-all uppercase text-[9px] tracking-wider border border-slate-200 shadow-sm" title="Retomar contagem e somar mais tempo"><i class="fa-solid fa-play mr-1 text-[8px]"></i> Retomar</button>
+                        `;
+                    } else if (isActive) {
+                        const pausedSecs = parseInt(pausedTimeStr || '0', 10);
+                        const elapsed = Math.max(0, Math.floor((new Date() - new Date(startTimeStr)) / 1000));
+                        const total = pausedSecs + elapsed;
+                        const m = Math.floor(total / 60);
+                        const s = total % 60;
+                        const formattedTime = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                        timeBadgeHtml = `<span id="badge-${name}-${cleanItemName}" data-timer-comp="${name}" data-timer-item="${item}" class="live-service-timer text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded font-black animate-pulse border border-orange-100">${formattedTime}</span>`;
+                        actionBtnHtml = `
+                            <button type="button" onclick="pauseServiceTimer('${name}', '${item}')" class="text-xs bg-orange-500 hover:bg-orange-600 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider mr-1"><i class="fa-solid fa-pause"></i> Pausar</button>
+                            <button type="button" onclick="stopServiceTimer('${name}', '${item}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-stop mr-1"></i> Encerrar</button>
                         `;
                     } else if (isPaused) {
                         const pausedSecs = parseInt(pausedTimeStr, 10);
@@ -377,8 +509,8 @@
                         const pSec = pausedSecs % 60;
                         timeBadgeHtml = `<span id="badge-${name}-${cleanItemName}" class="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded font-black border border-slate-200">${pMin}:${pSec.toString().padStart(2, '0')}</span>`;
                         actionBtnHtml = `
-                            <button type="button" onclick="resumeServiceTimer('${name}', '${item}')" class="text-xs bg-turbo-teal hover:bg-teal-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider mr-1"><i class="fa-solid fa-play"></i></button>
-                            <button type="button" onclick="stopServiceTimer('${name}', '${item}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-stop mr-1"></i> Finalizar</button>
+                            <button type="button" onclick="resumeServiceTimer('${name}', '${item}')" class="text-xs bg-turbo-teal hover:bg-teal-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider mr-1"><i class="fa-solid fa-play"></i> Retomar</button>
+                            <button type="button" onclick="stopServiceTimer('${name}', '${item}')" class="text-xs bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-stop mr-1"></i> Encerrar</button>
                         `;
                     } else {
                         actionBtnHtml = `<button type="button" onclick="startServiceTimer('${name}', '${item}')" class="text-xs bg-turbo-teal hover:bg-teal-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-play mr-1"></i> Iniciar</button>`;
@@ -399,13 +531,27 @@
                         </div>`;
                 }).join('');
 
+                // Banner de Retrabalho
+                const retraBannerHtml = (comp.type === 'RETRABALHO' && comp.retrabalhoObs) ? `
+                    <div class="bg-red-50 border-l-4 border-red-500 rounded-xl p-3 mb-4 flex items-start gap-2">
+                        <i class="fa-solid fa-triangle-exclamation text-red-500 mt-0.5 text-sm flex-shrink-0"></i>
+                        <div>
+                            <p class="text-[9px] font-black text-red-600 uppercase tracking-widest mb-0.5">RETRABALHO — MOTIVO:</p>
+                            <p class="text-xs text-red-700 font-medium leading-snug">${comp.retrabalhoObs}</p>
+                        </div>
+                    </div>` : '';
+
                 return `
-                    <div class="bg-white rounded-3xl shadow-sm border-2 border-slate-100 flex flex-col p-6 ${cardStyle}" id="comp-card-${name.replace(/\s+/g, '-')}">
-                        <div class="flex justify-between items-center mb-6">
-                            <h4 class="text-2xl font-black text-slate-800 tracking-tighter uppercase italic">${name}</h4>
+                    <div class="bg-white rounded-3xl shadow-sm border-2 ${comp.type === 'RETRABALHO' ? 'border-red-200' : 'border-slate-100'} flex flex-col p-6 ${cardStyle}" id="comp-card-${name.replace(/\s+/g, '-')}">
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <h4 class="text-2xl font-black text-slate-800 tracking-tighter uppercase italic">${name}</h4>
+                                ${comp.type === 'RETRABALHO' ? '<span class="text-[9px] font-black text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full uppercase tracking-widest"><i class="fa-solid fa-rotate-left mr-1"></i>Retrabalho</span>' : ''}
+                            </div>
                             <span class="text-[10px] font-black uppercase px-4 py-1.5 ${badgeColor} text-white rounded-full tracking-widest">${badgeText}</span>
                         </div>
                         <div class="flex-1 flex flex-col relative">
+                            ${retraBannerHtml}
                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">CHECKLIST DE EXECUÇÃO (RETÍFICA):</p>
                             <div class="checklist-scroll overflow-y-auto max-h-[200px] space-y-1 mb-8 pr-1">${itemHtml}</div>
                             <hr class="border-slate-100 mb-6">
@@ -421,11 +567,17 @@
                                 ` : ''}
 
                                 <button onclick="sendPieceTo(this, '${name}', 'MONTAGEM')" class="col-span-2 py-4 bg-emerald-600 text-white text-[11px] font-black uppercase rounded-xl transition hover:bg-emerald-700 shadow-lg shadow-emerald-100 mt-2">Pronto p/ Montagem</button>
+
+                                <button type="button" onclick="CondenarPecaManager.abrirModal('${selectedOS.service_order_id || selectedOS.os_id || selectedOS.id}', '${selectedOS.business_id || ''}', '${name}', 'RETÍFICA', () => onPecaCondenada('${name}'))" class="col-span-2 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all mt-1">
+                                    <i class="fa-solid fa-triangle-exclamation text-red-600"></i> Condenar Peça (Líder)
+                                </button>
                             </div>
                         </div>
                     </div>`;
             }).join('');
-        }
+        window.onPecaCondenada = function(compName) {
+            if (typeof fetchQueue === 'function') fetchQueue();
+        };
 
         async function sendPieceTo(btn, componentName, targetSector) {
             if (!selectedOS) return;
@@ -557,14 +709,17 @@ function openSpecialServiceModal() {
         function toggleSpecialRadioStyle(type) {
             const lp = document.getElementById('label-padrao');
             const lr = document.getElementById('label-retrabalho');
+            const obsSection = document.getElementById('retrabalho-obs-section');
             if(type === 'PADRAO') {
                 document.querySelector('input[value="PADRAO"]').checked = true;
                 lp.className = "flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all border-blue-600 bg-blue-50/50";
                 lr.className = "flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer transition-all hover:bg-slate-50";
+                if (obsSection) obsSection.classList.add('hidden');
             } else {
                 document.querySelector('input[value="RETRABALHO"]').checked = true;
                 lr.className = "flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all border-red-500 bg-red-50/50";
                 lp.className = "flex items-center p-4 border-2 border-slate-100 rounded-2xl cursor-pointer transition-all hover:bg-slate-50";
+                if (obsSection) obsSection.classList.remove('hidden');
             }
         }
 
@@ -581,11 +736,23 @@ function openSpecialServiceModal() {
             // Fallback caso não digite nada no checklist
             if (customItems.length === 0) customItems.push("Serviço Geral Retífica");
 
+            // Captura observação de retrabalho
+            let retrabalhoObs = '';
+            if (type === 'RETRABALHO') {
+                retrabalhoObs = (document.getElementById('retrabalho-obs-input')?.value || '').trim();
+                if (!retrabalhoObs) {
+                    alert('⚠️ Por favor, descreva o motivo/descrição do retrabalho antes de continuar.');
+                    document.getElementById('retrabalho-obs-input')?.focus();
+                    return;
+                }
+            }
+
             specialItemsList.push({
                 title: name,
                 type: type,
-                items: customItems, // Agora passamos a lista customizada
-                isSpecial: true
+                items: customItems,
+                isSpecial: true,
+                retrabalhoObs: retrabalhoObs
             });
 
             closeSpecialServiceModal();
@@ -625,6 +792,44 @@ function openSpecialServiceModal() {
             const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
             localStorage.setItem(timerKey, new Date().toISOString());
             renderComponentCards();
+        }
+
+        function resumeSavedServiceTimer(componentName, serviceName, existingDurationSeconds) {
+            if (!selectedOS) return;
+            const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
+            const pausedKey = `timer_paused_${selectedOS.id}_${componentName}_${serviceName}`;
+            localStorage.setItem(pausedKey, (existingDurationSeconds || 0).toString());
+            localStorage.setItem(timerKey, new Date().toISOString());
+            renderComponentCards();
+        }
+
+        // TICKER EM TEMPO REAL PARA CRONÔMETROS ATIVOS
+        function initLiveTimerTicker() {
+            if (window._liveTimerTickerInterval) clearInterval(window._liveTimerTickerInterval);
+            window._liveTimerTickerInterval = setInterval(() => {
+                if (!selectedOS) return;
+                const badges = document.querySelectorAll('.live-service-timer');
+                if (badges.length === 0) return;
+                const osId = selectedOS.service_order_id || selectedOS.os_id || selectedOS.id;
+
+                badges.forEach(b => {
+                    const comp = b.getAttribute('data-timer-comp');
+                    const item = b.getAttribute('data-timer-item');
+                    if (!comp || !item) return;
+
+                    const timerKey = `timer_${osId}_${comp}_${item}`;
+                    const pausedKey = `timer_paused_${osId}_${comp}_${item}`;
+                    const startTimeStr = localStorage.getItem(timerKey);
+                    if (startTimeStr) {
+                        const pausedSecs = parseInt(localStorage.getItem(pausedKey) || '0', 10);
+                        const elapsed = Math.max(0, Math.floor((new Date() - new Date(startTimeStr)) / 1000));
+                        const total = pausedSecs + elapsed;
+                        const m = Math.floor(total / 60);
+                        const s = total % 60;
+                        b.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                    }
+                });
+            }, 1000);
         }
 
         // PARA O CRONÔMETRO E PERSISTE O TEMPO DECORRIDO NO SUPABASE (SÉRIE DE LOGS NO JSONB)
@@ -969,23 +1174,44 @@ function openSpecialServiceModal() {
             }
 
             const os = selectedOS;
-            // CORREÇÃO: Prioriza o service_order_id (UUID) para o histórico funcionar
             const osId = os.service_order_id || os.id;
             
-            // Preenche o cabeçalho do modal
-            document.getElementById('detail-business-id').textContent = os.business_id || '---';
-            document.getElementById('detail-model').textContent = os.model || '---';
+            // Preenche o cabeçalho do modal com dados completos
+            const bIdEl = document.getElementById('detail-business-id');
+            if (bIdEl) bIdEl.textContent = os.business_id || '---';
+            const clientEl = document.getElementById('detail-client');
+            if (clientEl) clientEl.textContent = os.client || 'Não informado';
+            const modelEl = document.getElementById('detail-model');
+            if (modelEl) modelEl.textContent = os.model || 'Não informado';
+            const pnEl = document.getElementById('detail-pn');
+            if (pnEl) pnEl.textContent = os.part_number || 'Não informado';
+            const snEl = document.getElementById('detail-sn');
+            if (snEl) snEl.textContent = os.serial_number || 'Não informado';
+
+            const marcEl = document.getElementById('detail-marcacao');
+            if (marcEl) {
+                const tipo = os.identificacao_e_marcacao_type ? os.identificacao_e_marcacao_type + ' ' : '';
+                const cod = os.identificacao_e_marcacao_code || '';
+                marcEl.textContent = (tipo || cod) ? `${tipo}[ ${cod} ]`.trim() : 'Não informado';
+            }
+
+            const destEl = document.getElementById('detail-destino');
+            if (destEl) destEl.textContent = os.local_despacho || 'Não informado';
+            const statEl = document.getElementById('detail-status');
+            if (statEl) statEl.textContent = `${os.status || 'Produção'} (${os.urgency || 'Normal'})`;
             
             // Tratamento seguro para Itens Adicionais (Checklist de entrada)
             const listExtras = document.getElementById('detail-maintenance-extras');
-            try {
-                let extras = os.maintenance_extras;
-                if (typeof extras === 'string' && extras.startsWith('{')) {
-                    extras = JSON.parse(extras);
+            if (listExtras) {
+                try {
+                    let extras = os.maintenance_extras;
+                    if (typeof extras === 'string' && extras.startsWith('{')) {
+                        extras = JSON.parse(extras);
+                    }
+                    listExtras.innerHTML = formatMaintenanceExtras(extras);
+                } catch (e) {
+                    listExtras.innerHTML = '<li>Erro ao carregar itens.</li>';
                 }
-                listExtras.innerHTML = formatMaintenanceExtras(extras);
-            } catch (e) {
-                listExtras.innerHTML = '<li>Erro ao carregar itens.</li>';
             }
 
             // Prepara a área da Timeline
@@ -1008,13 +1234,40 @@ function openSpecialServiceModal() {
                 if (error) throw error;
 
                 if (events && events.length > 0) {
-                    timeline.innerHTML = events.map(ev => `
-                        <div class="relative pb-4 border-l-2 border-turbo-blue pl-4 ml-2">
-                            <div class="absolute -left-[9px] top-1 w-4 h-4 bg-turbo-blue rounded-full border-2 border-white shadow-sm"></div>
-                            <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight leading-none">${ev.action}</p>
-                            <p class="text-[10px] text-slate-500 font-medium mt-1">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
-                            ${ev.details ? `<p class="text-[9px] text-turbo-blue italic mt-1 font-semibold">"${ev.details}"</p>` : ''}
-                        </div>`).join('');
+                    timeline.innerHTML = events.map(ev => {
+                        const isDivergence = (ev.action || '').toLowerCase().includes('divergência') || (ev.action || '').toLowerCase().includes('divergencia') || (ev.details || '').toLowerCase().includes('divergên') || (ev.details || '').toLowerCase().includes('divergen');
+                        
+                        if (isDivergence) {
+                            return `
+                                <div class="relative pb-4 pl-4 ml-2 border-l-2 border-amber-500">
+                                    <div class="absolute -left-[11px] top-1 w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-md">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                    </div>
+                                    <div class="bg-amber-50 border-2 border-amber-300 rounded-xl p-3.5 shadow-sm">
+                                        <div class="flex items-center justify-between gap-2 mb-1">
+                                            <span class="text-[9px] font-black uppercase tracking-wider text-amber-900 bg-amber-200/90 px-2.5 py-0.5 rounded-md flex items-center shadow-xs">
+                                                <i class="fa-solid fa-triangle-exclamation mr-1.5 text-amber-700"></i> DIVERGÊNCIA DE CHECKLIST REGISTRADA
+                                            </span>
+                                            <span class="text-[9px] text-amber-800 font-mono font-bold">${new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
+                                        </div>
+                                        <p class="text-[11px] font-black text-slate-900 uppercase mt-1 leading-snug">${ev.action}</p>
+                                        ${ev.details ? `<p class="text-[10px] text-amber-950 font-medium bg-white/90 border border-amber-200 rounded-lg p-2.5 mt-2 leading-relaxed whitespace-pre-wrap"><i class="fa-solid fa-circle-info mr-1 text-amber-600"></i>${ev.details}</p>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        return `
+                            <div class="relative pb-4 border-l-2 border-turbo-blue pl-4 ml-2">
+                                <div class="absolute -left-[9px] top-1 w-4 h-4 bg-turbo-blue rounded-full border-2 border-white shadow-sm"></div>
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight leading-none">${ev.action}</p>
+                                    <span class="text-[9px] text-slate-400 font-mono">${new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
+                                </div>
+                                ${ev.details ? `<p class="text-[9px] text-slate-600 italic mt-1 font-semibold leading-relaxed bg-slate-50 p-2 rounded border border-slate-100">"${ev.details}"</p>` : ''}
+                            </div>
+                        `;
+                    }).join('');
                 } else { 
                     timeline.innerHTML = '<div class="py-6 text-center"><i class="fa-solid fa-circle-info text-slate-300 mb-2 text-xl"></i><p class="text-[10px] text-slate-400 italic uppercase">Iniciando rastreio para esta OS...</p></div>'; 
                 }
@@ -1076,28 +1329,73 @@ function openSpecialServiceModal() {
     </div>
 
     <!-- MODAL DE HISTÓRICO COMPLETO (TIMELINE) -->
-    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-[150]">
-        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-[150] p-4">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center border-b pb-4 mb-4 sticky top-0 bg-white z-10">
-                <h3 class="text-xl font-black text-blue-600 uppercase tracking-tighter">Histórico da OS</h3>
-                <button onclick="closeModal('details-modal')" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <i class="fa-solid fa-clock-rotate-left text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black text-slate-800 uppercase tracking-tight">Histórico da OS</h3>
+                        <p class="text-xs text-slate-400 font-medium">Auditoria, rastreamento e divergências de checklist</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('details-modal')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center transition">&times;</button>
             </div>
             
-            <div class="grid grid-cols-2 gap-4 text-sm border-b pb-4 mb-4">
-                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Identificação</p><p id="detail-business-id" class="text-lg font-black text-slate-800">--</p></div>
-                <div><p class="text-slate-500 font-medium uppercase text-[10px]">Modelo</p><p id="detail-model" class="text-slate-800 font-bold">--</p></div>
-            </div>
+            <!-- Resumo Completo da OS -->
+            <div id="modal-os-summary-card" class="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-6 space-y-3">
+                <div class="flex justify-between items-start border-b border-slate-200/80 pb-3">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Identificação</p>
+                        <p id="detail-business-id" class="text-xl font-black text-blue-600">--</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status / Urgência</p>
+                        <p id="detail-status" class="text-xs font-black uppercase text-slate-700">--</p>
+                    </div>
+                </div>
 
-            <div class="space-y-4 mb-6">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                        <p class="text-slate-400 font-bold uppercase text-[9px]">Cliente</p>
+                        <p id="detail-client" class="text-slate-800 font-bold">--</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-400 font-bold uppercase text-[9px]">Modelo</p>
+                        <p id="detail-model" class="text-slate-800 font-bold">--</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-400 font-bold uppercase text-[9px]">Part Number (P.N)</p>
+                        <p id="detail-pn" class="text-slate-800 font-mono font-bold">--</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-400 font-bold uppercase text-[9px]">Nº de Série (S/N)</p>
+                        <p id="detail-sn" class="text-slate-800 font-mono font-bold">--</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-400 font-bold uppercase text-[9px]">ID / Marcação</p>
+                        <p id="detail-marcacao" class="text-slate-800 font-mono font-bold">--</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-400 font-bold uppercase text-[9px]">Destino / Despacho</p>
+                        <p id="detail-destino" class="text-slate-800 font-bold">--</p>
+                    </div>
+                </div>
+
                 <div>
-                    <p class="text-slate-500 font-medium uppercase text-[10px] mb-1">Itens Adicionais (Checklist Entrada)</p>
-                    <ul id="detail-maintenance-extras" class="text-xs list-disc list-inside bg-slate-50 p-3 rounded-lg text-slate-800"></ul>
+                    <p class="text-slate-400 font-bold uppercase text-[9px] mb-1">Itens Adicionais (Checklist Entrada)</p>
+                    <ul id="detail-maintenance-extras" class="text-xs list-disc list-inside bg-white p-2.5 rounded-lg border border-slate-200 text-slate-700"></ul>
                 </div>
             </div>
 
-            <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 text-center border-t pt-4">Linha do Tempo de Produção</h4>
+            <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center justify-between border-t pt-4">
+                <span>Linha do Tempo de Produção</span>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-normal">Eventos Registrados</span>
+            </h4>
             <div id="timeline-container" class="space-y-4 border-l-2 border-slate-200 ml-2 pl-4">
-                </div>
+            </div>
         </div>
     </div>
     <script src="js/auth.js"></script>

@@ -86,6 +86,9 @@
                 <button type="button" onclick="setActiveSidebarTab('triage')" id="side-tab-triage"
                     class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white transition-all border border-blue-600">FILA
                     (ANÁLISE) <span id="count-side-triage">(0)</span></button>
+                <button type="button" onclick="setActiveSidebarTab('condenadas')" id="side-tab-condenadas"
+                    class="flex-1 py-2.5 rounded-xl bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 transition-all">PRODUÇÃO
+                    <span id="count-side-condenadas">(0)</span></button>
                 <button type="button" onclick="setActiveSidebarTab('standby')" id="side-tab-standby"
                     class="flex-1 py-2.5 rounded-xl bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 transition-all">STANDBY
                     <span id="count-side-standby">(0)</span></button>
@@ -98,15 +101,28 @@
             </div>
         </aside>
 
-        <section class="flex-1 flex flex-col">
-            <div class="flex justify-end space-x-1 mb-4">
-                <button onclick="switchTab('triage')" id="tab-triage"
-                    class="px-6 py-2 rounded-l-lg text-sm font-bold tab-active shadow-sm transition">
-                    Ordens Aprovadas (Aguardando Decisão) <span id="count-triage" class="ml-1">(0)</span>
-                </button>
-                <button onclick="switchTab('pending')" id="tab-pending"
-                    class="px-6 py-2 rounded-r-lg text-sm font-bold bg-white text-slate-600 hover:bg-slate-50 shadow-sm transition">
-                    Pendências de Peças <span id="count-pending" class="ml-1">(0)</span>
+        <!-- PAINEL PRINCIPAL DIREITO (WORKSPACE) -->
+        <section class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+            <!-- BARRA SUPERIOR DE CONTROLE E AÇÕES -->
+            <div class="flex flex-wrap justify-between items-center gap-3 mb-4 shrink-0">
+                <!-- ABAS PRINCIPAIS -->
+                <div class="flex space-x-1">
+                    <button onclick="switchTab('triage')" id="tab-triage"
+                        class="px-5 py-2.5 rounded-l-xl text-xs font-black uppercase tracking-wider tab-active shadow-sm transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-check"></i>
+                        Ordens Aprovadas (Aguardando Decisão) <span id="count-triage" class="ml-1 bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-black">(0)</span>
+                    </button>
+                    <button onclick="switchTab('pending')" id="tab-pending"
+                        class="px-5 py-2.5 rounded-r-xl text-xs font-black uppercase tracking-wider bg-white text-slate-600 hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2 border border-slate-200">
+                        <i class="fa-solid fa-cart-shopping text-amber-500"></i>
+                        Pedidos de Compra <span id="count-pending" class="ml-1 bg-slate-100 px-2 py-0.5 rounded-full text-[10px] text-slate-700 font-black">(0)</span>
+                    </button>
+                </div>
+
+                <!-- BOTÃO DE SOLICITAÇÃO AVULSA DE PEÇA EM PRODUÇÃO -->
+                <button type="button" onclick="abrirModalSolicitarPecaProducao()"
+                    class="bg-amber-500 hover:bg-amber-600 text-white font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-md shadow-amber-200 transition transform hover:-translate-y-0.5 cursor-pointer">
+                    <i class="fa-solid fa-cart-flatbed"></i> + Solicitar Peça p/ OS em Andamento
                 </button>
             </div>
 
@@ -233,10 +249,19 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Código de Marcação</label>
+                                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Código de Marcação (Peças)</label>
                                         <div class="flex space-x-2">
                                             <input type="text" id="input-marking-code" placeholder="Carregando..." class="flex-1 bg-slate-100 border border-slate-200 text-slate-800 text-xs font-mono font-bold rounded-lg px-3 py-2 outline-none" readonly>
                                             <button type="button" id="btn-refresh-marking" onclick="atualizarCodigoAutomatico(true)" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center" title="Gerar Novo Código">
+                                                <i class="fa-solid fa-rotate"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="pt-2 border-t border-slate-100">
+                                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Número de Série (Turbina)</label>
+                                        <div class="flex space-x-2">
+                                            <input type="text" id="input-serial-number" placeholder="Ex: HL001" class="flex-1 bg-slate-100 border border-slate-200 text-slate-800 text-xs font-mono font-bold rounded-lg px-3 py-2 outline-none uppercase">
+                                            <button type="button" id="btn-refresh-serial" onclick="gerarNumeroSerieAutomatico(true)" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center" title="Gerar Próximo Serial">
                                                 <i class="fa-solid fa-rotate"></i>
                                             </button>
                                         </div>
@@ -369,6 +394,124 @@
         </div>
     </div>
 
+    <!-- MODAL: SOLICITAR PEÇA PARA OS EM ANDAMENTO -->
+    <div id="modal-solicitar-peca-producao" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[250] flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col animate-fade-in">
+            <div class="bg-gradient-to-r from-amber-500 to-amber-600 p-6 text-white flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                        <i class="fa-solid fa-cart-flatbed text-xl text-white"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-lg uppercase tracking-tight leading-tight">Solicitar Peça (OS em Andamento)</h3>
+                        <p class="text-xs text-amber-100 font-medium">Abertura de requisição direta de estoque/compra</p>
+                    </div>
+                </div>
+                <button type="button" onclick="fecharModalSolicitarPecaProducao()" class="text-white/80 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                <!-- SELEÇÃO DA OS -->
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        Selecione a Ordem de Serviço Ativa <span class="text-amber-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <input type="text" id="sol-peca-busca-os" oninput="filtrarOsSolicitacao(this.value)" placeholder="Digite o número da OS ou nome do cliente..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-amber-500 focus:bg-white transition">
+                        <div id="sol-peca-os-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-20 divide-y divide-slate-100">
+                        </div>
+                    </div>
+                    <div id="sol-peca-os-selecionada" class="hidden mt-2 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs font-bold text-slate-800 flex justify-between items-center">
+                        <span id="sol-peca-os-texto">--</span>
+                        <button type="button" onclick="limparOsSelecionada()" class="text-red-500 text-xs font-bold hover:underline">Trocar</button>
+                    </div>
+                </div>
+
+                <!-- COMPONENTE -->
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        Nome da Peça / Componente <span class="text-amber-500">*</span>
+                    </label>
+                    <select id="sol-peca-nome-select" onchange="verificarOutraPeca(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-amber-500 focus:bg-white transition mb-2">
+                        <option value="CARCAÇA DE TURBINA (CT)">CARCAÇA DE TURBINA (CT)</option>
+                        <option value="ROTOR">ROTOR</option>
+                        <option value="EIXO">EIXO</option>
+                        <option value="ATUADOR">ATUADOR</option>
+                        <option value="GEOMETRIA VARIÁVEL">GEOMETRIA VARIÁVEL</option>
+                        <option value="CANOTE DA GEOMETRIA">CANOTE DA GEOMETRIA</option>
+                        <option value="FLANGE DA GEOMETRIA">FLANGE DA GEOMETRIA</option>
+                        <option value="CCO">CCO</option>
+                        <option value="CCE">CCE</option>
+                        <option value="REPAROS">REPAROS</option>
+                        <option value="OUTRO">OUTRA PEÇA (DIGITAR NOME)...</option>
+                    </select>
+                    <input type="text" id="sol-peca-nome-custom" placeholder="Digite o nome exato da peça..." class="hidden w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500">
+                </div>
+
+                <!-- SETOR SOLICITANTE -->
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        Setor Solicitante
+                    </label>
+                    <select id="sol-peca-setor" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-amber-500 focus:bg-white transition">
+                        <option value="TRIAGEM / ESTOQUE">Triagem / Estoque</option>
+                        <option value="RETÍFICA">Retífica</option>
+                        <option value="SOLDA">Solda</option>
+                        <option value="BANCADA">Bancada</option>
+                        <option value="METROLOGIA">Metrologia</option>
+                        <option value="BALANCEAMENTO">Balanceamento</option>
+                        <option value="MONTAGEM">Montagem</option>
+                        <option value="DESMONTAGEM">Desmontagem</option>
+                    </select>
+                </div>
+
+                <!-- DISPONIBILIDADE INICIAL -->
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        Ação da Triagem / Estoque <span class="text-amber-500">*</span>
+                    </label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="flex items-center p-3 border rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition">
+                            <input type="radio" name="sol-peca-disponibilidade" value="STOCK" class="mr-2 text-green-600 focus:ring-green-500">
+                            <div>
+                                <span class="block text-xs font-black text-green-700 uppercase">Retirar Estoque</span>
+                                <span class="text-[9px] text-slate-400">Tem na prateleira</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center p-3 border rounded-xl cursor-pointer bg-amber-50/50 border-amber-300 hover:bg-amber-100/50 transition">
+                            <input type="radio" name="sol-peca-disponibilidade" value="ORDER" checked class="mr-2 text-amber-600 focus:ring-amber-500">
+                            <div>
+                                <span class="block text-xs font-black text-amber-700 uppercase">Pedir Compra</span>
+                                <span class="text-[9px] text-slate-400">Inserir em pendências</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- OBSERVAÇÕES -->
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+                        Motivo / Observações
+                    </label>
+                    <textarea id="sol-peca-obs" rows="2" placeholder="Ex: Peça danificada em produção ou necessária para prosseguir..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-800 outline-none focus:border-amber-500 focus:bg-white transition resize-none"></textarea>
+                </div>
+
+                <div id="sol-peca-erro" class="hidden text-xs font-bold text-red-600 bg-red-50 p-3 rounded-xl border border-red-200"></div>
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <button type="button" onclick="fecharModalSolicitarPecaProducao()" class="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition uppercase tracking-wider">
+                    Cancelar
+                </button>
+                <button type="button" id="btn-confirmar-sol-peca" onclick="salvarSolicitacaoPecaProducao()" class="bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-2.5 rounded-xl uppercase text-xs tracking-wider shadow-md shadow-amber-200 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-check"></i> Abrir Solicitação
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
@@ -391,13 +534,61 @@
             const container = document.getElementById('fila-container');
             container.innerHTML = `<div class="p-4 animate-pulse"><div class="h-4 bg-slate-200 rounded w-1/2 mb-3"></div><div class="h-3 bg-slate-100 rounded w-3/4"></div></div>`;
             try {
-                const response = await fetch(API_GET);
-                const data = await response.json();
-                allOrders = Array.isArray(data) ? data : [];
+                // 1. Busca direto do Supabase - OSs em Aguardando Triagem e Standby
+                const { data: baseData, error } = await supabaseClient
+                    .from('service_orders')
+                    .select('*')
+                    .in('status', ['Aguardando Triagem', 'Standby'])
+                    .eq('is_blocked', false)
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+
+                // 2. Busca OSs ativas com peças condenadas em produção ou pendentes em triage_parts
+                const { data: pendingTriageParts } = await supabaseClient
+                    .from('triage_parts')
+                    .select('*, service_orders(*)')
+                    .eq('is_resolved', false);
+
+                // 3. Busca rastreios com status CONDENADO EM PRODUÇÃO
+                const { data: condemnedTracks } = await supabaseClient
+                    .from('component_tracking')
+                    .select('service_order_id, component_name, current_sector, status')
+                    .eq('status', 'CONDENADO EM PRODUÇÃO');
+
+                const ordersMap = new Map();
+                (baseData || []).forEach(o => ordersMap.set(o.id, o));
+
+                (pendingTriageParts || []).forEach(tp => {
+                    if (tp.service_orders && !['Finalizado', 'Concluída', 'Cancelada'].includes(tp.service_orders.status)) {
+                        const existing = ordersMap.get(tp.service_orders.id) || tp.service_orders;
+                        existing.tem_peca_condenada_producao = true;
+                        existing.pecas_solicitadas = existing.pecas_solicitadas || [];
+                        existing.pecas_solicitadas.push(tp);
+                        ordersMap.set(tp.service_orders.id, existing);
+                    }
+                });
+
+                (condemnedTracks || []).forEach(ct => {
+                    const os = ordersMap.get(ct.service_order_id);
+                    if (os) {
+                        os.tem_peca_condenada_producao = true;
+                        os.setor_condenacao = ct.current_sector;
+                    }
+                });
+
+                allOrders = Array.from(ordersMap.values());
                 renderizarFila();
                 atualizarContadores();
             } catch (err) {
-                allOrders = [];
+                console.warn("Falha no Supabase para Triagem, tentando webhook:", err);
+                try {
+                    const response = await fetch(API_GET);
+                    const data = await response.json();
+                    allOrders = Array.isArray(data) ? data : [];
+                } catch(e) {
+                    allOrders = [];
+                }
                 renderizarFila();
                 atualizarContadores();
             }
@@ -405,12 +596,18 @@
 
         function setActiveSidebarTab(tab) {
             window.activeSidebarTab = tab;
-            document.getElementById('side-tab-triage').className = tab === 'triage'
-                ? 'flex-1 py-2.5 rounded-xl bg-blue-600 text-white transition-all border border-blue-600'
-                : 'flex-1 py-2.5 rounded-xl bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 transition-all';
-            document.getElementById('side-tab-standby').className = tab === 'standby'
-                ? 'flex-1 py-2.5 rounded-xl bg-blue-600 text-white transition-all border border-blue-600'
-                : 'flex-1 py-2.5 rounded-xl bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 transition-all';
+            const tabClasses = {
+                active: 'flex-1 py-2.5 rounded-xl bg-blue-600 text-white transition-all border border-blue-600',
+                inactive: 'flex-1 py-2.5 rounded-xl bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 transition-all'
+            };
+            const btnTriage = document.getElementById('side-tab-triage');
+            const btnCond = document.getElementById('side-tab-condenadas');
+            const btnStandby = document.getElementById('side-tab-standby');
+            
+            if (btnTriage) btnTriage.className = tab === 'triage' ? tabClasses.active : tabClasses.inactive;
+            if (btnCond) btnCond.className = tab === 'condenadas' ? tabClasses.active : tabClasses.inactive;
+            if (btnStandby) btnStandby.className = tab === 'standby' ? tabClasses.active : tabClasses.inactive;
+            
             renderizarFila();
         }
 
@@ -422,22 +619,42 @@
                 container.innerHTML = `<div class="py-10 text-center"><p class="text-slate-400 font-bold text-[10px] uppercase tracking-widest leading-tight">Lista de Pendências<br>de Compra Ativa</p></div>`;
                 return;
             }
-            const statusFiltro = window.activeSidebarTab === 'triage' ? 'Aguardando Triagem' : 'Standby';
-            const ordensParaMostrar = allOrders.filter(os => os.status === statusFiltro);
+            
+            let ordensParaMostrar = [];
+            let labelFiltro = '';
+            
+            if (window.activeSidebarTab === 'triage') {
+                ordensParaMostrar = allOrders.filter(os => os.status === 'Aguardando Triagem');
+                labelFiltro = 'Aguardando Triagem';
+            } else if (window.activeSidebarTab === 'condenadas') {
+                ordensParaMostrar = allOrders.filter(os => os.tem_peca_condenada_producao || (os.status === 'Standby' && (os.blockage_reason || '').toLowerCase().includes('condenad')));
+                labelFiltro = 'Condenações em Produção';
+            } else {
+                ordensParaMostrar = allOrders.filter(os => os.status === 'Standby');
+                labelFiltro = 'Standby';
+            }
+
             if (ordensParaMostrar.length === 0) {
-                container.innerHTML = `<div class="py-10 text-center"><p class="text-slate-400 font-bold text-[10px] uppercase tracking-widest leading-relaxed">Nenhuma ordem em<br>${statusFiltro}.</p></div>`;
+                container.innerHTML = `<div class="py-10 text-center"><p class="text-slate-400 font-bold text-[10px] uppercase tracking-widest leading-relaxed">Nenhuma ordem em<br>${labelFiltro}.</p></div>`;
                 return;
             }
             ordensParaMostrar.forEach(os => {
                 const isActive = selecionada && selecionada.business_id === os.business_id ? 'active border-l-4 border-blue-600 bg-blue-50 shadow-sm' : 'bg-white border-slate-200';
+                const badgeCondenada = os.tem_peca_condenada_producao 
+                    ? `<span class="text-[9px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation text-red-600"></i> Produção</span>`
+                    : '';
                 container.innerHTML += `
                     <div onclick="selecionarOS('${os.business_id}')" id="card-${os.business_id}" class="os-card ${isActive} p-4 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-all group mb-3">
                         <div class="flex justify-between items-start mb-2">
                             <span class="text-slate-800 font-extrabold text-sm uppercase">${os.business_id}</span>
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${os.urgency === 'Alta' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}">${os.urgency || 'Normal'}</span>
+                            <div class="flex items-center gap-1.5">
+                                ${badgeCondenada}
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${os.urgency === 'Alta' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}">${os.urgency || 'Normal'}</span>
+                            </div>
                         </div>
                         <h3 class="text-slate-700 font-bold text-xs group-hover:text-blue-600 transition">${os.model}</h3>
                         <p class="text-slate-400 text-[11px] font-medium">${os.client}</p>
+                        ${os.blockage_reason ? `<p class="text-[10px] text-red-600 font-semibold mt-1 truncate"><i class="fa-solid fa-ban mr-1"></i>${os.blockage_reason}</p>` : ''}
                     </div>`;
             });
         }
@@ -498,7 +715,7 @@
                 // Passo 1: busca o UUID real da OS no Supabase pelo business_id
                 const { data: osData, error: osError } = await supabaseClient
                     .from('service_orders')
-                    .select('id, identificacao_e_marcacao_code, identificacao_e_marcacao_type')
+                    .select('id, identificacao_e_marcacao_code, identificacao_e_marcacao_type, serial_number')
                     .eq('business_id', selecionada.business_id)
                     .single();
 
@@ -513,6 +730,7 @@
                 selecionada._supabaseId = supabaseOsId;
                 selecionada.identificacao_e_marcacao_code = osData.identificacao_e_marcacao_code;
                 selecionada.identificacao_e_marcacao_type = osData.identificacao_e_marcacao_type;
+                selecionada.serial_number = osData.serial_number;
 
                 // Atualiza a interface de identificação e marcação
                 if (selecionada.identificacao_e_marcacao_code) {
@@ -533,20 +751,86 @@
                     await atualizarCodigoAutomatico();
                 }
 
-                // Passo 2: busca o checklist completo usando o UUID correto para garantir que peças marcadas como 'OK' (como REPAROS) também venham
-                const { data: checklistItems, error: checklistError } = await supabaseClient
-                    .from('checklist_analysis_general')
-                    .select('*')
-                    .eq('service_order_id', supabaseOsId);
+                // Atualiza o Número de Série
+                const inputSerial = document.getElementById('input-serial-number');
+                const refreshSerialBtn = document.getElementById('btn-refresh-serial');
+                if (selecionada.serial_number) {
+                    if (inputSerial) {
+                        inputSerial.value = selecionada.serial_number;
+                        inputSerial.readOnly = true;
+                    }
+                    if (refreshSerialBtn) refreshSerialBtn.style.display = 'none';
+                } else {
+                    if (inputSerial) {
+                        inputSerial.value = '';
+                        inputSerial.readOnly = false;
+                    }
+                    if (refreshSerialBtn) refreshSerialBtn.style.display = 'inline-flex';
+                    await gerarNumeroSerieAutomatico();
+                }
 
-                if (!checklistError && checklistItems) {
-                    const formattedItems = checklistItems.map(item => ({
-                        id: item.id,
-                        item_name: item.item_name,
-                        decisao_vendas: item.decisao_vendas || 'TROCAR',
-                        status: item.status || 'Pendente',
-                        availability: item.availability || 'ORDER'
-                    }));
+                // Passo 2: busca o checklist, triage_parts e rastreamento de condenações usando o UUID correto
+                const [checklistRes, triageRes, condTrackRes] = await Promise.all([
+                    supabaseClient.from('checklist_analysis_general').select('*').eq('service_order_id', supabaseOsId),
+                    supabaseClient.from('triage_parts').select('*').eq('service_order_id', supabaseOsId),
+                    supabaseClient.from('component_tracking').select('component_name, current_sector, status').eq('service_order_id', supabaseOsId).or('status.eq.CONDENADO EM PRODUÇÃO,status.ilike.%CONDENAD%')
+                ]);
+
+                const checklistItems = checklistRes.data || [];
+                const triageItems = triageRes.data || [];
+                const condTracks = condTrackRes.data || [];
+
+                const condCompMap = {};
+                condTracks.forEach(ct => {
+                    const raw = (ct.component_name || '').toUpperCase().trim();
+                    condCompMap[raw] = ct;
+                    if (raw === 'CT') condCompMap['CARCAÇA DE TURBINA (CT)'] = ct;
+                    if (raw === 'GEOMETRIA') condCompMap['GEOMETRIA VARIÁVEL'] = ct;
+                    if (raw === 'CANOTE') condCompMap['CANOTE DA GEOMETRIA'] = ct;
+                    if (raw === 'FLANGE') condCompMap['FLANGE DA GEOMETRIA'] = ct;
+                });
+
+                const triageMap = {};
+                triageItems.forEach(tp => {
+                    if (tp.part_name) triageMap[tp.part_name.toUpperCase().trim()] = tp.availability;
+                });
+
+                if (checklistItems.length > 0 || triageItems.length > 0 || condTracks.length > 0) {
+                    const formattedItems = checklistItems.map(item => {
+                        const pUpper = (item.item_name || '').toUpperCase().trim();
+                        const cond = condCompMap[pUpper];
+                        const isCond = !!cond;
+                        const savedAvail = isCond ? 'ORDER' : (triageMap[pUpper] || item.availability || 'ORDER');
+                        return {
+                            id: item.id,
+                            item_name: item.item_name,
+                            decisao_vendas: isCond ? 'CONDENADA EM PRODUÇÃO' : (item.decisao_vendas || 'TROCAR'),
+                            status: item.status || 'Pendente',
+                            availability: savedAvail,
+                            is_condenada_producao: isCond,
+                            setor_origem: cond?.current_sector || null
+                        };
+                    });
+
+                    // Adiciona peças de triage_parts ou condenações que não constavam no checklist inicial
+                    triageItems.forEach(tp => {
+                        const pUpper = (tp.part_name || '').toUpperCase().trim();
+                        const exists = formattedItems.some(f => (f.item_name || '').toUpperCase().trim() === pUpper);
+                        if (!exists) {
+                            const cond = condCompMap[pUpper];
+                            const isCond = !!cond || tp.availability === 'ORDER';
+                            formattedItems.push({
+                                id: tp.id,
+                                item_name: tp.part_name,
+                                decisao_vendas: isCond ? 'CONDENADA EM PRODUÇÃO' : 'TROCAR',
+                                status: tp.is_resolved ? 'Resolvido' : 'Pendente',
+                                availability: tp.availability || 'ORDER',
+                                is_condenada_producao: isCond,
+                                setor_origem: cond?.current_sector || null
+                            });
+                        }
+                    });
+
                     renderizarPecas(formattedItems);
                 } else {
                     renderizarPecas([]);
@@ -570,31 +854,58 @@
             ];
 
             // =================================================================================
-            // ✅ LÓGICA VISÍVEL DE "TROCAR CONJUNTO"
-            // Se qualquer peça principal for "TROCAR CONJUNTO", garantimos que EIXO, ROTOR, 
-            // CCE e REPAROS também entrem como "TROCAR CONJUNTO", pois o núcleo é fechado.
+            // ✅ LÓGICA DE CONJUNTO ROTATIVO FULL (4 PEÇAS INTEGRADAS)
+            // As 4 peças (EIXO, ROTOR, CCE, REPAROS) trabalham sempre juntas.
+            // Se qualquer uma for "TROCAR CONJUNTO" ou tiver decisão de conjunto,
+            // todas as 4 são forçadas a "TROCAR CONJUNTO" e sincronizadas.
             // =================================================================================
             const coreParts = ["EIXO", "ROTOR", "CCE", "REPAROS"];
-            const isTrocaConjunto = (items || []).some(p => 
-                coreParts.includes((p.item_name || "").toUpperCase().trim()) && 
-                (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
-            );
+            const isTrocaConjunto = (items || []).some(p => {
+                const nome = (p.item_name || "").toUpperCase().trim();
+                const decisao = (p.decisao_vendas || "").toUpperCase().trim();
+                return (coreParts.includes(nome) && (decisao === "TROCAR CONJUNTO" || decisao.includes("CONJUNTO"))) ||
+                       (decisao === "TROCAR CONJUNTO");
+            });
             window.currentIsTrocaConjunto = isTrocaConjunto;
 
             if (isTrocaConjunto) {
-                (items || []).forEach(p => {
+                // 1. Garante que TODAS as 4 peças estejam presentes no array
+                coreParts.forEach(cp => {
+                    let existing = items.find(p => (p.item_name || "").toUpperCase().trim() === cp);
+                    if (!existing) {
+                        existing = {
+                            id: 'conjunto-' + cp,
+                            item_name: cp,
+                            decisao_vendas: "TROCAR CONJUNTO",
+                            status: "TROCAR",
+                            availability: "ORDER"
+                        };
+                        items.push(existing);
+                    } else {
+                        existing.decisao_vendas = "TROCAR CONJUNTO";
+                    }
+                });
+
+                // 2. Unifica a disponibilidade inicial das 4 peças (se qualquer uma for ORDER, todas são ORDER)
+                const hasOrder = coreParts.some(cp => {
+                    const it = items.find(p => (p.item_name || "").toUpperCase().trim() === cp);
+                    return it && (it.availability || "").toUpperCase().trim() === 'ORDER';
+                });
+                const unifiedAvailability = hasOrder ? 'ORDER' : 'STOCK';
+                items.forEach(p => {
                     const nome = (p.item_name || "").toUpperCase().trim();
                     if (coreParts.includes(nome)) {
-                        p.decisao_vendas = "TROCAR CONJUNTO";
+                        p.availability = unifiedAvailability;
                     }
                 });
             }
 
-            // ✅ Aceita TROCAR e TROCAR CONJUNTO
+            // ✅ Aceita TROCAR, TROCAR CONJUNTO e CONDENADA EM PRODUÇÃO
             const filtradas = (items || []).filter(p => {
                 const nome = (p.item_name || "").toUpperCase().trim();
                 const pVendas = (p.decisao_vendas || "").toUpperCase().trim();
-                return whitelist.includes(nome) && (pVendas === "TROCAR" || pVendas === "TROCAR CONJUNTO");
+                return (whitelist.includes(nome) || p.is_condenada_producao) && 
+                       (pVendas === "TROCAR" || pVendas === "TROCAR CONJUNTO" || pVendas === "CONDENADA EM PRODUÇÃO");
             });
 
             if (filtradas.length === 0) {
@@ -604,13 +915,19 @@
 
             filtradas.forEach(p => {
                 const nome = p.item_name.toUpperCase().trim();
+                const isCore = coreParts.includes(nome) && window.currentIsTrocaConjunto;
                 const valorBanco = (p.availability || "ORDER").toUpperCase().trim();
                 const isStock = (valorBanco === 'STOCK');
                 container.innerHTML += `
-                    <div class="flex items-center justify-between p-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition" data-id="${p.id}" data-name="${nome}">
+                    <div class="flex items-center justify-between p-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition ${isCore ? 'bg-amber-50/40 border-l-4 border-amber-400' : ''}" data-id="${p.id}" data-name="${nome}" data-core="${isCore ? 'true' : 'false'}">
                         <div class="flex flex-col">
-                            <span class="text-slate-800 font-black text-xs uppercase">${nome}</span>
-                            <span class="text-[9px] text-red-600 font-bold uppercase italic">Veredito: ${p.decisao_vendas}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-slate-800 font-black text-xs uppercase">${nome}</span>
+                                ${isCore ? '<span class="bg-amber-100 text-amber-800 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">CONJUNTO ROTATIVO FULL</span>' : ''}
+                                ${p.is_condenada_producao ? '<span class="bg-red-100 text-red-700 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider border border-red-200 flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation text-red-600"></i>CONDENADA EM PRODUÇÃO</span>' : ''}
+                            </div>
+                            <span class="text-[9px] ${p.is_condenada_producao ? 'text-red-700 font-black' : 'text-red-600 font-bold'} uppercase italic">Veredito: ${p.decisao_vendas}</span>
+                            ${isCore ? '<span class="text-[8px] text-slate-400 font-semibold italic">Sincronizado: Eixo, Rotor, CCE e Reparos</span>' : ''}
                         </div>
                         <div class="flex bg-slate-100 rounded-lg p-1 shadow-inner">
                             <button onclick="sincronizarPeca(this, '${nome}', 'STOCK')"
@@ -634,15 +951,18 @@
             pendingPanel.classList.add('hidden');
             document.getElementById('empty-state').classList.add('hidden');
 
+            const activeClass = 'px-5 py-2.5 text-xs font-black uppercase tracking-wider tab-active shadow-sm transition-all flex items-center gap-2';
+            const inactiveClass = 'px-5 py-2.5 text-xs font-black uppercase tracking-wider bg-white text-slate-600 hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2 border border-slate-200';
+
             if (type === 'triage') {
-                tabTriage.className = 'px-6 py-2 rounded-l-lg text-sm font-bold tab-active shadow-sm transition';
-                tabPending.className = 'px-6 py-2 rounded-r-lg text-sm font-bold bg-white text-slate-600 hover:bg-slate-50 shadow-sm transition';
+                tabTriage.className = activeClass + ' rounded-l-xl';
+                tabPending.className = inactiveClass + ' rounded-r-xl';
                 sidebarFilters.classList.remove('opacity-20', 'pointer-events-none');
                 if (!selecionada) document.getElementById('empty-state').classList.remove('hidden');
                 else triagePanel.classList.remove('hidden');
             } else {
-                tabPending.className = 'px-6 py-2 rounded-r-lg text-sm font-bold tab-active shadow-sm transition';
-                tabTriage.className = 'px-6 py-2 rounded-l-lg text-sm font-bold bg-white text-slate-600 hover:bg-slate-50 shadow-sm transition';
+                tabPending.className = activeClass + ' rounded-r-xl';
+                tabTriage.className = inactiveClass + ' rounded-l-xl';
                 sidebarFilters.classList.add('opacity-20', 'pointer-events-none');
                 pendingPanel.classList.remove('hidden');
                 renderizarPendencias();
@@ -653,43 +973,154 @@
         async function renderizarPendencias() {
             const container = document.getElementById('lista-pecas-pendentes');
             if (!container) return;
-            container.innerHTML = '<div class="p-10 text-center text-slate-400 animate-pulse font-bold text-[10px] uppercase">Buscando pendências de compras...</div>';
+            container.innerHTML = '<div class="p-10 text-center text-slate-400 animate-pulse font-bold text-[10px] uppercase"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Buscando pedidos de compras pendentes...</div>';
             try {
-                const { data: pendingItems, error } = await supabaseClient
-                    .from('triage_parts')
-                    .select('*, service_orders(business_id, model, client, status)')
-                    .eq('availability', 'ORDER');
+                const [pendingRes, condRes] = await Promise.all([
+                    supabaseClient
+                        .from('triage_parts')
+                        .select('*, service_orders(id, business_id, model, client, status)')
+                        .eq('availability', 'ORDER'),
+                    supabaseClient
+                        .from('component_tracking')
+                        .select('service_order_id, component_name, current_sector, status')
+                        .or('status.eq.CONDENADO EM PRODUÇÃO,status.ilike.%CONDENAD%')
+                ]);
 
-                if (error || !pendingItems) {
+                const pendingItems = pendingRes.data;
+                const condTracks = condRes.data || [];
+
+                if (pendingRes.error || !pendingItems) {
                     container.innerHTML = '<div class="p-10 text-center text-red-500 font-bold text-[10px] uppercase">Erro de comunicação com o servidor de compras.</div>';
                     return;
                 }
 
-                const excludedStatuses = ['Aguardando Análise Técnica', 'Aguardando Vendas Comercial', 'Aguardando Triagem', 'Standby', 'Concluída', 'Cancelada'];
-                const pecasFaltantes = pendingItems
-                    .filter(item => item.service_orders && !excludedStatuses.includes(item.service_orders.status))
-                    .map(item => ({
-                        peca_id: item.id,
-                        nome_peca: item.part_name,
-                        os_business_id: item.service_orders.business_id,
-                        os_id: item.service_order_id,
-                        modelo: item.service_orders.model,
-                        cliente: item.service_orders.client
-                    }));
+                function normKey(name) {
+                    let p = (name || '').toUpperCase().trim();
+                    if (p === 'CT' || p.includes('CARCAÇA DE TURBINA') || p.includes('CARCACA DE TURBINA')) return 'CT';
+                    if (p === 'GEOMETRIA' || p.includes('GEOMETRIA')) return 'GEOMETRIA';
+                    if (p.includes('CANOTE')) return 'CANOTE';
+                    if (p.includes('FLANGE')) return 'FLANGE';
+                    return p;
+                }
 
-                if (pecasFaltantes.length === 0) {
-                    container.innerHTML = `<div class="py-20 text-center"><svg class="mx-auto h-20 w-20 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg><p class="mt-4 text-slate-400 font-black text-sm uppercase tracking-widest">Nenhuma pendência de compra ativa.</p></div>`;
+                const condMap = new Map();
+                condTracks.forEach(ct => {
+                    const raw = (ct.component_name || '').toUpperCase().trim();
+                    const n = normKey(raw);
+                    condMap.set(`${ct.service_order_id}_${raw}`, ct);
+                    condMap.set(`${ct.service_order_id}_${n}`, ct);
+                });
+
+                const excludedStatuses = ['Finalizado', 'Concluída', 'Cancelada'];
+                const coreParts = ["EIXO", "ROTOR", "CCE", "REPAROS"];
+
+                // Agrupa as peças pendentes por Ordem de Serviço
+                const osMap = {};
+                pendingItems.forEach(item => {
+                    if (!item.service_orders || excludedStatuses.includes(item.service_orders.status)) return;
+                    if (item.is_resolved === true) return;
+
+                    const osId = item.service_order_id;
+                    if (!osMap[osId]) {
+                        osMap[osId] = {
+                            os_id: osId,
+                            os_business_id: item.service_orders.business_id,
+                            modelo: item.service_orders.model,
+                            cliente: item.service_orders.client,
+                            status_os: item.service_orders.status,
+                            corePending: [],
+                            coreCondenada: false,
+                            coreSetor: null,
+                            otherPending: []
+                        };
+                    }
+                    const pUpper = (item.part_name || '').toUpperCase().trim();
+                    const pNorm = normKey(pUpper);
+                    const cond = condMap.get(`${osId}_${pUpper}`) || condMap.get(`${osId}_${pNorm}`);
+
+                    if (coreParts.includes(pUpper)) {
+                        osMap[osId].corePending.push(pUpper);
+                        if (cond) {
+                            osMap[osId].coreCondenada = true;
+                            osMap[osId].coreSetor = cond.current_sector || 'PRODUÇÃO';
+                        }
+                    } else {
+                        item.is_condenada = !!cond;
+                        item.setor_origem = cond?.current_sector || null;
+                        osMap[osId].otherPending.push(item);
+                    }
+                });
+
+                const displayList = [];
+                for (const osId in osMap) {
+                    const os = osMap[osId];
+                    // Se houver qualquer peça do núcleo pendente, agrupa como CONJUNTO ROTATIVO (FULL)
+                    if (os.corePending.length > 0) {
+                        displayList.push({
+                            os_id: os.os_id,
+                            os_business_id: os.os_business_id,
+                            modelo: os.modelo,
+                            cliente: os.cliente,
+                            nome_peca: 'CONJUNTO ROTATIVO (FULL)',
+                            detalhe_peca: os.coreCondenada 
+                                ? `Pedido de Compra Automático • Peça condenada no setor ${os.coreSetor || 'de produção'}`
+                                : 'Eixo, Rotor, CCE e Reparos (4 peças integradas)',
+                            is_conjunto: true,
+                            is_condenada: os.coreCondenada,
+                            setor_origem: os.coreSetor
+                        });
+                    }
+                    // Peças avulsas
+                    os.otherPending.forEach(item => {
+                        displayList.push({
+                            os_id: os.os_id,
+                            os_business_id: os.os_business_id,
+                            modelo: os.modelo,
+                            cliente: os.cliente,
+                            nome_peca: item.part_name,
+                            detalhe_peca: item.is_condenada 
+                                ? `Pedido de Compra Automático • Condenada no setor ${item.setor_origem || 'Produção'}`
+                                : 'Reposição da análise técnica inicial (Checklist)',
+                            is_conjunto: false,
+                            is_condenada: item.is_condenada,
+                            setor_origem: item.setor_origem
+                        });
+                    });
+                }
+
+                if (displayList.length === 0) {
+                    container.innerHTML = `<div class="py-20 text-center"><i class="fa-solid fa-cart-shopping text-4xl text-slate-200 mb-3 block"></i><p class="text-slate-400 font-black text-sm uppercase tracking-widest">Nenhum pedido de compra pendente no momento.</p></div>`;
                     return;
                 }
 
-                const rows = pecasFaltantes.map(item => `
+                const rows = displayList.map(item => `
                     <tr class="hover:bg-blue-50/50 transition-colors">
-                        <td class="px-6 py-4 font-black text-blue-600">${item.os_business_id}</td>
-                        <td class="px-6 py-4 font-bold text-slate-700 uppercase">${item.nome_peca}</td>
-                        <td class="px-6 py-4"><div class="font-bold text-slate-600">${item.cliente}</div><div class="text-xs text-slate-400">${item.modelo}</div></td>
-                        <td class="px-6 py-4 text-center">
-                            <button onclick="marcarRecebido('${item.os_id}', '${item.nome_peca}')"
-                                    class="bg-green-500 hover:bg-green-600 text-white font-bold text-[10px] py-2 px-4 rounded-lg uppercase tracking-wider transition transform hover:scale-105">Dar Baixa</button>
+                        <td class="px-6 py-4 font-black text-blue-600 whitespace-nowrap">${item.os_business_id}</td>
+                        <td class="px-6 py-4">
+                            <div class="font-extrabold text-slate-800 uppercase flex items-center gap-2">
+                                ${item.nome_peca}
+                                ${item.is_conjunto ? '<span class="bg-amber-100 text-amber-800 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">4 PEÇAS</span>' : ''}
+                            </div>
+                            <div class="text-[10px] ${item.is_condenada ? 'text-red-600 font-bold' : 'text-slate-400 font-medium'}">${item.detalhe_peca}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            ${item.is_condenada ? `
+                                <span class="inline-flex items-center gap-1.5 bg-red-100 text-red-700 text-[9px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider border border-red-200 shadow-xs">
+                                    <i class="fa-solid fa-cart-shopping text-red-600"></i> Pedido Automático (${item.setor_origem || 'Produção'})
+                                </span>` : `
+                                <span class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 text-[9px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider border border-blue-200">
+                                    <i class="fa-solid fa-list-check text-blue-500"></i> Pedido Inicial (Checklist)
+                                </span>`}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-slate-700">${item.cliente}</div>
+                            <div class="text-xs text-slate-400">${item.modelo}</div>
+                        </td>
+                        <td class="px-6 py-4 text-center whitespace-nowrap">
+                            <button onclick="marcarRecebido('${item.os_id}', '${item.nome_peca}', ${item.is_conjunto})"
+                                    class="bg-green-600 hover:bg-green-700 text-white font-black text-[10px] py-2 px-4 rounded-xl uppercase tracking-wider transition transform hover:scale-105 shadow-md shadow-green-100 flex items-center gap-1.5 mx-auto">
+                                <i class="fa-solid fa-box-open"></i> Dar Baixa
+                            </button>
                         </td>
                     </tr>`).join('');
 
@@ -699,7 +1130,8 @@
                             <thead class="bg-slate-50">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Ordem de Serviço</th>
-                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Peça Pendente</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Peça Solicitada</th>
+                                    <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo de Pedido</th>
                                     <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente / Modelo</th>
                                     <th class="px-6 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Ação</th>
                                 </tr>
@@ -708,17 +1140,34 @@
                         </table>
                     </div>`;
             } catch (e) {
+                console.error("Erro renderizarPendencias:", e);
                 container.innerHTML = '<div class="p-10 text-center text-red-500 font-bold text-[10px] uppercase">Erro de comunicação com o Supabase.</div>';
             }
         }
 
         let osParaBaixa = null;
         let pecaParaBaixa = null;
+        let isBaixaConjunto = false;
 
-        function marcarRecebido(osId, partName) {
+        function marcarRecebido(osId, partName, isConjunto = false) {
             osParaBaixa = osId;
             pecaParaBaixa = partName;
-            document.getElementById('modal-baixa-msg').innerHTML = `Confirmar o recebimento de <b>"${partName.toUpperCase()}"</b> no almoxarifado?`;
+            const coreParts = ["EIXO", "ROTOR", "CCE", "REPAROS"];
+            isBaixaConjunto = isConjunto || partName.toUpperCase().includes('CONJUNTO') || coreParts.includes(partName.toUpperCase().trim());
+
+            const msgEl = document.getElementById('modal-baixa-msg');
+            if (isBaixaConjunto) {
+                msgEl.innerHTML = `
+                    <div class="text-slate-800 font-bold text-sm mb-2">Confirmar recebimento do <b>CONJUNTO ROTATIVO (FULL)</b>?</div>
+                    <div class="text-[11px] text-slate-600 bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-left space-y-1">
+                        <div>⚙️ <b>Baixa simultânea nas 4 peças:</b></div>
+                        <div class="font-semibold text-slate-700">• EIXO, ROTOR, CCE e REPAROS</div>
+                        <div class="text-green-700 font-bold mt-1">✓ Direcionadas diretamente para a MONTAGEM como Conjunto Novo.</div>
+                    </div>`;
+            } else {
+                msgEl.innerHTML = `Confirmar o recebimento de <b>"${partName.toUpperCase()}"</b> no almoxarifado?`;
+            }
+
             document.getElementById('modal-baixa-peca').classList.remove('hidden');
             document.getElementById('modal-baixa-peca').classList.add('flex');
         }
@@ -728,6 +1177,7 @@
             document.getElementById('modal-baixa-peca').classList.remove('flex');
             osParaBaixa = null;
             pecaParaBaixa = null;
+            isBaixaConjunto = false;
         }
 
         async function confirmarBaixaExecutar() {
@@ -736,15 +1186,114 @@
             const textoOriginal = btn.innerText;
             btn.innerText = "SALVANDO...";
             btn.disabled = true;
+
+            const coreParts = ["EIXO", "ROTOR", "CCE", "REPAROS"];
+            const isConjunto = isBaixaConjunto || pecaParaBaixa.toUpperCase().includes('CONJUNTO') || coreParts.includes(pecaParaBaixa.toUpperCase().trim());
+
             try {
-                const response = await fetch(API_SYNC, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ os_id: osParaBaixa, part_name: pecaParaBaixa.toUpperCase().trim(), availability: 'STOCK' })
-                });
-                if (response.ok) { fecharModalBaixa(); await carregarDados(); switchTab('pending'); }
-                else alert("Erro ao atualizar o status da peça.");
+                if (isConjunto) {
+                    // =========================================================================
+                    // ✅ BAIXA SIMULTÂNEA NAS 4 PEÇAS DO CONJUNTO ROTATIVO FULL
+                    // =========================================================================
+                    // 1. triage_parts: atualiza as 4 peças para STOCK e resolvido
+                    const triagePayload = coreParts.map(cp => ({
+                        service_order_id: osParaBaixa,
+                        part_name: cp,
+                        availability: 'STOCK',
+                        is_resolved: true,
+                        resolved_at: new Date().toISOString()
+                    }));
+                    await supabaseClient.from('triage_parts').upsert(triagePayload, { onConflict: 'service_order_id,part_name' });
+
+                    // 2. checklist_analysis_general: atualiza disponibilidade para STOCK
+                    await supabaseClient.from('checklist_analysis_general')
+                        .update({ availability: 'STOCK', is_resolved: true })
+                        .eq('service_order_id', osParaBaixa)
+                        .in('item_name', coreParts);
+
+                    // 3. component_tracking: todas as 4 peças vão para MONTAGEM como CONJUNTO NOVO
+                    const trackingPayload = coreParts.map(cp => ({
+                        service_order_id: osParaBaixa,
+                        component_name: cp,
+                        current_stage: 'MONTAGEM',
+                        current_sector: 'MONTAGEM',
+                        status: 'CONJUNTO NOVO',
+                        status_description: 'Conjunto Rotativo recebido da compra (Full). Encaminhado para a Montagem.',
+                        verdict_vendas: 'TROCAR CONJUNTO',
+                        last_update: new Date().toISOString()
+                    }));
+                    await supabaseClient.from('component_tracking').upsert(trackingPayload, { onConflict: 'service_order_id,component_name' });
+
+                    // 4. Registra histórico da OS
+                    await supabaseClient.from('history_events').insert({
+                        service_order_id: osParaBaixa,
+                        action: 'Baixa de Compra - Conjunto Rotativo Completo',
+                        details: 'Baixa efetuada em EIXO, ROTOR, CCE e REPAROS simultaneamente. Peças direcionadas para a MONTAGEM.',
+                        timestamp: new Date().toISOString()
+                    });
+
+                    // 5. Notifica webhook de cada peça para sincronização externa
+                    await Promise.all(coreParts.map(cp =>
+                        fetch(API_SYNC, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ os_id: osParaBaixa, part_name: cp, availability: 'STOCK' })
+                        }).catch(() => {})
+                    ));
+                } else {
+                    // =========================================================================
+                    // ✅ BAIXA DE PEÇA AVULSA
+                    // =========================================================================
+                    const pUpper = pecaParaBaixa.toUpperCase().trim();
+                    await supabaseClient.from('triage_parts').upsert({
+                        service_order_id: osParaBaixa,
+                        part_name: pUpper,
+                        availability: 'STOCK',
+                        is_resolved: true,
+                        resolved_at: new Date().toISOString()
+                    }, { onConflict: 'service_order_id,part_name' });
+
+                    await supabaseClient.from('checklist_analysis_general')
+                        .update({ availability: 'STOCK', is_resolved: true })
+                        .eq('service_order_id', osParaBaixa)
+                        .eq('item_name', pUpper);
+
+                    const compMap = {
+                        'CARCAÇA DE TURBINA (CT)': 'CT',
+                        'GEOMETRIA VARIÁVEL': 'GEOMETRIA',
+                        'CANOTE DA GEOMETRIA': 'CANOTE',
+                        'FLANGE DA GEOMETRIA': 'FLANGE'
+                    };
+                    const cName = compMap[pUpper] || pUpper;
+                    const stage = (cName === 'CT' || cName === 'CCO') ? 'DESMONTAGEM' : 'MONTAGEM';
+                    await supabaseClient.from('component_tracking').upsert({
+                        service_order_id: osParaBaixa,
+                        component_name: cName,
+                        current_stage: stage,
+                        current_sector: stage,
+                        status: 'ESTOQUE DISPONÍVEL',
+                        status_description: `Peça ${pUpper} recebida da compra.`,
+                        last_update: new Date().toISOString()
+                    }, { onConflict: 'service_order_id,component_name' });
+
+                    await supabaseClient.from('history_events').insert({
+                        service_order_id: osParaBaixa,
+                        action: 'Baixa de Peça Comprada',
+                        details: `Peça ${pUpper} recebida no almoxarifado.`,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    await fetch(API_SYNC, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ os_id: osParaBaixa, part_name: pUpper, availability: 'STOCK' })
+                    }).catch(() => {});
+                }
+
+                fecharModalBaixa();
+                await renderizarPendencias();
+                await atualizarContadores();
             } catch (e) {
-                alert("Falha de conexão.");
+                console.error("Erro ao executar baixa:", e);
+                alert("Erro ao atualizar o status da peça: " + (e.message || "Falha de conexão."));
             } finally {
                 btn.innerText = textoOriginal;
                 btn.disabled = false;
@@ -754,32 +1303,237 @@
         async function atualizarContadores() {
             const triageCount = allOrders.filter(o => o.status === 'Aguardando Triagem').length;
             const standbyCount = allOrders.filter(o => o.status === 'Standby').length;
+            const condenadasCount = allOrders.filter(o => o.tem_peca_condenada_producao || (o.status === 'Standby' && (o.blockage_reason || '').toLowerCase().includes('condenad'))).length;
             let pendingCount = 0;
             try {
                 const { data: pendingItems, error } = await supabaseClient
                     .from('triage_parts').select('*, service_orders(status)').eq('availability', 'ORDER');
                 if (!error && pendingItems) {
-                    const excl = ['Aguardando Análise Técnica', 'Aguardando Vendas Comercial', 'Aguardando Triagem', 'Standby', 'Concluída', 'Cancelada'];
-                    pendingCount = pendingItems.filter(i => i.service_orders && !excl.includes(i.service_orders.status)).length;
+                    const excl = ['Finalizado', 'Concluída', 'Cancelada'];
+                    const valid = pendingItems.filter(i => i.service_orders && !excl.includes(i.service_orders.status) && i.is_resolved !== true);
+                    const coreParts = ["EIXO", "ROTOR", "CCE", "REPAROS"];
+                    const osCore = new Set();
+                    let otherCount = 0;
+                    valid.forEach(it => {
+                        const p = (it.part_name || '').toUpperCase().trim();
+                        if (coreParts.includes(p)) {
+                            osCore.add(it.service_order_id);
+                        } else {
+                            otherCount++;
+                        }
+                    });
+                    pendingCount = osCore.size + otherCount;
                 }
             } catch (e) { }
             const el = (id) => document.getElementById(id);
             if (el('count-triage')) el('count-triage').innerText = `(${triageCount})`;
             if (el('count-pending')) el('count-pending').innerText = `(${pendingCount})`;
             if (el('count-side-triage')) el('count-side-triage').innerText = `(${triageCount})`;
+            if (el('count-side-condenadas')) el('count-side-condenadas').innerText = `(${condenadasCount})`;
             if (el('count-side-standby')) el('count-side-standby').innerText = `(${standbyCount})`;
+        }
+
+        // =========================================================================
+        // ✅ GESTÃO DE SOLICITAÇÃO DE PEÇAS PARA OS EM ANDAMENTO (TRIAGEM)
+        // =========================================================================
+        let activeOrdersList = [];
+        let osSolicitacaoSelecionada = null;
+
+        async function abrirModalSolicitarPecaProducao() {
+            const modal = document.getElementById('modal-solicitar-peca-producao');
+            if (!modal) return;
+            limparOsSelecionada();
+            document.getElementById('sol-peca-busca-os').value = '';
+            document.getElementById('sol-peca-obs').value = '';
+            document.getElementById('sol-peca-nome-select').value = 'CARCAÇA DE TURBINA (CT)';
+            document.getElementById('sol-peca-nome-custom').classList.add('hidden');
+            document.getElementById('sol-peca-nome-custom').value = '';
+            document.getElementById('sol-peca-erro').classList.add('hidden');
+            modal.classList.remove('hidden');
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('service_orders')
+                    .select('id, business_id, client, model, status')
+                    .not('status', 'in', '("Finalizado","Concluída","Cancelada")')
+                    .order('business_id', { ascending: true });
+                if (!error && data) {
+                    activeOrdersList = data;
+                }
+            } catch (e) {
+                console.warn("Erro ao buscar ordens ativas:", e);
+            }
+        }
+
+        function fecharModalSolicitarPecaProducao() {
+            const modal = document.getElementById('modal-solicitar-peca-producao');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function filtrarOsSolicitacao(termo) {
+            const dropdown = document.getElementById('sol-peca-os-dropdown');
+            const clean = (termo || '').toLowerCase().trim();
+            if (!clean) {
+                dropdown.classList.add('hidden');
+                return;
+            }
+            const filtradas = activeOrdersList.filter(o => 
+                (o.business_id || '').toLowerCase().includes(clean) || 
+                (o.client || '').toLowerCase().includes(clean) ||
+                (o.model || '').toLowerCase().includes(clean)
+            );
+            if (filtradas.length === 0) {
+                dropdown.innerHTML = '<div class="p-3 text-xs text-slate-400 italic text-center">Nenhuma OS em andamento encontrada</div>';
+                dropdown.classList.remove('hidden');
+                return;
+            }
+            dropdown.innerHTML = filtradas.slice(0, 10).map(o => `
+                <div onclick="selecionarOsSolicitacao('${o.id}', '${o.business_id}', '${(o.client || '').replace(/'/g, "\\'")}', '${(o.model || '').replace(/'/g, "\\'")}')" class="p-3 hover:bg-amber-50 cursor-pointer transition text-xs">
+                    <span class="font-black text-slate-800">${o.business_id}</span> - <span class="text-slate-600">${o.client}</span> <span class="text-[10px] text-slate-400">(${o.model || ''})</span>
+                    <span class="ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-[9px] font-bold text-slate-500">${o.status}</span>
+                </div>
+            `).join('');
+            dropdown.classList.remove('hidden');
+        }
+
+        function selecionarOsSolicitacao(id, business_id, client, model) {
+            osSolicitacaoSelecionada = { id, business_id, client, model };
+            document.getElementById('sol-peca-os-dropdown').classList.add('hidden');
+            document.getElementById('sol-peca-busca-os').value = '';
+            document.getElementById('sol-peca-os-texto').innerText = `${business_id} - ${client} (${model})`;
+            document.getElementById('sol-peca-os-selecionada').classList.remove('hidden');
+        }
+
+        function limparOsSelecionada() {
+            osSolicitacaoSelecionada = null;
+            document.getElementById('sol-peca-os-selecionada').classList.add('hidden');
+            document.getElementById('sol-peca-os-dropdown').classList.add('hidden');
+        }
+
+        function verificarOutraPeca(val) {
+            const custom = document.getElementById('sol-peca-nome-custom');
+            if (val === 'OUTRO') {
+                custom.classList.remove('hidden');
+                custom.focus();
+            } else {
+                custom.classList.add('hidden');
+                custom.value = '';
+            }
+        }
+
+        async function salvarSolicitacaoPecaProducao() {
+            const erroDiv = document.getElementById('sol-peca-erro');
+            erroDiv.classList.add('hidden');
+
+            if (!osSolicitacaoSelecionada) {
+                erroDiv.innerText = 'Selecione uma Ordem de Serviço em andamento.';
+                erroDiv.classList.remove('hidden');
+                return;
+            }
+
+            let partName = document.getElementById('sol-peca-nome-select').value;
+            if (partName === 'OUTRO') {
+                partName = document.getElementById('sol-peca-nome-custom').value.trim();
+                if (!partName) {
+                    erroDiv.innerText = 'Digite o nome da peça solicitada.';
+                    erroDiv.classList.remove('hidden');
+                    return;
+                }
+            }
+
+            const setor = document.getElementById('sol-peca-setor').value;
+            const disponibilidade = document.querySelector('input[name="sol-peca-disponibilidade"]:checked')?.value || 'ORDER';
+            const obs = document.getElementById('sol-peca-obs').value.trim();
+
+            const btn = document.getElementById('btn-confirmar-sol-peca');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Registrando...';
+
+            try {
+                const pUpper = partName.toUpperCase().trim();
+                const now = new Date().toISOString();
+
+                // 1. Grava no triage_parts
+                await supabaseClient.from('triage_parts').upsert({
+                    service_order_id: osSolicitacaoSelecionada.id,
+                    part_name: pUpper,
+                    availability: disponibilidade,
+                    is_resolved: (disponibilidade === 'STOCK'),
+                    resolved_at: (disponibilidade === 'STOCK' ? now : null)
+                }, { onConflict: 'service_order_id,part_name' });
+
+                // 2. Grava evento no history_events
+                await supabaseClient.from('history_events').insert({
+                    service_order_id: osSolicitacaoSelecionada.id,
+                    action: 'Solicitação de Peça em Produção (Triagem)',
+                    details: `[SOLICITAÇÃO DE PEÇA EM PRODUÇÃO] Peça: "${pUpper}". Ação Triagem: "${disponibilidade === 'STOCK' ? 'Retirada do Estoque' : 'Pedido de Compra'}". Setor Solicitante: "${setor}". Observações: "${obs}".`,
+                    description: `Solicitação aberta na Triagem para a OS em andamento.`,
+                    timestamp: now
+                });
+
+                // 3. Atualiza component_tracking
+                const isPrincipalPeca = ["CT", "CCO", "CCE", "EIXO", "ROTOR", "REPAROS"].includes(pUpper);
+                const targetStageSol = disponibilidade === 'ORDER' ? 'COMPRA' : (!isPrincipalPeca ? 'MONTAGEM' : setor);
+                const targetSectorSol = disponibilidade === 'ORDER' ? 'COMPRA' : (!isPrincipalPeca ? 'MONTAGEM' : setor);
+
+                await supabaseClient.from('component_tracking').upsert({
+                    service_order_id: osSolicitacaoSelecionada.id,
+                    component_name: pUpper,
+                    current_stage: targetStageSol,
+                    current_sector: targetSectorSol,
+                    status: disponibilidade === 'STOCK' ? 'ESTOQUE DISPONÍVEL' : 'AGUARDANDO_COMPRA',
+                    status_description: `Solicitação de peça em produção pelo setor ${setor}: ${obs || 'Sem observações'}`,
+                    last_update: now
+                });
+
+                fecharModalSolicitarPecaProducao();
+                alert(`Solicitação para a peça ${pUpper} registrada com sucesso!`);
+                await carregarDados();
+                if (activeTab === 'pending') {
+                    await renderizarPendencias();
+                }
+            } catch (err) {
+                console.error("Erro ao salvar solicitação de peça:", err);
+                erroDiv.innerText = 'Erro ao salvar no banco: ' + (err.message || err);
+                erroDiv.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Abrir Solicitação';
+            }
         }
 
         function coletarDadosDasPecas() {
             const pecasEstado = [];
             let temFaltante = false;
+            const coreParts = ["EIXO", "ROTOR", "CCE", "REPAROS"];
+            let conjuntoAvailability = null;
+
             document.querySelectorAll('#lista-pecas > div[data-name]').forEach(div => {
                 const idItem = div.getAttribute('data-id');
                 const name = div.getAttribute('data-name');
                 const isOrder = div.querySelector('.btn-toggle-order').classList.contains('active');
                 if (isOrder) temFaltante = true;
-                pecasEstado.push({ id: idItem, name: name, availability: isOrder ? 'ORDER' : 'STOCK' });
+                const avail = isOrder ? 'ORDER' : 'STOCK';
+                if (coreParts.includes(name)) {
+                    if (isOrder) conjuntoAvailability = 'ORDER';
+                    else if (!conjuntoAvailability) conjuntoAvailability = 'STOCK';
+                }
+                pecasEstado.push({ id: idItem, name: name, availability: avail });
             });
+
+            // Se for troca de conjunto, assegura que todas as 4 peças estejam com o mesmo estado
+            if (window.currentIsTrocaConjunto && conjuntoAvailability) {
+                coreParts.forEach(cp => {
+                    const idx = pecasEstado.findIndex(p => p.name === cp);
+                    if (idx >= 0) {
+                        pecasEstado[idx].availability = conjuntoAvailability;
+                    } else {
+                        pecasEstado.push({ id: 'conjunto-' + cp, name: cp, availability: conjuntoAvailability });
+                    }
+                });
+                if (conjuntoAvailability === 'ORDER') temFaltante = true;
+            }
+
             return { pecasEstado, temFaltante };
         }
 
@@ -803,35 +1557,116 @@
             }
 
             try {
-                // Grava a marcação diretamente no Supabase antes de rodar o webhook
+                const serialNum = (document.getElementById('input-serial-number')?.value || '').trim().toUpperCase();
+                const targetStatus = statusFinalOverride || 'Aguardando Desmontagem OS';
+
+                const updatePayload = { 
+                    identificacao_e_marcacao_code: code,
+                    identificacao_e_marcacao_type: type,
+                    status: targetStatus
+                };
+                if (serialNum) {
+                    updatePayload.serial_number = serialNum;
+                }
+
+                // Grava marcação e serial diretamente no Supabase antes de rodar o webhook
                 const { error: updateError } = await supabaseClient
                     .from('service_orders')
-                    .update({ 
-                        identificacao_e_marcacao_code: code,
-                        identificacao_e_marcacao_type: type 
-                    })
+                    .update(updatePayload)
                     .eq('id', osId);
 
                 if (updateError) throw updateError;
 
-                // Registra o evento de marcação no histórico
+                // Registra o evento de marcação e número de série no histórico
                 await supabaseClient.from('history_events').insert({
                     service_order_id: osId,
-                    action: 'Identificação Gravada',
-                    details: `Identificação e marcação registradas na triagem: ${type} [ ${code} ]`,
+                    action: 'Identificação e Série Gravados',
+                    details: `Marcação: ${type} [ ${code} ]${serialNum ? ' | Nº Série: ' + serialNum : ''}`,
                     timestamp: new Date().toISOString()
                 });
 
+                // ✅ Grava disponibilidade de peças diretamente no Supabase (triage_parts e checklist)
+                const triageItems = pecasEstado.map(p => ({
+                    service_order_id: osId,
+                    part_name: p.name,
+                    availability: p.availability,
+                    is_resolved: p.availability === 'STOCK',
+                    resolved_at: p.availability === 'STOCK' ? new Date().toISOString() : null
+                }));
+                await supabaseClient.from('triage_parts').upsert(triageItems, { onConflict: 'service_order_id,part_name' });
+
+                for (const p of pecasEstado) {
+                    await supabaseClient.from('checklist_analysis_general')
+                        .update({ availability: p.availability, is_resolved: p.availability === 'STOCK' })
+                        .eq('service_order_id', osId)
+                        .eq('item_name', p.name);
+                }
+
+                // Atualiza component_tracking para todas as peças da triagem
+                const coreParts = ["EIXO", "ROTOR", "CCE", "REPAROS"];
+                const principalSix = ["CT", "CCO", "CCE", "EIXO", "ROTOR", "REPAROS"];
+                const compMap = {
+                    'CARCAÇA DE TURBINA (CT)': 'CT',
+                    'GEOMETRIA VARIÁVEL': 'GEOMETRIA',
+                    'CANOTE DA GEOMETRIA': 'CANOTE',
+                    'FLANGE DA GEOMETRIA': 'FLANGE'
+                };
+
+                // 1. Trata Conjunto Rotativo Completo se for o caso
+                if (window.currentIsTrocaConjunto) {
+                    const isOrder = pecasEstado.some(p => coreParts.includes(p.name) && p.availability === 'ORDER');
+                    await supabaseClient.from('component_tracking').upsert(coreParts.map(cp => ({
+                        service_order_id: osId,
+                        component_name: cp,
+                        current_stage: isOrder ? 'COMPRA' : 'MONTAGEM',
+                        current_sector: isOrder ? 'COMPRA' : 'MONTAGEM',
+                        status: isOrder ? 'AGUARDANDO_COMPRA' : 'CONJUNTO NOVO',
+                        status_description: isOrder 
+                            ? 'Aguardando compra do Conjunto Rotativo Completo' 
+                            : 'Conjunto Rotativo Completo retirado do estoque. Pronto para montagem.',
+                        verdict_vendas: 'TROCAR CONJUNTO',
+                        last_update: new Date().toISOString()
+                    })), { onConflict: 'service_order_id,component_name' });
+                }
+
+                // 2. Trata itens adicionais (Canote, Flange, Atuador, Geometria, etc.)
+                // Regra: toda vez que for trocar item adicional, se estiver em estoque (STOCK) vai DIRETO para a MONTAGEM (não passa pela produção)
+                for (const p of pecasEstado) {
+                    const cName = compMap[p.name] || p.name;
+                    if (window.currentIsTrocaConjunto && coreParts.includes(cName)) continue;
+
+                    const isPrincipal = principalSix.includes(cName);
+                    if (!isPrincipal) {
+                        const isOrder = (p.availability === 'ORDER');
+                        await supabaseClient.from('component_tracking').upsert({
+                            service_order_id: osId,
+                            component_name: cName,
+                            current_stage: isOrder ? 'COMPRA' : 'MONTAGEM',
+                            current_sector: isOrder ? 'COMPRA' : 'MONTAGEM',
+                            status: isOrder ? 'AGUARDANDO_COMPRA' : 'ESTOQUE DISPONÍVEL',
+                            status_description: isOrder
+                                ? `Aguardando compra da peça adicional ${p.name}`
+                                : `Peça adicional ${p.name} em estoque. Liberada diretamente para a Montagem.`,
+                            last_update: new Date().toISOString()
+                        }, { onConflict: 'service_order_id,component_name' });
+                    }
+                }
+
                 const payload = {
                     os_id: osId,
-                    status: statusFinalOverride || 'Aguardando Desmontagem OS',
+                    status: targetStatus,
+                    serial_number: serialNum,
                     observations: document.getElementById('obs-triagem').value,
                     items_availability: pecasEstado,
                     user_id: FALLBACK_USER
                 };
 
-                const res = await fetch(API_POST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (res.ok) location.reload();
+                try {
+                    await fetch(API_POST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                } catch (wErr) {
+                    console.warn("Webhook save-triage avisado com falha:", wErr);
+                }
+                location.reload();
             } catch (err) { 
                 console.error("Erro ao salvar triagem:", err);
                 alert("Erro ao salvar triagem."); 
@@ -942,6 +1777,89 @@
             }
         }
 
+        // Mapeamento de Ano e Mês para Número de Série TurboSul
+        // Ano: 2026 = 'H' (2025 = 'G', 2027 = 'J'...)
+        // Mês: 1=A, 2=B, 3=C, 4=D, 5=E, 6=F, 7=G, 8=H, 9=J, 10=L, 11=M, 12=N (Ex: Out/2026 = HL001)
+        const SERIAL_YEAR_MAP = {
+            2024: 'F',
+            2025: 'G',
+            2026: 'H',
+            2027: 'J',
+            2028: 'K',
+            2029: 'L',
+            2030: 'M'
+        };
+
+        const SERIAL_MONTH_MAP = {
+            1: 'A',  // Jan
+            2: 'B',  // Fev
+            3: 'C',  // Mar
+            4: 'D',  // Abr
+            5: 'E',  // Mai
+            6: 'F',  // Jun
+            7: 'G',  // Jul
+            8: 'H',  // Ago
+            9: 'J',  // Set
+            10: 'L', // Outubro (Ex: HL001)
+            11: 'M', // Nov
+            12: 'N'  // Dez
+        };
+
+        async function gerarNumeroSerieAutomatico(force = false) {
+            if (!selecionada) return;
+            const inputSerial = document.getElementById('input-serial-number');
+            if (!inputSerial) return;
+
+            // Se já tem no banco e não estamos forçando regerar
+            if (selecionada.serial_number && !force) {
+                inputSerial.value = selecionada.serial_number;
+                return;
+            }
+
+            inputSerial.value = 'Gerando...';
+            inputSerial.classList.add('animate-pulse');
+
+            try {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = now.getMonth() + 1; // 1 a 12
+
+                const yearLetter = SERIAL_YEAR_MAP[year] || 'H';
+                const monthLetter = SERIAL_MONTH_MAP[month] || 'L';
+                const prefix = `${yearLetter}${monthLetter}`; // Ex: "HL" para Outubro/2026
+
+                // Busca as ordens de serviço já criadas com este prefixo no Supabase
+                const { data, error } = await supabaseClient
+                    .from('service_orders')
+                    .select('serial_number')
+                    .ilike('serial_number', `${prefix}%`)
+                    .order('serial_number', { ascending: false })
+                    .limit(20);
+
+                let nextNumber = 1;
+                if (!error && data && data.length > 0) {
+                    for (const item of data) {
+                        const s = (item.serial_number || '').trim().toUpperCase();
+                        if (s.startsWith(prefix)) {
+                            const digits = s.substring(prefix.length);
+                            const numPart = parseInt(digits, 10);
+                            if (!isNaN(numPart) && numPart >= nextNumber) {
+                                nextNumber = numPart + 1;
+                            }
+                        }
+                    }
+                }
+
+                const nextSerial = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+                inputSerial.value = nextSerial;
+            } catch (err) {
+                console.error("Erro ao gerar número de série:", err);
+                inputSerial.value = 'HL001';
+            } finally {
+                inputSerial.classList.remove('animate-pulse');
+            }
+        }
+
         async function colocarEmStandby() {
             if (!selecionada) return;
             const { pecasEstado } = coletarDadosDasPecas();
@@ -1046,9 +1964,14 @@
         async function sincronizarPeca(btn, partName, availability) {
             const coreParts = ["EIXO", "ROTOR", "CCE", "REPAROS"];
             const pName = partName.toUpperCase().trim();
+            const osId = (selecionada && (selecionada._supabaseId || selecionada.id));
+            if (!osId) {
+                alert("Nenhuma OS selecionada.");
+                return;
+            }
 
             if (window.currentIsTrocaConjunto && coreParts.includes(pName)) {
-                // Sincroniza todas as 4 peças do Conjunto Rotativo simultaneamente
+                // 1. Sincroniza visualmente as 4 peças do Conjunto Rotativo simultaneamente
                 coreParts.forEach(cp => {
                     const div = document.querySelector(`div[data-name="${cp}"]`);
                     if (div) {
@@ -1062,33 +1985,131 @@
                 });
 
                 try {
-                    const osId = selecionada._supabaseId || selecionada.id;
-                    const requests = coreParts.map(cp => 
+                    // 2. triage_parts: Grava diretamente para as 4 peças
+                    const triagePayload = coreParts.map(cp => ({
+                        service_order_id: osId,
+                        part_name: cp,
+                        availability: availability,
+                        is_resolved: availability === 'STOCK',
+                        resolved_at: availability === 'STOCK' ? new Date().toISOString() : null
+                    }));
+                    await supabaseClient.from('triage_parts').upsert(triagePayload, { onConflict: 'service_order_id,part_name' });
+
+                    // 3. checklist_analysis_general: Atualiza disponibilidade das 4 peças
+                    await supabaseClient.from('checklist_analysis_general')
+                        .update({ 
+                            availability: availability, 
+                            is_resolved: availability === 'STOCK',
+                            decisao_vendas: 'TROCAR CONJUNTO'
+                        })
+                        .eq('service_order_id', osId)
+                        .in('item_name', coreParts);
+
+                    // 4. component_tracking: Rastreio das 4 peças
+                    if (availability === 'ORDER') {
+                        const trackingOrder = coreParts.map(cp => ({
+                            service_order_id: osId,
+                            component_name: cp,
+                            current_stage: 'COMPRA',
+                            current_sector: 'COMPRA',
+                            status: 'AGUARDANDO_COMPRA',
+                            status_description: 'Aguardando compra do Conjunto Rotativo Completo',
+                            verdict_vendas: 'TROCAR CONJUNTO',
+                            last_update: new Date().toISOString()
+                        }));
+                        await supabaseClient.from('component_tracking').upsert(trackingOrder, { onConflict: 'service_order_id,component_name' });
+                    } else {
+                        const trackingStock = coreParts.map(cp => ({
+                            service_order_id: osId,
+                            component_name: cp,
+                            current_stage: 'MONTAGEM',
+                            current_sector: 'MONTAGEM',
+                            status: 'CONJUNTO NOVO',
+                            status_description: 'Conjunto Rotativo Completo retirado do estoque. Pronto para montagem.',
+                            verdict_vendas: 'TROCAR CONJUNTO',
+                            last_update: new Date().toISOString()
+                        }));
+                        await supabaseClient.from('component_tracking').upsert(trackingStock, { onConflict: 'service_order_id,component_name' });
+                    }
+
+                    // 5. Notifica webhook externo (API_SYNC) para compatibilidade
+                    await Promise.all(coreParts.map(cp => 
                         fetch(API_SYNC, {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ os_id: osId, part_name: cp, availability: availability })
-                        })
-                    );
-                    await Promise.all(requests);
+                        }).catch(() => {})
+                    ));
+
+                    await atualizarContadores();
                 } catch (e) {
+                    console.error("Erro ao sincronizar Conjunto Rotativo:", e);
                     alert("❌ Erro ao salvar disponibilidade do Conjunto Rotativo.");
                 }
                 return;
             }
 
-            // Fluxo normal para outras peças
+            // Fluxo normal para outras peças avulsas
             const parent = btn.parentElement;
             const prevActive = parent.querySelector('button.active');
             parent.querySelectorAll('button').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+
             try {
-                const osId = selecionada._supabaseId || selecionada.id;
-                const response = await fetch(API_SYNC, {
+                // A) triage_parts
+                await supabaseClient.from('triage_parts').upsert({
+                    service_order_id: osId,
+                    part_name: pName,
+                    availability: availability,
+                    is_resolved: availability === 'STOCK',
+                    resolved_at: availability === 'STOCK' ? new Date().toISOString() : null
+                }, { onConflict: 'service_order_id,part_name' });
+
+                // B) checklist_analysis_general
+                await supabaseClient.from('checklist_analysis_general')
+                    .update({ availability: availability, is_resolved: availability === 'STOCK' })
+                    .eq('service_order_id', osId)
+                    .eq('item_name', pName);
+
+                // C) component_tracking
+                const compMap = {
+                    'CARCAÇA DE TURBINA (CT)': 'CT',
+                    'GEOMETRIA VARIÁVEL': 'GEOMETRIA',
+                    'CANOTE DA GEOMETRIA': 'CANOTE',
+                    'FLANGE DA GEOMETRIA': 'FLANGE'
+                };
+                const compName = compMap[pName] || pName;
+                if (availability === 'ORDER') {
+                    await supabaseClient.from('component_tracking').upsert({
+                        service_order_id: osId,
+                        component_name: compName,
+                        current_stage: 'COMPRA',
+                        current_sector: 'COMPRA',
+                        status: 'AGUARDANDO_COMPRA',
+                        status_description: `Peça ${pName} em processo de compra`,
+                        last_update: new Date().toISOString()
+                    }, { onConflict: 'service_order_id,component_name' });
+                } else {
+                    const stage = (compName === 'CT' || compName === 'CCO') ? 'DESMONTAGEM' : 'MONTAGEM';
+                    await supabaseClient.from('component_tracking').upsert({
+                        service_order_id: osId,
+                        component_name: compName,
+                        current_stage: stage,
+                        current_sector: stage,
+                        status: 'ESTOQUE DISPONÍVEL',
+                        status_description: `Peça ${pName} retirada do estoque`,
+                        last_update: new Date().toISOString()
+                    }, { onConflict: 'service_order_id,component_name' });
+                }
+
+                // D) Webhook
+                await fetch(API_SYNC, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ os_id: osId, part_name: pName, availability: availability })
-                });
-                if (!response.ok) throw new Error("Erro no servidor");
+                }).catch(() => {});
+
+                await atualizarContadores();
             } catch (e) {
+                console.error("Erro ao salvar disponibilidade:", e);
                 alert("❌ Erro ao salvar disponibilidade.");
                 btn.classList.remove('active');
                 if (prevActive) prevActive.classList.add('active');

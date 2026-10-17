@@ -8,6 +8,7 @@ const ROLE_REDIRECTS = {
     'TRIAGEM': './triagem.html',
     'DESMONTAGEM': './desmontagem.html',
     'RETIFICA': './retifica.html',
+    'RETÍFICA': './retifica.html',
     'SOLDA': './solda.html',
     'METROLOGIA': './metrologia.html',
     'BANCADA': './bancada.html',
@@ -15,8 +16,10 @@ const ROLE_REDIRECTS = {
     'MONTAGEM': './montagem.html',
     'CONTROLE-QUALIDADE': './qualidade.html',
     'EXPEDICAO': './expedicao.html',
+    'EXPEDIÇÃO': './expedicao.html',
     'ADMINISTRADOR': './admin.html',
-    'QUADRO-PRODUCAO': './quadro-producao.html'
+    'QUADRO-PRODUCAO': './quadro-producao.html',
+    'QUADRO-PRODUÇÃO': './quadro-producao.html'
 };
 
 // Permissões de páginas por role do usuário
@@ -26,16 +29,16 @@ const PAGE_ALLOWED_ROLES = {
     'comercial.html': ['VENDAS', 'ADMINISTRADOR'],
     'triagem.html': ['TRIAGEM', 'ADMINISTRADOR'],
     'desmontagem.html': ['DESMONTAGEM', 'ADMINISTRADOR'],
-    'retifica.html': ['RETIFICA', 'ADMINISTRADOR'],
+    'retifica.html': ['RETIFICA', 'RETÍFICA', 'ADMINISTRADOR'],
     'solda.html': ['SOLDA', 'ADMINISTRADOR'],
     'metrologia.html': ['METROLOGIA', 'ADMINISTRADOR'],
     'bancada.html': ['BANCADA', 'ADMINISTRADOR'],
     'balanceamento.html': ['BALANCEAMENTO', 'ADMINISTRADOR'],
     'montagem.html': ['MONTAGEM', 'ADMINISTRADOR'],
     'qualidade.html': ['CONTROLE-QUALIDADE', 'ADMINISTRADOR'],
-    'expedicao.html': ['EXPEDICAO', 'ADMINISTRADOR'],
+    'expedicao.html': ['EXPEDICAO', 'EXPEDIÇÃO', 'ADMINISTRADOR'],
     'admin.html': ['ADMINISTRADOR'],
-    'quadro-producao.html': ['QUADRO-PRODUCAO', 'ADMINISTRADOR']
+    'quadro-producao.html': ['QUADRO-PRODUCAO', 'QUADRO-PRODUÇÃO', 'ADMINISTRADOR']
 };
 
 function initLoginForm() {
@@ -45,28 +48,45 @@ function initLoginForm() {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        let email = document.getElementById('login-email').value.trim();
+        let inputLogin = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
         const btn = document.getElementById('btn-submit-login');
-
-        // Se o usuário não digitou um e-mail com @, vamos considerar que ele digitou apenas o nome de usuário (ex: 'joao')
-        if (!email.includes('@')) {
-            email = email + '@turbosul.local';
-        }
 
         btn.disabled = true;
         btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Autenticando...`;
 
         try {
-            // 1. Tenta autenticar o usuário
+            // 1. Identifica o email cadastrado em public.profiles procurando por username OU email
+            let authEmail = inputLogin;
+            try {
+                const { data: profile } = await supabaseClient
+                    .from('profiles')
+                    .select('email, username')
+                    .or(`username.ilike.${inputLogin},email.ilike.${inputLogin}`)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (profile && profile.email) {
+                    authEmail = profile.email;
+                } else if (!authEmail.includes('@')) {
+                    authEmail = authEmail + '@turbosul.local';
+                }
+            } catch (pErr) {
+                console.warn("Falha no lookup de perfil, tentando login direto:", pErr);
+                if (!authEmail.includes('@')) {
+                    authEmail = authEmail + '@turbosul.local';
+                }
+            }
+
+            // 2. Tenta autenticar o usuário
             const { data, error } = await supabaseClient.auth.signInWithPassword({
-                email: email,
+                email: authEmail,
                 password: password
             });
 
             if (error) {
-                if (typeof showToast === 'function') showToast(error.message, 'error');
-                else alert(error.message);
+                if (typeof showToast === 'function') showToast("Usuário ou senha inválidos.", 'error');
+                else alert("Erro ao autenticar: Usuário ou senha inválidos.");
                 
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fa-solid fa-right-to-bracket mr-2"></i> Conectar Estação`;
@@ -103,6 +123,13 @@ function initLoginForm() {
                 } else if (role) {
                     userRoles = [String(role).toUpperCase()];
                 }
+
+                // Normaliza acentos
+                const normSetLogin = new Set(userRoles);
+                userRoles.forEach(r => {
+                    normSetLogin.add(r.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+                });
+                userRoles = Array.from(normSetLogin);
 
                 // 3. REDIRECIONAMENTO DINÂMICO LOCAL
                 if (userRoles.length > 1) {
@@ -174,8 +201,8 @@ window.cancelSectorSelection = async function() {
 };
 
 async function checkAuthAndProtect() {
-    // Descobre qual página o usuário está acessando
-    let currentPage = window.location.pathname.split('/').pop();
+    // Descobre qual página o usuário está acessando (removendo queries e hashes)
+    let currentPage = window.location.pathname.split('/').pop().split('?')[0].split('#')[0];
     if (!currentPage) currentPage = 'index.html';
 
     // Lista de páginas que NÃO exigem login
@@ -234,6 +261,21 @@ async function checkAuthAndProtect() {
                 userRoles = role.map(r => r.toUpperCase());
             } else if (role) {
                 userRoles = [String(role).toUpperCase()];
+            }
+
+            // Normaliza acentos
+            const normSetCheck = new Set(userRoles);
+            userRoles.forEach(r => {
+                normSetCheck.add(r.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+            });
+            userRoles = Array.from(normSetCheck);
+
+            // Garante equivalência entre ADMIN e ADMINISTRADOR
+            if (userRoles.includes('ADMIN') && !userRoles.includes('ADMINISTRADOR')) {
+                userRoles.push('ADMINISTRADOR');
+            }
+            if (userRoles.includes('ADMINISTRADOR') && !userRoles.includes('ADMIN')) {
+                userRoles.push('ADMIN');
             }
 
             // Valida se a role do usuário tem permissão para a página atual
@@ -311,6 +353,7 @@ function setupLogoutButtons() {
 document.addEventListener('DOMContentLoaded', () => {
     initLoginForm();
     setupLogoutButtons();
+    checkAndShowRedirectErrors();
 });
 
 // Executa a proteção de rotas IMEDIATAMENTE (assim que o script é carregado)

@@ -69,15 +69,78 @@
 <body class="flex flex-col h-screen overflow-hidden">
 
     <!-- HEADER -->
-    <header class="bg-white border-b px-8 py-4 flex items-center justify-between z-50 shadow-sm h-[80px]">
-        <div class="flex items-center space-x-4">
-            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="Logo TurboSul" class="h-10">
+    <header class="bg-white border-b px-6 py-3 flex items-center justify-between z-50 shadow-sm h-[80px] gap-4">
+        <div class="flex items-center space-x-3 shrink-0">
+            <img src="https://i.postimg.cc/Jh5Jvrc9/IMG-7901.png" alt="Logo TurboSul" class="h-9">
             <div>
-                <h1 class="text-slate-800 font-black text-xl leading-tight uppercase tracking-tight">Quadro de Produção</h1>
-                <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Kanban Geral - Status das OSs</p>
+                <h1 class="text-slate-800 font-black text-lg leading-tight uppercase tracking-tight">Quadro de Produção</h1>
+                <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Kanban Geral - Status das OSs</p>
             </div>
         </div>
-        <button onclick="window.history.back()" class="bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold py-2 px-6 rounded-lg uppercase text-xs tracking-widest transition">Voltar</button>
+
+        <!-- BARRA CENTRAL: CAMPO DE BUSCA + TOGGLE PRODUÇÃO REAL / STANDBY -->
+        <div class="flex items-center gap-3 flex-1 max-w-2xl justify-center">
+            <!-- CAMPO DE BUSCA -->
+            <div class="relative w-64 sm:w-72">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                <input 
+                    type="text" 
+                    id="search-input" 
+                    placeholder="Buscar OS, cliente ou modelo..." 
+                    autocomplete="off"
+                    class="w-full pl-8 pr-8 py-2 bg-slate-100 hover:bg-slate-50 focus:bg-white text-xs font-bold text-slate-800 placeholder-slate-400 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner"
+                >
+                <button 
+                    id="btn-clear-search" 
+                    onclick="limparBusca()" 
+                    class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs transition"
+                    title="Limpar busca"
+                >
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </button>
+            </div>
+
+            <!-- TOGGLE MODOS: PRODUÇÃO REAL / STANDBY / TODAS -->
+            <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold shrink-0">
+                <button 
+                    id="btn-filter-production" 
+                    onclick="setViewMode('production')" 
+                    class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-bold"
+                    title="Mostra apenas OSs em produção real (oculta Standby)"
+                >
+                    <i class="fa-solid fa-fire text-amber-500"></i>
+                    <span>Produção Real</span>
+                    <span id="badge-count-production" class="text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-black">0</span>
+                </button>
+                <button 
+                    id="btn-filter-standby" 
+                    onclick="setViewMode('standby')" 
+                    class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-bold"
+                    title="Mostra apenas OSs em Standby ou aguardando casco"
+                >
+                    <i class="fa-solid fa-pause text-amber-600"></i>
+                    <span>Standby</span>
+                    <span id="badge-count-standby" class="text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-black">0</span>
+                </button>
+                <button 
+                    id="btn-filter-all" 
+                    onclick="setViewMode('all')" 
+                    class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-bold"
+                    title="Mostra todas as ordens de serviço"
+                >
+                    <i class="fa-solid fa-layer-group text-blue-500"></i>
+                    <span>Todas</span>
+                    <span id="badge-count-all" class="text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-black">0</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2 shrink-0">
+            <button onclick="loadOrders()" title="Recarregar quadro" class="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition">
+                <i class="fa-solid fa-arrows-rotate text-sm"></i>
+            </button>
+            <button onclick="window.history.back()" class="bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold py-2 px-5 rounded-lg uppercase text-xs tracking-widest transition">Voltar</button>
+        </div>
     </header>
 
     <!-- BOARD -->
@@ -124,22 +187,98 @@
     <script src="js/supabase.js"></script> <!-- usa client exportado globalmente como supabaseClient se possivel -->
     <script>
         const COLUMNS = [
-            { id: 'pre_vendas', title: 'Pré-Vendas', statuses: ['Aguardando Desmontagem OS'] },
-            { id: 'analise', title: 'Análise Técnica', statuses: ['Aguardando Análise Técnica'] },
-            { id: 'vendas', title: 'Vendas Comercial', statuses: ['Aguardando Vendas Comercial'] },
+            { id: 'pre_vendas', title: 'Pré-Vendas', statuses: ['Aguardando Entrada', 'Pré-Venda'] },
+            { id: 'analise', title: 'Análise Técnica', statuses: ['Aguardando Análise Técnica', 'Em Análise Técnica', 'Standby / Aguardando Casco'] },
+            { id: 'vendas', title: 'Vendas Comercial', statuses: ['Aguardando Aprovação Comercial', 'Aguardando Vendas Comercial', 'Aguardando Venda'] },
             { id: 'triagem', title: 'Triagem / Standby', statuses: ['Aguardando Triagem', 'Standby'] },
-            { id: 'producao', title: 'Em Produção', statuses: ['Em Produção'] },
-            { id: 'qualidade', title: 'Qualidade', statuses: ['Controle de Qualidade', 'Aguardando Qualidade'] },
-            { id: 'expedicao', title: 'Expedição', statuses: ['Aguardando Expedição'] },
-            { id: 'concluida', title: 'Concluídas', statuses: ['Concluída', 'concluida'] }
+            { id: 'producao', title: 'Em Produção', statuses: ['Aguardando Desmontagem OS', 'Em Desmontagem Operacional', 'Em Produção', 'Aguardando Reparos Oficina', 'Em Metrologia', 'Em Solda', 'Em Bancada', 'Em Montagem', 'Aguardando Balanceamento'] },
+            { id: 'qualidade', title: 'Qualidade', statuses: ['Aguardando Controle de Qualidade', 'Controle de Qualidade', 'Aguardando Qualidade'] },
+            { id: 'expedicao', title: 'Expedição', statuses: ['Pronto para Entrega', 'Aguardando Expedição', 'Expedição', 'Standby - Aguardando Nota Fiscal', 'Standby - Aguardando NF'] },
+            { id: 'concluida', title: 'Concluídas', statuses: ['Finalizado', 'Finalizada', 'Concluída', 'concluida'] }
         ];
 
         let allOrders = [];
+        let currentSearchTerm = '';
+        let currentViewMode = 'production'; // 'production', 'standby' ou 'all'
 
         document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const savedMode = localStorage.getItem('quadro_view_mode');
+                if (savedMode && ['production', 'standby', 'all'].includes(savedMode)) {
+                    currentViewMode = savedMode;
+                }
+            } catch (e) {}
+
             renderColumns();
+            updateViewModeButtonsUI();
+            setupSearchListener();
             await loadOrders();
         });
+
+        function setupSearchListener() {
+            const input = document.getElementById('search-input');
+            const btnClear = document.getElementById('btn-clear-search');
+            if (input) {
+                input.addEventListener('input', (e) => {
+                    currentSearchTerm = e.target.value;
+                    if (btnClear) {
+                        if (currentSearchTerm.trim().length > 0) {
+                            btnClear.classList.remove('hidden');
+                        } else {
+                            btnClear.classList.add('hidden');
+                        }
+                    }
+                    distributeOrders();
+                });
+            }
+        }
+
+        function limparBusca() {
+            const input = document.getElementById('search-input');
+            const btnClear = document.getElementById('btn-clear-search');
+            if (input) {
+                input.value = '';
+                currentSearchTerm = '';
+                if (btnClear) btnClear.classList.add('hidden');
+                input.focus();
+                distributeOrders();
+            }
+        }
+
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            try { localStorage.setItem('quadro_view_mode', mode); } catch (e) {}
+            updateViewModeButtonsUI();
+            distributeOrders();
+        }
+
+        function updateViewModeButtonsUI() {
+            const btnProd = document.getElementById('btn-filter-production');
+            const btnStandby = document.getElementById('btn-filter-standby');
+            const btnAll = document.getElementById('btn-filter-all');
+
+            const inactiveClass = "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-bold hover:bg-slate-200/60";
+            const activeClassProd = "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 bg-blue-600 text-white shadow-sm font-black";
+            const activeClassStandby = "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 bg-amber-500 text-white shadow-sm font-black";
+            const activeClassAll = "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 bg-slate-800 text-white shadow-sm font-black";
+
+            if (btnProd) btnProd.className = currentViewMode === 'production' ? activeClassProd : inactiveClass;
+            if (btnStandby) btnStandby.className = currentViewMode === 'standby' ? activeClassStandby : inactiveClass;
+            if (btnAll) btnAll.className = currentViewMode === 'all' ? activeClassAll : inactiveClass;
+
+            const badgeProd = document.getElementById('badge-count-production');
+            const badgeStandby = document.getElementById('badge-count-standby');
+            const badgeAll = document.getElementById('badge-count-all');
+            if (badgeProd) badgeProd.className = currentViewMode === 'production' ? 'text-[10px] px-1.5 py-0.2 bg-blue-700 text-white rounded-full font-black' : 'text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-black';
+            if (badgeStandby) badgeStandby.className = currentViewMode === 'standby' ? 'text-[10px] px-1.5 py-0.2 bg-amber-600 text-white rounded-full font-black' : 'text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-black';
+            if (badgeAll) badgeAll.className = currentViewMode === 'all' ? 'text-[10px] px-1.5 py-0.2 bg-slate-900 text-white rounded-full font-black' : 'text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-black';
+        }
+
+        function isOrderInStandby(o) {
+            const status = (o.status || '').toLowerCase().trim();
+            const tradeIn = (o.trade_in_option || '').toLowerCase().trim();
+            return status.includes('standby') || status.includes('casco') || tradeIn === 'standby';
+        }
 
         function renderColumns() {
             const board = document.getElementById('kanban-board');
@@ -161,7 +300,7 @@
                 // Para carregar todas as OSs ativas, pegamos as mais recentes
                 const { data, error } = await supabaseClient
                     .from('service_orders')
-                    .select('id, business_id, client, model, urgency, status')
+                    .select('id, business_id, client, model, urgency, status, trade_in_option, unidade')
                     .order('created_at', { ascending: false })
                     .limit(500);
 
@@ -191,48 +330,200 @@
             }
         }
 
+        function getOrderColumnId(o) {
+            const status = (o.status || '').trim();
+            const statusLower = status.toLowerCase();
+
+            // 1. Concluídas (Prioridade máxima para estados finais)
+            if (['finalizado', 'finalizada', 'concluída', 'concluida'].includes(statusLower)) {
+                return 'concluida';
+            }
+
+            // 2. Canceladas / Arquivadas não aparecem em produção
+            if (['cancelada', 'cancelado', 'arquivado', 'arquivada'].includes(statusLower)) {
+                return null;
+            }
+
+            // 3. Expedição
+            if (['pronto para entrega', 'aguardando expedição', 'aguardando expedicao', 'expedição', 'expedicao', 'standby - aguardando nota fiscal', 'standby - aguardando nf'].includes(statusLower)) {
+                return 'expedicao';
+            }
+
+            // 4. Qualidade
+            if (['aguardando controle de qualidade', 'controle de qualidade', 'aguardando qualidade'].includes(statusLower)) {
+                return 'qualidade';
+            }
+
+            // 5. Etapas iniciais / pré-produção
+            if (['aguardando entrada', 'pré-venda', 'pre-venda'].includes(statusLower)) {
+                return 'pre_vendas';
+            }
+            if (['aguardando análise técnica', 'aguardando analise tecnica', 'em análise técnica', 'em analise tecnica', 'standby / aguardando casco'].includes(statusLower)) {
+                return 'analise';
+            }
+            if (['aguardando aprovação comercial', 'aguardando aprovacao comercial', 'aguardando vendas comercial', 'aguardando venda'].includes(statusLower)) {
+                return 'vendas';
+            }
+            if (['aguardando triagem', 'standby'].includes(statusLower)) {
+                return 'triagem';
+            }
+
+            // 6. Status diretos de Produção
+            const prodStatuses = [
+                'aguardando desmontagem os', 'em desmontagem operacional', 'em produção', 'em producao',
+                'aguardando reparos oficina', 'em metrologia', 'em solda', 'em bancada', 'em montagem',
+                'aguardando balanceamento', 'aguardando peças', 'aguardando pecas'
+            ];
+            if (prodStatuses.includes(statusLower)) {
+                return 'producao';
+            }
+
+            // 7. Se tem componentes em setores ativos de produção
+            const prodStages = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'BALANCEAMENTO', 'MONTAGEM', 'DESMONTAGEM', 'JATEAMENTO'];
+            if (o.tracking && o.tracking.some(t => {
+                const stage = (t.current_stage || t.current_sector || '').toUpperCase();
+                return prodStages.includes(stage);
+            })) {
+                return 'producao';
+            }
+
+            // 8. Fallback: mapeia pelos statuses configurados em COLUMNS
+            for (const col of COLUMNS) {
+                if (col.statuses.some(s => s.toLowerCase() === statusLower)) {
+                    return col.id;
+                }
+            }
+
+            return null;
+        }
+
         function distributeOrders() {
+            const activeOrders = allOrders.filter(o => getOrderColumnId(o) !== null);
+
+            // Contadores globais no switcher
+            const totalProd = activeOrders.filter(o => !isOrderInStandby(o)).length;
+            const totalStandby = activeOrders.filter(o => isOrderInStandby(o)).length;
+            const totalAll = activeOrders.length;
+
+            const countProdEl = document.getElementById('badge-count-production');
+            const countStandbyEl = document.getElementById('badge-count-standby');
+            const countAllEl = document.getElementById('badge-count-all');
+            if (countProdEl) countProdEl.innerText = totalProd;
+            if (countStandbyEl) countStandbyEl.innerText = totalStandby;
+            if (countAllEl) countAllEl.innerText = totalAll;
+
+            const term = (currentSearchTerm || '').toLowerCase().trim().replace(/^#/, '');
+
+            let filtered = activeOrders;
+
+            // Se o usuário digitou uma busca:
+            if (term) {
+                filtered = filtered.filter(o => {
+                    const busId = (o.business_id || '').toLowerCase().replace(/^#/, '');
+                    const client = (o.client || '').toLowerCase();
+                    const model = (o.model || '').toLowerCase();
+                    return busId.includes(term) || client.includes(term) || model.includes(term);
+                });
+
+                // Se houver múltiplas ordens correspondentes, respeita o filtro do modo atual se houver resultados nele
+                if (filtered.length > 1) {
+                    if (currentViewMode === 'production') {
+                        const prodOnly = filtered.filter(o => !isOrderInStandby(o));
+                        if (prodOnly.length > 0) filtered = prodOnly;
+                    } else if (currentViewMode === 'standby') {
+                        const standbyOnly = filtered.filter(o => isOrderInStandby(o));
+                        if (standbyOnly.length > 0) filtered = standbyOnly;
+                    }
+                }
+            } else {
+                // Sem busca: aplica a visualização estrita selecionada
+                if (currentViewMode === 'production') {
+                    filtered = filtered.filter(o => !isOrderInStandby(o));
+                } else if (currentViewMode === 'standby') {
+                    filtered = filtered.filter(o => isOrderInStandby(o));
+                }
+            }
+
+            // Mapeia cada OS para exatamente uma coluna
+            const ordersByCol = {};
+            COLUMNS.forEach(col => { ordersByCol[col.id] = []; });
+
+            filtered.forEach(o => {
+                const colId = getOrderColumnId(o);
+                if (colId && ordersByCol[colId]) {
+                    ordersByCol[colId].push(o);
+                }
+            });
+
             COLUMNS.forEach(col => {
                 const container = document.getElementById(`col-${col.id}`);
                 const counter = document.getElementById(`count-${col.id}`);
-                
-                const columnOrders = allOrders.filter(o => {
-                    let belongsToCol = col.statuses.includes(o.status) || (col.id === 'concluida' && o.status && o.status.toLowerCase() === 'concluída');
-                    
-                    // Se não pertence originalmente, mas é a coluna "Em Produção", verifica se tem peças ativas na produção
-                    if (!belongsToCol && col.id === 'producao') {
-                        const excludedFinishedStatuses = ['Aguardando Qualidade', 'Controle de Qualidade', 'Aguardando Expedição', 'Concluída', 'concluida', 'Cancelada', 'Arquivado'];
-                        if (!excludedFinishedStatuses.includes(o.status)) {
-                            const prodStages = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'BALANCEAMENTO', 'MONTAGEM'];
-                            if (o.tracking && o.tracking.some(t => {
-                                const stage = (t.current_stage || t.current_sector || '').toUpperCase();
-                                return prodStages.includes(stage);
-                            })) {
-                                belongsToCol = true;
-                            }
-                        }
-                    }
-                    
-                    return belongsToCol;
-                });
-                
+                const columnOrders = ordersByCol[col.id] || [];
+
                 counter.innerText = columnOrders.length;
-                
+
                 if (columnOrders.length === 0) {
-                    container.innerHTML = `<div class="text-center py-4 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-2 border-dashed border-slate-300 rounded-lg">Vazio</div>`;
+                    const msg = term ? 'Nenhum resultado' : 'Vazio';
+                    container.innerHTML = `<div class="text-center py-4 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-2 border-dashed border-slate-300 rounded-lg">${msg}</div>`;
                     return;
                 }
 
                 container.innerHTML = columnOrders.map(o => {
                     const urgencyClass = (o.urgency || 'normal').toLowerCase();
+                    const isItajai = (o.unidade || '').toUpperCase().trim() === 'ITAJAI';
+                    const unitBadge = isItajai
+                        ? `<span class="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200"><i class="fa-solid fa-location-dot mr-0.5"></i>Itajaí</span>`
+                        : '';
+                    const isStandby = isOrderInStandby(o);
+                    const standbyBadge = isStandby
+                        ? `<span class="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300" title="OS em Standby / Aguardando Casco"><i class="fa-solid fa-pause mr-0.5"></i>Standby</span>`
+                        : '';
+
+                    let trackingSummaryHtml = '';
+                    if (col.id === 'producao' && o.tracking && o.tracking.length > 0) {
+                        const stageCounts = {};
+                        o.tracking.forEach(t => {
+                            let stg = (t.current_stage || t.current_sector || '').toUpperCase().trim();
+                            if (stg) {
+                                if (stg === 'RETIFICA' || stg === 'RETÍFICA') stg = 'Retífica';
+                                else if (stg === 'SOLDA') stg = 'Solda';
+                                else if (stg === 'METROLOGIA') stg = 'Metrologia';
+                                else if (stg === 'BANCADA' || stg === 'BANCADA DE USINAGEM') stg = 'Bancada';
+                                else if (stg === 'BALANCEAMENTO') stg = 'Balanc.';
+                                else if (stg.includes('MONTAGEM')) stg = 'Montagem';
+                                else if (stg === 'DESMONTAGEM') stg = 'Desmonte';
+                                else if (stg.includes('COMPRA')) stg = 'Compra';
+                                stageCounts[stg] = (stageCounts[stg] || 0) + 1;
+                            }
+                        });
+
+                        const badges = Object.entries(stageCounts).map(([stageName, count]) => {
+                            let pillColor = 'bg-slate-100 text-slate-700 border-slate-200';
+                            if (stageName === 'Retífica') pillColor = 'bg-orange-50 text-orange-700 border-orange-200';
+                            else if (stageName === 'Montagem') pillColor = 'bg-sky-50 text-sky-700 border-sky-200';
+                            else if (stageName === 'Desmonte') pillColor = 'bg-amber-50 text-amber-700 border-amber-200';
+                            else if (stageName === 'Compra') pillColor = 'bg-yellow-50 text-yellow-800 border-yellow-300';
+                            return `<span class="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${pillColor}">${stageName}: ${count}</span>`;
+                        });
+
+                        if (badges.length > 0) {
+                            trackingSummaryHtml = `<div class="mt-2 pt-2 border-t border-slate-100 flex flex-wrap gap-1">${badges.join('')}</div>`;
+                        }
+                    }
+
                     return `
                         <div class="os-card ${urgencyClass}" onclick="abrirRastreio('${o.id}', '${o.business_id}', '${o.model}')">
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="font-black text-slate-800 uppercase tracking-tighter text-sm">${o.business_id}</span>
+                            <div class="flex justify-between items-start mb-1.5">
+                                <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                    <span class="font-black text-slate-800 uppercase tracking-tighter text-sm">${o.business_id}</span>
+                                    ${unitBadge}
+                                    ${standbyBadge}
+                                </div>
                                 <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-500">${o.urgency || 'Normal'}</span>
                             </div>
                             <p class="text-xs font-bold text-slate-600 truncate mb-1">${o.model}</p>
                             <p class="text-[10px] font-medium text-slate-400 truncate">${o.client}</p>
+                            ${trackingSummaryHtml}
                         </div>
                     `;
                 }).join('');
@@ -256,37 +547,203 @@
             empty.classList.add('hidden');
 
             try {
-                const { data: components, error } = await supabaseClient
-                    .from('component_tracking')
-                    .select('*')
-                    .eq('service_order_id', osId);
+                const [compRes, triagePartsRes, checklistRes, osRes] = await Promise.all([
+                    supabaseClient
+                        .from('component_tracking')
+                        .select('*')
+                        .eq('service_order_id', osId),
+                    supabaseClient
+                        .from('triage_parts')
+                        .select('*')
+                        .eq('service_order_id', osId),
+                    supabaseClient
+                        .from('checklist_analysis_general')
+                        .select('item_name, decisao_vendas, status')
+                        .eq('service_order_id', osId),
+                    supabaseClient
+                        .from('service_orders')
+                        .select('status')
+                        .eq('id', osId)
+                        .maybeSingle()
+                ]);
 
                 loading.classList.add('hidden');
 
-                if (error || !components || components.length === 0) {
-                    empty.classList.remove('hidden');
-                    return;
+                const components = compRes.data || [];
+                const triageParts = triagePartsRes.data || [];
+                const triageItems = checklistRes.data || [];
+                const osStatus = osRes?.data?.status || '';
+                const isNaDesmontagem = ['Aguardando Desmontagem OS', 'Em Desmontagem Operacional'].includes(osStatus);
+
+                // 1. Componentes base obrigatórios que compõem o turbo
+                const basePieces = ['CCO', 'CCE', 'CT', 'EIXO', 'ROTOR', 'REPAROS'];
+                const extraPieces = [];
+
+                // 2. Identifica componentes adicionais/especiais (Geometria, Atuador, etc.)
+                const hasGeometria = triageItems.some(t => (t.item_name || '').toUpperCase().includes('GEOMETRIA') && t.status !== 'NÃO INFORMADO' && t.status !== 'ITEM FALTANTE') ||
+                                     components.some(t => (t.component_name || '').toUpperCase().includes('GEOMETRIA')) ||
+                                     triageParts.some(t => (t.part_name || '').toUpperCase().includes('GEOMETRIA'));
+                if (hasGeometria && !extraPieces.includes('GEOMETRIA')) {
+                    extraPieces.push('GEOMETRIA');
                 }
 
-                list.innerHTML = components.map(c => {
-                    let statusColor = "bg-slate-100 text-slate-600";
-                    if (c.status === 'Concluído' || c.status === 'Finalizado') statusColor = "bg-green-100 text-green-700 border border-green-200";
-                    if (c.status === 'Em Processo' || c.status === 'Na Fila' || !c.status) statusColor = "bg-blue-100 text-blue-700 border border-blue-200";
-                    if (c.status === 'Pausado') statusColor = "bg-amber-100 text-amber-700 border border-amber-200";
+                const hasAtuador = triageItems.some(t => (t.item_name || '').toUpperCase().includes('ATUADOR') && t.status !== 'NÃO INFORMADO' && t.status !== 'ITEM FALTANTE') ||
+                                   components.some(t => (t.component_name || '').toUpperCase().includes('ATUADOR')) ||
+                                   triageParts.some(t => (t.part_name || '').toUpperCase().includes('ATUADOR'));
+                if (hasAtuador && !extraPieces.includes('ATUADOR')) {
+                    extraPieces.push('ATUADOR');
+                }
+
+                // Outras peças eventuais presentes no tracking
+                components.forEach(t => {
+                    const compName = (t.component_name || t.component || '').toUpperCase().trim();
+                    if (compName && !basePieces.includes(compName) && !extraPieces.includes(compName)) {
+                        extraPieces.push(compName);
+                    }
+                });
+
+                const allComponentsList = [...basePieces, ...extraPieces];
+
+                // Identifica se a OS foi marcada comercialmente como Conjunto Novo
+                const isConjuntoNovo = triageItems.some(p => 
+                    ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || '').toUpperCase().trim()) && 
+                    (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
+                );
+
+                list.innerHTML = allComponentsList.map(compName => {
+                    const compUpper = compName.toUpperCase().trim();
+
+                    // 1. Busca tracking operacional correspondente
+                    const trk = components.find(t => {
+                        const tn = (t.component_name || t.component || '').toUpperCase().trim();
+                        if (tn === compUpper) return true;
+                        if (compUpper === 'CT' && (tn === 'CARCAÇA DE TURBINA (CT)' || tn === 'CARCAÇA DE TURBINA' || tn === 'CARACOL')) return true;
+                        if (compUpper === 'CCO' && (tn === 'CARCAÇA COMPRESSORA (CCO)' || tn === 'CARCAÇA COMPRESSORA')) return true;
+                        if (compUpper === 'CCE' && (tn === 'CARCAÇA CENTRAL (CCE)' || tn === 'CARCAÇA CENTRAL')) return true;
+                        if (compUpper === 'GEOMETRIA' && tn.includes('GEOMETRIA')) return true;
+                        if (compUpper === 'ATUADOR' && tn.includes('ATUADOR')) return true;
+                        return false;
+                    });
+
+                    // 2. Busca decisão efetiva de compras na triagem (triage_parts)
+                    const orderItem = triageParts.find(tp => {
+                        const pn = (tp.part_name || '').toUpperCase().trim();
+                        if (pn === compUpper) return true;
+                        if (compUpper === 'CT' && (pn === 'CARCAÇA DE TURBINA (CT)' || pn === 'CARCAÇA DE TURBINA' || pn === 'CARACOL')) return true;
+                        if (compUpper === 'CCO' && (pn === 'CARCAÇA COMPRESSORA (CCO)' || pn === 'CARCAÇA COMPRESSORA')) return true;
+                        if (compUpper === 'CCE' && (pn === 'CARCAÇA CENTRAL (CCE)' || pn === 'CARCAÇA CENTRAL')) return true;
+                        if (compUpper === 'GEOMETRIA' && pn.includes('GEOMETRIA')) return true;
+                        if (compUpper === 'ATUADOR' && pn.includes('ATUADOR')) return true;
+                        return false;
+                    });
+
+                    const rawStat = trk ? (trk.status || '').toUpperCase().trim() : '';
+                    const rawStage = trk ? (trk.current_stage || trk.current_sector || '').toUpperCase().trim() : '';
+
+                    // REGRA DE INTEGRAÇÃO DE COMPRA:
+                    const isTrkCompra = rawStage.includes('COMPRA') || rawStat.includes('COMPRA');
+                    const isOrderPending = orderItem && (orderItem.availability || '').toUpperCase().trim() === 'ORDER' && !orderItem.is_resolved;
+                    const isCompra = isTrkCompra || (isOrderPending && rawStage !== 'MONTAGEM' && rawStat !== 'FINALIZADO');
+
+                    const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(compUpper);
+
+                    let sectorName = 'DESMONTAGEM';
+                    if (isCompra) {
+                        sectorName = 'AGUARDANDO COMPRA';
+                    } else if (rawStage && rawStage !== 'DESMONTAGEM') {
+                        // Se a peça já possui setor de produção definido no tracking, respeita rigorosamente a localização real dela
+                        if (rawStage === 'RETIFICA' || rawStage === 'RETÍFICA') sectorName = 'RETÍFICA';
+                        else if (rawStage === 'METROLOGIA') sectorName = 'METROLOGIA';
+                        else if (rawStage === 'SOLDA') sectorName = 'SOLDA';
+                        else if (rawStage === 'BANCADA' || rawStage === 'BANCADA DE USINAGEM') sectorName = 'BANCADA';
+                        else if (rawStage === 'BALANCEAMENTO') sectorName = 'BALANCEAMENTO';
+                        else if (rawStage === 'MONTAGEM' || rawStage.startsWith('MONTAGEM')) sectorName = 'MONTAGEM';
+                        else if (rawStage === 'QUALIDADE' || rawStage === 'CONTROLE DE QUALIDADE') sectorName = 'QUALIDADE';
+                        else if (rawStage === 'EXPEDICAO' || rawStage === 'EXPEDIÇÃO') sectorName = 'EXPEDIÇÃO';
+                        else sectorName = rawStage;
+                    } else if (isConjuntoNovo && isCorePart) {
+                        sectorName = 'MONTAGEM';
+                    } else if (isNaDesmontagem || rawStage === 'DESMONTAGEM') {
+                        sectorName = 'DESMONTAGEM';
+                    } else {
+                        sectorName = 'DESMONTAGEM';
+                    }
+
+                    // Configurações de cores e ícones para cada setor específico
+                    let badgeConfig = {
+                        color: 'bg-blue-50 text-blue-700 border-blue-200',
+                        icon: '<i class="fa-solid fa-location-dot mr-1.5 text-blue-500"></i>'
+                    };
+
+                    if (isCompra) {
+                        badgeConfig = {
+                            color: 'bg-amber-100 text-amber-900 border-amber-300 font-black',
+                            icon: '<i class="fa-solid fa-cart-shopping mr-1.5 text-amber-700"></i>'
+                        };
+                    } else if (sectorName === 'DESMONTAGEM') {
+                        badgeConfig = {
+                            color: 'bg-slate-100 text-slate-700 border-slate-300 font-bold',
+                            icon: '<i class="fa-solid fa-wrench mr-1.5 text-slate-500"></i>'
+                        };
+                    } else if (sectorName === 'METROLOGIA') {
+                        badgeConfig = {
+                            color: 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold',
+                            icon: '<i class="fa-solid fa-ruler-combined mr-1.5 text-indigo-500"></i>'
+                        };
+                    } else if (sectorName === 'RETÍFICA') {
+                        badgeConfig = {
+                            color: 'bg-cyan-50 text-cyan-800 border-cyan-200 font-bold',
+                            icon: '<i class="fa-solid fa-gears mr-1.5 text-cyan-600"></i>'
+                        };
+                    } else if (sectorName === 'SOLDA') {
+                        badgeConfig = {
+                            color: 'bg-orange-50 text-orange-700 border-orange-200 font-bold',
+                            icon: '<i class="fa-solid fa-fire-burner mr-1.5 text-orange-500"></i>'
+                        };
+                    } else if (sectorName === 'BANCADA') {
+                        badgeConfig = {
+                            color: 'bg-teal-50 text-teal-700 border-teal-200 font-bold',
+                            icon: '<i class="fa-solid fa-toolbox mr-1.5 text-teal-600"></i>'
+                        };
+                    } else if (sectorName === 'BALANCEAMENTO') {
+                        badgeConfig = {
+                            color: 'bg-purple-50 text-purple-700 border-purple-200 font-bold',
+                            icon: '<i class="fa-solid fa-scale-balanced mr-1.5 text-purple-500"></i>'
+                        };
+                    } else if (sectorName === 'MONTAGEM') {
+                        badgeConfig = {
+                            color: 'bg-sky-50 text-sky-700 border-sky-200 font-bold',
+                            icon: '<i class="fa-solid fa-screwdriver-wrench mr-1.5 text-sky-600"></i>'
+                        };
+                    } else if (sectorName === 'QUALIDADE') {
+                        badgeConfig = {
+                            color: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-bold',
+                            icon: '<i class="fa-solid fa-clipboard-check mr-1.5 text-emerald-600"></i>'
+                        };
+                    } else if (sectorName === 'EXPEDIÇÃO') {
+                        badgeConfig = {
+                            color: 'bg-green-50 text-green-700 border-green-200 font-bold',
+                            icon: '<i class="fa-solid fa-truck mr-1.5 text-green-600"></i>'
+                        };
+                    }
 
                     return `
-                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <div class="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100/70 transition rounded-xl border border-slate-200">
                             <div class="flex items-center gap-4">
                                 <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400 shadow-sm">
                                     <i class="fa-solid fa-gear"></i>
                                 </div>
                                 <div>
-                                    <h4 class="font-black text-slate-800 text-sm uppercase">${c.component_name}</h4>
-                                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1"><i class="fa-solid fa-location-dot mr-1 text-slate-400"></i> Setor: <span class="text-blue-600">${c.current_stage || c.current_sector || 'Aguardando'}</span></p>
+                                    <h4 class="font-black text-slate-800 text-sm uppercase">${compName}</h4>
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                                        <i class="fa-solid fa-location-dot mr-1 text-slate-400"></i> Setor: <span class="font-black ${isCompra ? 'text-amber-700' : 'text-slate-700'}">${sectorName}</span>
+                                    </p>
                                 </div>
                             </div>
                             <div>
-                                <span class="px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full ${statusColor}">${c.status || 'Pendente'}</span>
+                                <span class="px-3.5 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg border shadow-sm ${badgeConfig.color}">
+                                    ${badgeConfig.icon} ${sectorName}
+                                </span>
                             </div>
                         </div>
                     `;
