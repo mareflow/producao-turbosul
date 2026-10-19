@@ -1209,13 +1209,24 @@
 
                 if (error) throw error;
                 
-                let rawOrders = orders || [];
-                
-                currentOrders = rawOrders.map(rawOrder => {
+                function sortOrdersByUrgencyAndDate(orders) {
+                    if (!Array.isArray(orders)) return [];
+                    const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
+                    return [...orders].sort((a, b) => {
+                        const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
+                        const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
+                        if (urgB !== urgA) return urgB - urgA;
+                        const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
+                        const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
+                        return dateA - dateB;
+                    });
+                }
+
+                currentOrders = sortOrdersByUrgencyAndDate(rawOrders.map(rawOrder => {
                     const order = rawOrder.json || rawOrder;
                     order.entry_date = order.entry_date || order.created_at; 
                     return order;
-                });
+                }));
                 
                 loadingMessage.classList.add('hidden');
                 
@@ -1421,7 +1432,8 @@
                 // Atualiza a OS para Aguardando Aprovação Comercial
                 const { error } = await supabaseClient.from('service_orders').update({
                     status: 'Aguardando Aprovação Comercial',
-                    observation: payload.general_observations
+                    observation: payload.general_observations,
+                    maintenance_extras: payload.maintenance_extras
                 }).eq('id', activeOSId);
                 
                 if (!error) {
@@ -1505,7 +1517,8 @@
 
                 // 4. Atualiza a observacao geral
                 const { error: updateError } = await supabaseClient.from('service_orders').update({
-                    observation: payload.general_observations
+                    observation: payload.general_observations,
+                    maintenance_extras: payload.maintenance_extras
                 }).eq('id', activeOSId);
 
                 const error = insertError || updateError;

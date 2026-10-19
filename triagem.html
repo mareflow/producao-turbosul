@@ -577,7 +577,20 @@
                     }
                 });
 
-                allOrders = Array.from(ordersMap.values());
+                function sortOrdersByUrgencyAndDate(orders) {
+                    if (!Array.isArray(orders)) return [];
+                    const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
+                    return [...orders].sort((a, b) => {
+                        const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
+                        const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
+                        if (urgB !== urgA) return urgB - urgA;
+                        const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
+                        const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
+                        return dateA - dateB;
+                    });
+                }
+
+                allOrders = sortOrdersByUrgencyAndDate(Array.from(ordersMap.values()));
                 renderizarFila();
                 atualizarContadores();
             } catch (err) {
@@ -585,7 +598,7 @@
                 try {
                     const response = await fetch(API_GET);
                     const data = await response.json();
-                    allOrders = Array.isArray(data) ? data : [];
+                    allOrders = Array.isArray(data) ? sortOrdersByUrgencyAndDate(data) : [];
                 } catch(e) {
                     allOrders = [];
                 }
@@ -634,6 +647,8 @@
                 labelFiltro = 'Standby';
             }
 
+            ordensParaMostrar = sortOrdersByUrgencyAndDate(ordensParaMostrar);
+
             if (ordensParaMostrar.length === 0) {
                 container.innerHTML = `<div class="py-10 text-center"><p class="text-slate-400 font-bold text-[10px] uppercase tracking-widest leading-relaxed">Nenhuma ordem em<br>${labelFiltro}.</p></div>`;
                 return;
@@ -643,13 +658,18 @@
                 const badgeCondenada = os.tem_peca_condenada_producao 
                     ? `<span class="text-[9px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation text-red-600"></i> Produção</span>`
                     : '';
+                const urgUpper = (os.urgency || 'Normal').toUpperCase();
+                const urgColor = urgUpper === 'URGENTE' ? 'bg-red-600 text-white shadow-sm' :
+                                 urgUpper === 'ALTA' ? 'bg-orange-100 text-orange-700 font-black' :
+                                 urgUpper === 'NORMAL' ? 'bg-blue-100 text-blue-700 font-bold' :
+                                 'bg-slate-100 text-slate-600 font-bold';
                 container.innerHTML += `
                     <div onclick="selecionarOS('${os.business_id}')" id="card-${os.business_id}" class="os-card ${isActive} p-4 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-all group mb-3">
                         <div class="flex justify-between items-start mb-2">
                             <span class="text-slate-800 font-extrabold text-sm uppercase">${os.business_id}</span>
                             <div class="flex items-center gap-1.5">
                                 ${badgeCondenada}
-                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${os.urgency === 'Alta' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}">${os.urgency || 'Normal'}</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full ${urgColor}">${os.urgency || 'Normal'}</span>
                             </div>
                         </div>
                         <h3 class="text-slate-700 font-bold text-xs group-hover:text-blue-600 transition">${os.model}</h3>
@@ -997,9 +1017,9 @@
                 function normKey(name) {
                     let p = (name || '').toUpperCase().trim();
                     if (p === 'CT' || p.includes('CARCAÇA DE TURBINA') || p.includes('CARCACA DE TURBINA')) return 'CT';
-                    if (p === 'GEOMETRIA' || p.includes('GEOMETRIA')) return 'GEOMETRIA';
                     if (p.includes('CANOTE')) return 'CANOTE';
                     if (p.includes('FLANGE')) return 'FLANGE';
+                    if (p === 'GEOMETRIA' || p.includes('GEOMETRIA')) return 'GEOMETRIA';
                     return p;
                 }
 

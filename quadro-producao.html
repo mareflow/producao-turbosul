@@ -300,7 +300,7 @@
                 // Para carregar todas as OSs ativas, pegamos as mais recentes
                 const { data, error } = await supabaseClient
                     .from('service_orders')
-                    .select('id, business_id, client, model, urgency, status, trade_in_option, unidade')
+                    .select('id, business_id, client, model, urgency, status, trade_in_option, unidade, created_at')
                     .order('created_at', { ascending: false })
                     .limit(500);
 
@@ -455,10 +455,24 @@
                 }
             });
 
+            function sortOrdersByUrgencyAndDate(orders) {
+                if (!Array.isArray(orders)) return [];
+                const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
+                return [...orders].sort((a, b) => {
+                    const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
+                    const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
+                    if (urgB !== urgA) return urgB - urgA;
+                    const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
+                    const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
+                    return dateA - dateB;
+                });
+            }
+
             COLUMNS.forEach(col => {
                 const container = document.getElementById(`col-${col.id}`);
                 const counter = document.getElementById(`count-${col.id}`);
-                const columnOrders = ordersByCol[col.id] || [];
+                const rawColOrders = ordersByCol[col.id] || [];
+                const columnOrders = sortOrdersByUrgencyAndDate(rawColOrders);
 
                 counter.innerText = columnOrders.length;
 

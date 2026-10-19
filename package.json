@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "dev": "node dev-server.cjs"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
     "xlsx": "^0.18.5"

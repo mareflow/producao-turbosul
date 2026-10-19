@@ -334,7 +334,8 @@
         </div>
     </div>
 
-<script>
+<script src="js/accessory-flow.js"></script>
+    <script>
         // 1. CONFIGURAÇÕES E CONEXÕES
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
@@ -410,7 +411,8 @@
                             );
 
                             // Se for Conjunto Novo, as peças de núcleo (EIXO, ROTOR, CCE, REPAROS) não são checadas na Desmontagem
-                            const componentsToCheck = MASTER_COMPONENTS
+                            const componentsToCheck = [...MASTER_COMPONENTS,
+                                ...osTracking.filter(t => AccessoryFlow.part(t.component_name)).map(t => ({ title: t.component_name }))]
                                 .map(c => c.title)
                                 .filter(compName => !(isOsConjuntoNovo && ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(compName.toUpperCase())));
                             
@@ -430,7 +432,20 @@
                     }
                 }
 
-                queueData = rawQueue;
+                function sortOrdersByUrgencyAndDate(orders) {
+                    if (!Array.isArray(orders)) return [];
+                    const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
+                    return [...orders].sort((a, b) => {
+                        const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
+                        const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
+                        if (urgB !== urgA) return urgB - urgA;
+                        const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
+                        const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
+                        return dateA - dateB;
+                    });
+                }
+
+                queueData = sortOrdersByUrgencyAndDate(rawQueue);
                 listContainer.innerHTML = '';
                 if (queueData.length === 0) {
                     listContainer.innerHTML = '<div class="p-10 text-center text-slate-400 text-xs italic">Fila Vazia.</div>';
@@ -441,7 +456,12 @@
                     card.className = 'os-card p-5 cursor-pointer hover:bg-slate-50 transition border-l-4 border-transparent bg-white rounded-xl shadow-sm mb-3 mx-4 mt-4';
                     card.id = `card-${os.id}`;
                     card.onclick = () => selectOS(os);
-                    card.innerHTML = `<div class="flex justify-between items-start mb-2"><span class="text-sm font-black text-slate-900">${os.business_id}</span><span class="px-2 py-0.5 text-[9px] font-black uppercase rounded-md bg-blue-100 text-blue-600">${os.urgency || 'Normal'}</span></div><p class="text-xs font-bold text-slate-700 uppercase mb-1">${os.model}</p><p class="text-[10px] font-medium text-slate-500 uppercase truncate">${os.client}</p>`;
+                    const urgUpper = (os.urgency || 'Normal').toUpperCase();
+                    const urgColor = urgUpper === 'URGENTE' ? 'bg-red-600 text-white font-black shadow-sm' :
+                                     urgUpper === 'ALTA' ? 'bg-orange-100 text-orange-700 font-black' :
+                                     urgUpper === 'NORMAL' ? 'bg-blue-100 text-blue-700 font-bold' :
+                                     'bg-slate-100 text-slate-600 font-bold';
+                    card.innerHTML = `<div class="flex justify-between items-start mb-2"><span class="text-sm font-black text-slate-900">${os.business_id}</span><span class="px-2 py-0.5 text-[9px] uppercase rounded-md ${urgColor}">${os.urgency || 'Normal'}</span></div><p class="text-xs font-bold text-slate-700 uppercase mb-1">${os.model}</p><p class="text-[10px] font-medium text-slate-500 uppercase truncate">${os.client}</p>`;
                     listContainer.appendChild(card);
                 });
             } catch (e) { 
@@ -521,38 +541,7 @@
                 
                 currentSelection.triage_parts = triagePartsData || [];
 
-                // Se a OS for Conjunto Novo (Full), encaminha automaticamente as 4 peças do núcleo para a MONTAGEM
-                const isOsConjuntoNovo = (currentSelection.triage_parts || []).some(p => 
-                    ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || '').toUpperCase().trim()) && 
-                    (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
-                );
-
-                if (isOsConjuntoNovo) {
-                    const coreParts = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'];
-                    const needSync = coreParts.some(cp => {
-                        const trk = (currentSelection.tracking || []).find(t => (t.component_name || t.component || '').toUpperCase() === cp);
-                        return !trk || (trk.current_stage || '').toUpperCase().trim() === 'DESMONTAGEM';
-                    });
-
-                    if (needSync) {
-                        for (const cp of coreParts) {
-                            await supabaseClient
-                                .from('component_tracking')
-                                .upsert({
-                                    service_order_id: os.id,
-                                    component_name: cp,
-                                    current_stage: 'MONTAGEM',
-                                    status: 'CONJUNTO NOVO',
-                                    last_update: new Date().toISOString()
-                                }, { onConflict: 'service_order_id,component_name' });
-                        }
-                        const { data: refreshedTracking } = await supabaseClient
-                            .from('component_tracking')
-                            .select('*')
-                            .eq('service_order_id', os.id);
-                        if (refreshedTracking) currentSelection.tracking = refreshedTracking;
-                    }
-                }
+                // O recebimento e o envio de peças compradas são feitos somente pela Triagem.
             } catch (e) {
                 console.error("Erro ao sincronizar peças no Supabase:", e);
             }
@@ -657,7 +646,10 @@
         function renderComponentGrid() {
             const grid = document.getElementById('component-grid');
             if (!grid || !currentSelection) return;
-            const allToRender = [...MASTER_COMPONENTS, ...specialItemsList];
+            const accessories = (currentSelection.tracking || [])
+                .filter(t => AccessoryFlow.part(t.component_name) && t.current_stage === 'DESMONTAGEM')
+                .map(t => ({ title: t.component_name, items: ['Análise', 'Desmontagem/Limpeza', 'Conferência'] }));
+            const allToRender = [...MASTER_COMPONENTS, ...accessories, ...specialItemsList];
             
             let todasPecasEnviadas = true;
 
@@ -681,7 +673,8 @@
 
                 // 2. Verifica se a peça está aguardando compra, baseado no status do rastreador
                 const statusPeca = trk ? (trk.status || '').toUpperCase().trim() : 'AGUARDANDO';
-                const isPendingOrder = (statusPeca.includes('COMPRA') || stageAtual.includes('COMPRA'));
+                const analysisItem = (currentSelection.triage_parts || []).find(p => (p.item_name || '').toUpperCase().trim() === comp.title.toUpperCase());
+                const isPendingOrder = (analysisItem?.availability === 'ORDER' && analysisItem?.is_resolved !== true) || statusPeca.includes('COMPRA') || stageAtual.includes('COMPRA');
                 
                 // 3. Verifica se esta peça específica deve ser tratada como Conjunto Novo na UI
                 const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(comp.title.toUpperCase());
@@ -700,7 +693,10 @@
                 let badgeText = 'Desmontagem';
                 let badgeColor = 'bg-turbo-teal';
 
-                if (isThisPartConjuntoNovo) {
+                if (isPendingOrder) {
+                    badgeText = 'AGUARDANDO COMPRA';
+                    badgeColor = 'bg-amber-500 animate-pulse';
+                } else if (isThisPartConjuntoNovo) {
                     badgeText = 'CONJUNTO NOVO (MONTAGEM)';
                     badgeColor = 'bg-amber-500 font-black';
                 } else if (isPendingOrder) {
@@ -988,6 +984,7 @@
                         service_order_id: currentSelection.id,
                         component_name: pieceName.toUpperCase().trim(),
                         current_stage: sector.toUpperCase(),
+                        current_sector: sector.toUpperCase(),
                         executed_services: mergedServices,
                         last_update: new Date().toISOString()
                     }, { onConflict: 'service_order_id,component_name' });

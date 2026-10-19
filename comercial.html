@@ -474,6 +474,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- Lógica de Frontend com JavaScript Puro (Vanilla JS) -->
+    <script src="js/accessory-flow.js"></script>
     <script>
         // ====================================================================
         // 1. CONFIGURAÇÃO E DADOS
@@ -908,11 +909,24 @@
                 const { data: ordersData, error } = await supabaseClient
                     .from('service_orders')
                     .select('*')
-                    .in('status', ['Aguardando Aprovação Comercial', 'Aguardando Venda'])
-                    .order('created_at', { ascending: false });
+                    .in('status', ['Aguardando Aprovação Comercial', 'Aguardando Venda']);
                 if (error) throw error;
+
+                function sortOrdersByUrgencyAndDate(orders) {
+                    if (!Array.isArray(orders)) return [];
+                    const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
+                    return [...orders].sort((a, b) => {
+                        const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
+                        const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
+                        if (urgB !== urgA) return urgB - urgA;
+                        const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
+                        const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
+                        return dateA - dateB;
+                    });
+                }
+
                 let orders = ordersData || [];
-                currentOrders = orders;
+                currentOrders = sortOrdersByUrgencyAndDate(orders);
                 loadingMessage.classList.add('hidden');
 
                 if (currentOrders.length === 0) {
@@ -1559,25 +1573,32 @@
                         newStatus = 'Concluída';
                     }
 
-                    const { error } = await supabaseClient.from('service_orders').update({
+                    const approvalUpdate = {
                         status: newStatus,
                         business_id: payload.new_os_number,
                         previsao_saida: payload.previsao_saida,
                         horario_corte: payload.horario_corte,
                         local_despacho: payload.local_despacho,
                         segunda_hora: payload.segunda_hora
-                    }).eq('id', activeOSId);
+                    };
+                    let error = null;
 
                     // Atualiza as decisões no checklist_analysis_general
                     if (!error && payload.decisions) {
                         for (const d of payload.decisions) {
                             if (d.item_name && d.decisao_vendas) {
-                                await supabaseClient.from('checklist_analysis_general')
+                                const { error: decisionError } = await supabaseClient.from('checklist_analysis_general')
                                     .update({ decisao_vendas: d.decisao_vendas })
                                     .eq('service_order_id', activeOSId)
                                     .eq('item_name', d.item_name);
+                                if (decisionError) throw decisionError;
                             }
                         }
+                    }
+
+                    if (!error) {
+                        await AccessoryFlow.routeApproved(supabaseClient, activeOSId);
+                        ({ error } = await supabaseClient.from('service_orders').update(approvalUpdate).eq('id', activeOSId));
                     }
 
                     if (!error) {

@@ -54,6 +54,28 @@ function injectToast() {
     }
 }
 
+// Utilitário de ordenação global por Urgência e Data (FIFO)
+function sortOrdersByUrgencyAndDate(orders) {
+    if (!Array.isArray(orders)) return [];
+    const urgencyWeight = {
+        'URGENTE': 4,
+        'ALTA': 3,
+        'NORMAL': 2,
+        'BAIXA': 1
+    };
+    return [...orders].sort((a, b) => {
+        const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
+        const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
+        if (urgB !== urgA) {
+            return urgB - urgA; // Maior urgência primeiro
+        }
+        const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
+        const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
+        return dateA - dateB; // Mais antiga primeiro (FIFO: quem foi enviada primeiro)
+    });
+}
+window.sortOrdersByUrgencyAndDate = sortOrdersByUrgencyAndDate;
+
 document.addEventListener('DOMContentLoaded', () => {
     injectFooter();
     injectToast();
