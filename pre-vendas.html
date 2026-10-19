@@ -356,6 +356,7 @@
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/part-number-autocomplete.js"></script>
 
     <!-- Lógica de Frontend com JavaScript Puro (Vanilla JS) -->
     <script>
@@ -568,7 +569,7 @@
                     });
                 }
 
-                currentOrders = sortOrdersByUrgencyAndDate(orders.map(rawOrder => {
+                currentOrders = sortOrdersByUrgencyAndDate((ordersData || []).map(rawOrder => {
                     const o = rawOrder.json || rawOrder;
                     const extras = (typeof o.maintenance_extras === 'string' && o.maintenance_extras.startsWith('{')) ? JSON.parse(o.maintenance_extras) : (o.maintenance_extras || {});
                     return { ...o, maintenance_extras: extras };
@@ -1043,55 +1044,6 @@
                     }
                 }
             });
-
-            // ====== AUTOCOMPLETE DE PART NUMBER ======
-            let listaPecas = [];
-            fetch('js/pecas.json')
-                .then(r => r.json())
-                .then(data => { listaPecas = data; })
-                .catch(err => console.error("Erro ao carregar pecas.json:", err));
-            
-            const pnInput = document.getElementById('part_number');
-            const modInput = document.getElementById('modelo_turbo');
-            const pnDropdown = document.getElementById('part_number_dropdown');
-
-            if(pnInput && modInput && pnDropdown) {
-                pnInput.addEventListener('input', function() {
-                    const term = this.value.toUpperCase();
-                    pnDropdown.innerHTML = '';
-                    
-                    if (!term) {
-                        pnDropdown.classList.add('hidden');
-                        return;
-                    }
-                    
-                    const matches = listaPecas.filter(p => p.partNumber.toUpperCase().startsWith(term)).slice(0, 50);
-                    
-                    if (matches.length > 0) {
-                        pnDropdown.classList.remove('hidden');
-                        matches.forEach(p => {
-                            const div = document.createElement('div');
-                            div.className = 'px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col transition-colors';
-                            div.innerHTML = `<span class="font-bold text-gray-800 text-sm">${p.partNumber}</span><span class="text-xs text-gray-500 uppercase">${p.modelo}</span>`;
-                            div.addEventListener('click', () => {
-                                pnInput.value = p.partNumber;
-                                modInput.value = p.modelo;
-                                pnDropdown.classList.add('hidden');
-                            });
-                            pnDropdown.appendChild(div);
-                        });
-                    } else {
-                        pnDropdown.classList.add('hidden');
-                    }
-                });
-
-                document.addEventListener('click', function(e) {
-                    if (!pnInput.contains(e.target) && !pnDropdown.contains(e.target)) {
-                        pnDropdown.classList.add('hidden');
-                    }
-                });
-            }
-            // ==========================================
 
             // Chama a inicialização da dashboard e proteção de rota
             (async function initDashboard() {
