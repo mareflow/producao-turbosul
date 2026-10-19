@@ -729,11 +729,15 @@
                                 targetStage = "QUALIDADE";
                             }
                             
-                            await supabaseClient
-                                .from('component_tracking')
-                                .update({ current_stage: targetStage })
-                                .eq('service_order_id', osId)
-                                .eq('component_name', name.toUpperCase().trim());
+                            const moved = await ProductionFlow.move(name, targetStage, {
+                                note: `Reprovação técnica: ${motivo}. Tratativa: ${resolvido}`,
+                                status: targetStage === 'MONTAGEM' ? 'BALANCEADO' : 'Finalizado'
+                            });
+                            if (!moved) {
+                                btnSeguirOsReprova.disabled = false;
+                                btnSeguirOsReprova.innerText = "Seguir OS";
+                                return;
+                            }
 
                             alert(`Ajuste registrado com sucesso! O turbo foi encaminhado para o setor de: ${destinoText}.`);
                             window.location.reload();
