@@ -430,7 +430,11 @@
                 Serviço abaixo:</p>
 
             <input type="text" id="input-os-oficial" placeholder="Ex: 5500"
-                class="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-green-500 outline-none text-center font-black text-lg mb-4">
+                class="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-green-500 outline-none text-center font-black text-lg mb-2 transition-all">
+            <div id="aviso-os-duplicada" class="hidden text-left bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg font-medium mb-4">
+                <i class="fa-solid fa-triangle-exclamation mr-1 text-red-500"></i>
+                <span id="texto-aviso-os-duplicada">Este número de O.S. já está em uso.</span>
+            </div>
 
             <div class="flex items-center justify-center space-x-2 mb-6 bg-blue-50 p-2 rounded border border-blue-100">
                 <input type="checkbox" id="open-pdf-comercial" checked
@@ -1417,7 +1421,7 @@
                 if (!activeOrder) return;
 
                 // Transforma ORÇ- em O.S- automaticamente
-                const numeroApenas = activeOrder.business_id.replace('ORÇ-', '');
+                const numeroApenas = (activeOrder.business_id || '').replace(/^ORÇ-?/i, '').replace(/^O\.S-?/i, '').trim();
                 const numeroOSGerado = 'O.S-' + numeroApenas;
 
                 const modalOS = document.getElementById('modal-gerar-os');
@@ -1425,9 +1429,61 @@
                 modalOS.classList.add('flex');
 
                 const inputOS = document.getElementById('input-os-oficial');
+                const avisoDuplicada = document.getElementById('aviso-os-duplicada');
+                if (avisoDuplicada) avisoDuplicada.classList.add('hidden');
+                inputOS.classList.remove('border-red-500', 'bg-red-50');
+
                 inputOS.value = numeroOSGerado;
                 inputOS.focus();
+
+                // Checa disponibilidade imediatamente ao abrir
+                checkOSNumberAvailability(numeroOSGerado, activeOSId);
             });
+
+            // Monitora digitação do número da OS para alertar em tempo real se já existe
+            let debounceCheckOS = null;
+            document.getElementById('input-os-oficial').addEventListener('input', (e) => {
+                clearTimeout(debounceCheckOS);
+                debounceCheckOS = setTimeout(() => {
+                    checkOSNumberAvailability(e.target.value, activeOSId);
+                }, 300);
+            });
+
+            async function checkOSNumberAvailability(osNumber, currentId) {
+                if (!osNumber) return false;
+                let formatted = osNumber.trim().toUpperCase();
+                if (!formatted.startsWith('O.S-')) formatted = 'O.S-' + formatted;
+
+                const avisoDuplicada = document.getElementById('aviso-os-duplicada');
+                const textoAviso = document.getElementById('texto-aviso-os-duplicada');
+                const inputOS = document.getElementById('input-os-oficial');
+                const btnConfirm = document.getElementById('confirm-generate-os-btn');
+
+                try {
+                    const { data: existing } = await supabaseClient
+                        .from('service_orders')
+                        .select('id, business_id, client')
+                        .eq('business_id', formatted)
+                        .neq('id', currentId)
+                        .maybeSingle();
+
+                    if (existing) {
+                        if (avisoDuplicada && textoAviso) {
+                            textoAviso.innerHTML = `O número <strong>${formatted}</strong> já está cadastrado (Cliente: <strong>${existing.client || 'Outro'}</strong>). Digite outro número de OS.`;
+                            avisoDuplicada.classList.remove('hidden');
+                        }
+                        if (inputOS) inputOS.classList.add('border-red-500', 'bg-red-50');
+                        return true;
+                    } else {
+                        if (avisoDuplicada) avisoDuplicada.classList.add('hidden');
+                        if (inputOS) inputOS.classList.remove('border-red-500', 'bg-red-50');
+                        return false;
+                    }
+                } catch (e) {
+                    console.warn("Erro ao checar OS:", e);
+                    return false;
+                }
+            }
 
             // --- 2. CONFIRMAR E ENVIAR PARA N8N ---
             document.getElementById('confirm-generate-os-btn').addEventListener('click', async () => {
@@ -1450,11 +1506,25 @@
 
                 if (!osNumOficial.startsWith('O.S-')) osNumOficial = 'O.S-' + osNumOficial;
 
+                const btnConfirm = document.getElementById('confirm-generate-os-btn');
+                btnConfirm.disabled = true;
+                btnConfirm.textContent = 'Validando número...';
+
+                // Checagem prévia obrigatória de duplicidade antes de tocar no banco ou abrir PDF
+                const isDuplicated = await checkOSNumberAvailability(osNumOficial, activeOSId);
+                if (isDuplicated) {
+                    alert(`⚠️ Atenção: A Ordem de Serviço "${osNumOficial}" JÁ EXISTE no sistema!\n\nPor favor, altere o número da O.S. no campo (ex: use o próximo número livre ou o número oficial do ERP) antes de confirmar.`);
+                    btnConfirm.disabled = false;
+                    btnConfirm.textContent = 'CONFIRMAR E ENVIAR';
+                    const inputOS = document.getElementById('input-os-oficial');
+                    inputOS.focus();
+                    inputOS.select();
+                    return;
+                }
+
                 // Pré-abre a guia síncronamente no clique do usuário para vencer todos os bloqueadores de popup
                 const preTab = window.PDFGenerator ? window.PDFGenerator.createPreOpenedWindow("Gerando Orçamento Comercial TurboSul...") : null;
 
-                const btnConfirm = document.getElementById('confirm-generate-os-btn');
-                btnConfirm.disabled = true;
                 btnConfirm.textContent = 'Enviando...';
 
                 try {
@@ -1559,13 +1629,25 @@
                         document.getElementById('modal-gerar-os').classList.add('hidden');
                         showActionSuccessModal(`Sucesso! Orçamento convertido para ${osNumOficial}. Encaminhado para Triagem.`, urlFinal);
                     } else {
+                        if (preTab) preTab.close();
                         if (window.PDFGenerator) window.PDFGenerator.hideLoading();
                         let errorText = error.message || "Erro desconhecido";
-                        alert(`Erro ao salvar no servidor: ${errorText}`);
+                        if (errorText.includes('duplicate key') || errorText.includes('business_id_key')) {
+                            alert(`⚠️ Não foi possível salvar: O número de O.S. "${osNumOficial}" já está cadastrado em outra ordem de serviço.\n\nPor favor, digite outro número de O.S.`);
+                            const inputOS = document.getElementById('input-os-oficial');
+                            if (inputOS) {
+                                inputOS.classList.add('border-red-500', 'bg-red-50');
+                                inputOS.focus();
+                                inputOS.select();
+                            }
+                        } else {
+                            alert(`Erro ao salvar no servidor: ${errorText}`);
+                        }
                         btnConfirm.disabled = false; btnConfirm.textContent = 'CONFIRMAR E ENVIAR';
                     }
                 } catch (err) {
                     console.error("Erro no envio:", err);
+                    if (preTab) preTab.close();
                     if (window.PDFGenerator) window.PDFGenerator.hideLoading();
                     btnConfirm.disabled = false;
                     btnConfirm.textContent = 'CONFIRMAR E ENVIAR';
