@@ -302,6 +302,7 @@
     <!-- SUPABASE E LÓGICA DE PROGRAMAÇÃO INTEGRADA -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/condenar_peca.js"></script>
+    <script src="js/production-flow.js"></script>
     <script src="js/rework.js"></script>
     <script>
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
@@ -348,7 +349,7 @@
                     .from('component_tracking').select('*').in('service_order_id', osIds);
 
                 queueData = (orders || []).map(os => {
-                    os.full_tracking = (allTrackings || []).filter(t => t.service_order_id === os.id);
+                    os.full_tracking = ProductionFlow.tracking({ full_tracking: (allTrackings || []).filter(t => t.service_order_id === os.id) });
                     os.components_to_render = os.full_tracking
                         .filter(t => ['BANCADA', 'BANCADA DE USINAGEM'].includes((t.current_stage || '').toUpperCase().trim()))
                         .map(t => t.component_name || t.component)
@@ -1114,92 +1115,9 @@
 
         // --- FUNÇÃO DE ROTEAMENTO DE PEÇAS ENTRE SETORES ---
         async function sendTo(btnEl, componentName, targetStage) {
-            if (!await Rework.ensureFinished(componentName)) return;
-            if (!selectedOS) { alert('Selecione uma OS primeiro.'); return; }
-
-            const stageLabels = {
-                'RETIFICA': 'Retífica',
-                'SOLDA': 'Solda',
-                'METROLOGIA': 'Metrologia',
-                'MONTAGEM': 'Montagem',
-                'BALANCEAMENTO': 'Balanceamento Solo'
-            };
-
-            const stageLabel = stageLabels[targetStage] || targetStage;
-            const confirmed = confirm(`Enviar ${componentName} para o setor de ${stageLabel}?`);
-            if (!confirmed) return;
-
-            // Feedback visual imediato
-            const originalText = btnEl.innerText;
-            btnEl.disabled = true;
-            btnEl.innerText = 'Enviando...';
-            btnEl.classList.add('opacity-60');
-
-            const osId = selectedOS.service_order_id || selectedOS.id;
-
-            try {
-                // 1. Atualiza current_stage da peça no Supabase
-                const { error: trackError } = await supabaseClient
-                    .from('component_tracking')
-                    .upsert({
-                        service_order_id: osId,
-                        component_name: componentName.toUpperCase().trim(),
-                        current_stage: targetStage,
-                        current_sector: targetStage,
-                        status: targetStage === 'MONTAGEM' ? 'Finalizado' : 'Em Andamento'
-                    }, { onConflict: 'service_order_id,component_name' });
-
-                if (trackError) throw trackError;
-
-                // 2. Registra no histórico
-                const { data: { user } } = await supabaseClient.auth.getUser();
-                const historyData = {
-                    service_order_id: osId,
-                    action: `Peça enviada para ${stageLabel}`,
-                    details: `A peça ${componentName} foi direcionada da Bancada para o setor de ${stageLabel}.`,
-                    timestamp: new Date().toISOString()
-                };
-                if (user) historyData.user_id = user.id;
-
-                await supabaseClient.from('history_events').insert(historyData);
-
-                // 3. Atualiza o estado local para refletir a mudança sem recarregar
-                const trackingList = selectedOS.full_tracking || [];
-                const trk = trackingList.find(t => t.component === componentName || t.component_name === componentName);
-                if (trk) {
-                    trk.current_stage = targetStage;
-                    trk.status = targetStage === 'MONTAGEM' ? 'Finalizado' : 'Em Andamento';
-                } else {
-                    trackingList.push({
-                        component: componentName,
-                        component_name: componentName,
-                        current_stage: targetStage,
-                        status: targetStage === 'MONTAGEM' ? 'Finalizado' : 'Em Andamento',
-                        service_order_id: osId
-                    });
-                    selectedOS.full_tracking = trackingList;
-                }
-
-                // 4. Re-renderiza para mostrar o card como enviado (acinzentado/bloqueado)
-                renderComponents();
-
-                // 5. Toast de sucesso
-                const toast = document.createElement('div');
-                toast.className = 'fixed bottom-6 right-6 z-[300] bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl font-black text-sm uppercase tracking-widest flex items-center space-x-3 animate-bounce';
-                toast.innerHTML = `<i class="fa-solid fa-circle-check text-xl"></i><span>${componentName} → ${stageLabel} ✓</span>`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3500);
-
-            } catch (e) {
-                console.error('Erro ao enviar peça:', e);
-                alert('Erro ao enviar peça: ' + (e.message || JSON.stringify(e)));
-                btnEl.disabled = false;
-                btnEl.innerText = originalText;
-                btnEl.classList.remove('opacity-60');
-            }
+            await ProductionFlow.send(componentName, targetStage);
         }
 
-        // --- LÓGICA DE HISTÓRICO ---
         async function carregarLinhaDoTempo(osId) {
             if (osId && (!selectedOS || (selectedOS.id !== osId && selectedOS.os_id !== osId && selectedOS.service_order_id !== osId))) {
                 selectedOS = queueData.find(o => (o.os_id === osId || o.id === osId || o.service_order_id === osId)) || selectedOS;

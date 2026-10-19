@@ -190,6 +190,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/condenar_peca.js"></script>
+    <script src="js/production-flow.js"></script>
     <script src="js/rework.js"></script>
     <script>
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
@@ -241,6 +242,7 @@
                 let rawQueue = (orders || []).map(os => {
                     os.full_tracking = (allTrackings || []).filter(t => t.service_order_id === os.id);
                     os.triage_parts = (allTriageParts || []).filter(tp => tp.service_order_id === os.id);
+                    os.full_tracking = ProductionFlow.tracking(os);
                     return os;
                 });
 
@@ -269,7 +271,7 @@
                     if (!isConjuntoNovo) return true;
 
                     // Se for conjunto novo e não está no balanceamento final de peça inteira, não balanceia núcleo
-                    return false;
+                    return activeBalancing.some(t => t.component_name === 'CONJUNTO ROTATIVO');
                 });
 
                 function sortOrdersByUrgencyAndDate(orders) {
@@ -342,7 +344,7 @@
                     .eq('service_order_id', osId);
                 
                 if (!error && trackingData) {
-                    selectedOS.full_tracking = trackingData;
+                    selectedOS.full_tracking = ProductionFlow.tracking({ ...selectedOS, full_tracking: trackingData });
                     console.log("✅ [Balanceamento] Dados recebidos do Supabase:", trackingData);
                 } else {
                     console.error("❌ [Balanceamento] Erro Supabase:", error);
@@ -598,7 +600,8 @@
             const desempenhoValue = document.getElementById('input-desempenho').value.trim();
             const observacoesValue = document.getElementById('input-observacoes').value.trim();
 
-            const trackingData = [{
+            const previousLogs = typeof raw?.tracking_data === 'string' ? JSON.parse(raw.tracking_data) : (raw?.tracking_data || []);
+            const trackingData = [...previousLogs.filter(log => log.service !== name), {
                 service: name,
                 start_time: startTimeStr,
                 end_time: new Date().toISOString(),
@@ -770,53 +773,12 @@
         }
 
         async function concluirEtapa(setorAlvo, tipoFinalizado) {
-            if (!await Rework.ensureFinished()) return;
             closeModal();
-            const btn = document.getElementById('btn-concluir-balanceamento');
-            const desempenhoObs = document.getElementById('input-desempenho').value.trim();
-            
-            btn.disabled = true;
-            btn.innerText = "ENVIANDO...";
-
-            const servicos = [];
-            if (tipoFinalizado.toUpperCase() === 'EIXO') {
-                servicos.push('Balanceamento Solo do Eixo');
-            } else if (tipoFinalizado.toUpperCase() === 'CONJUNTO ROTATIVO') {
-                servicos.push('Balanceamento de Conjunto Rotativo');
-            } else {
-                servicos.push('Balanceamento Final');
-            }
-
-            if (desempenhoObs) {
-                servicos.push(`Aferições: ${desempenhoObs}`);
-            }
-
-            try {
-                // Desvio de Rota: Se for Peça Inteira, aciona o novo workflow dedicado de Qualidade. Se não, usa o roteamento geral.
-                const urlDestino = tipoFinalizado.toUpperCase() === 'PEÇA INTEIRA' ? API_QUALITY_ROUTING : API_ACTION;
-
-                const response = await fetch(urlDestino, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        os_id: selectedOS.service_order_id || selectedOS.os_id || selectedOS.id,
-                        component: tipoFinalizado,
-                        target: setorAlvo,
-                        executed_services: servicos
-                    })
-                });
-
-                if (response.ok) {
-                    alert(`✅ Enviado para ${setorAlvo} com Sucesso!`);
-                    window.location.reload();
-                } else {
-                    alert("Erro ao salvar etapa.");
-                    btn.disabled = false;
-                }
-            } catch (e) {
-                alert("Falha na conexão.");
-                btn.disabled = false;
-            }
+            await ProductionFlow.send(tipoFinalizado, setorAlvo, {
+                note: 'Balanceamento concluído. ' + document.getElementById('input-desempenho').value.trim(),
+                services: [tipoFinalizado.toUpperCase() === 'EIXO' ? 'Balanceamento Solo do Eixo' : 'Balanceamento Final'],
+                status: setorAlvo === 'MONTAGEM' ? 'BALANCEADO' : 'Finalizado'
+            });
         }
 
         function toggleSectorCleaning(sectorName) {

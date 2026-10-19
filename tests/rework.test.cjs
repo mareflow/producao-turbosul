@@ -66,7 +66,7 @@ function runtime() {
         const source = fs.readFileSync(file, 'utf8');
         assert.ok(source.includes('js/rework.js'), file);
         assert.ok(source.includes('Rework.render('), file);
-        assert.ok(source.includes('Rework.ensureFinished('), file);
+        assert.ok(source.includes('Rework.ensureFinished(') || source.includes('ProductionFlow.send('), file);
     }
     console.log('OK: observação obrigatória, pausa, retomada, recuperação, múltiplas execuções, líder e cobertura dos setores');
 })().catch(error => { console.error(error); process.exitCode = 1; });

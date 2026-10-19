@@ -81,7 +81,7 @@ const Rework = {
         if (!ctx.id) return '';
         if (!this.cache.has(ctx.id)) this.load(ctx.id).then(() => this.refresh()).catch(() => this.refresh());
         return `<section data-rework-order="${this.escape(ctx.id)}" data-rework-sector="${this.escape(ctx.sector)}" data-rework-component="${this.escape(component)}" data-rework-enabled="${enabled}">
-            ${this.body(ctx.id, ctx.sector, component, enabled)}</section>`;
+            ${this.body(ctx.id, ctx.sector, component, enabled)}</section>${typeof ProductionFlow !== 'undefined' ? ProductionFlow.render(component, enabled) : ''}`;
     },
     body(id, sector, component, enabled) {
         const sessions = (this.cache.get(id) || []).filter(s => s.sector === sector && s.component === component);

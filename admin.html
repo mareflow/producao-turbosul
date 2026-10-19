@@ -753,6 +753,7 @@
 
     <!-- LOGIC SCRIPT -->
     <script src="js/rework.js"></script>
+    <script src="js/production-flow.js"></script>
     <script>
 
         let allOrders = [];
@@ -794,7 +795,7 @@
                 if (trackingsError) throw trackingsError;
 
                 allOrders = (orders || []).map(os => {
-                    os.tracking = (trackings || []).filter(t => t.service_order_id === os.id);
+                    os.tracking = ProductionFlow.tracking({ tracking: (trackings || []).filter(t => t.service_order_id === os.id) });
                     return os;
                 });
 

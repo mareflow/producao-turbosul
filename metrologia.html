@@ -233,6 +233,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/condenar_peca.js"></script>
+    <script src="js/production-flow.js"></script>
     <script src="js/rework.js"></script>
     <script>
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
@@ -277,7 +278,7 @@
                     .from('component_tracking').select('*').in('service_order_id', osIds);
 
                 queueData = (orders || []).map(os => {
-                    os.full_tracking = (allTrackings || []).filter(t => t.service_order_id === os.id);
+                    os.full_tracking = ProductionFlow.tracking({ full_tracking: (allTrackings || []).filter(t => t.service_order_id === os.id) });
                     os.components_to_render = os.full_tracking
                         .filter(t => (t.current_stage || '').toUpperCase().trim() === 'METROLOGIA')
                         .map(t => t.component_name || t.component)
@@ -617,65 +618,9 @@
         };
 
         async function sendTo(btn, compName, targetSector) {
-            if (!await Rework.ensureFinished(compName)) return;
-            const cardId = 'comp-' + compName.replace(/\s+/g, '-');
-            const card = document.getElementById(cardId);
-            
-            const measurements = Array.from(card.querySelectorAll('input[data-service]')).map(i => ({
-                servico: i.dataset.service,
-                valor: i.value,
-                concluido: i.closest('div').parentElement.querySelector('input[type="checkbox"]').checked
-            }));
-
-            // Filtra as medições realizadas para enviar o tempo das mesmas de forma inteligente ao n8n
-            const executedServices = measurements.filter(m => m.concluido).map(m => m.servico);
-
-            btn.disabled = true;
-            btn.innerText = 'ENVIANDO...';
-            
-            try {
-                const osId = selectedOS.service_order_id || selectedOS.os_id || selectedOS.id;
-                const { data: existing } = await supabaseClient
-                    .from('component_tracking')
-                    .select('id, executed_services')
-                    .eq('service_order_id', osId)
-                    .eq('component_name', compName.toUpperCase().trim())
-                    .maybeSingle();
-
-                const prevServices = existing?.executed_services || [];
-                const mergedServices = [...new Set([...prevServices, ...executedServices])];
-
-                const { error: upsertErr } = await supabaseClient
-                    .from('component_tracking')
-                    .upsert({
-                        service_order_id: osId,
-                        component_name: compName.toUpperCase().trim(),
-                        current_stage: targetSector.toUpperCase(),
-                        current_sector: targetSector.toUpperCase(),
-                        executed_services: mergedServices,
-                        last_update: new Date().toISOString()
-                    }, { onConflict: 'service_order_id,component_name' });
-
-                if (upsertErr) throw upsertErr;
-
-                const { data: sessionData } = await supabaseClient.auth.getSession();
-                const userId = sessionData?.session?.user?.id || null;
-                await supabaseClient.from('history_events').insert({
-                    service_order_id: osId,
-                    user_id: userId,
-                    action: 'ROTEAMENTO METROLOGIA',
-                    description: `Peça "${compName}" encaminhada para ${targetSector}. Serviços: ${executedServices.join(', ')}`
-                }).then(result => { if (result.error) throw result.error; });
-
-                card.classList.add('opacity-40', 'grayscale', 'pointer-events-none'); 
-                btn.innerText = 'ENVIADO'; 
-            } catch(e) { 
-                btn.disabled = false; btn.innerText = 'ERRO'; alert("Falha ao enviar."); 
-                console.error(e);
-            }
+            await ProductionFlow.send(compName, targetSector);
         }
 
-        // INICIA O CRONÔMETRO DE UM SUBPROCESSO ESPECÍFICO (METROLOGIA)
         function startServiceTimer(componentName, serviceName) {
             if (!selectedOS) return;
             const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;

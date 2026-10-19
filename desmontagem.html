@@ -335,6 +335,7 @@
     </div>
 
 <script src="js/accessory-flow.js"></script>
+    <script src="js/production-flow.js"></script>
     <script src="js/rework.js"></script>
     <script>
         // 1. CONFIGURAÇÕES E CONEXÕES
@@ -404,7 +405,7 @@
                         
                     if (!trackError && trackings) {
                         rawQueue = rawQueue.filter(os => {
-                            const osTracking = trackings.filter(t => t.service_order_id === os.id);
+                            const osTracking = ProductionFlow.tracking({ full_tracking: trackings.filter(t => t.service_order_id === os.id) });
                             const osTriage = (allTriageParts || []).filter(tp => tp.service_order_id === os.id);
                             const isOsConjuntoNovo = osTriage.some(p => 
                                 ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || '').toUpperCase().trim()) && 
@@ -413,7 +414,7 @@
 
                             // Se for Conjunto Novo, as peças de núcleo (EIXO, ROTOR, CCE, REPAROS) não são checadas na Desmontagem
                             const componentsToCheck = [...MASTER_COMPONENTS,
-                                ...osTracking.filter(t => AccessoryFlow.part(t.component_name)).map(t => ({ title: t.component_name }))]
+                                ...osTracking.filter(t => AccessoryFlow.part(t.component_name) || t.component_name === 'CONJUNTO ROTATIVO').map(t => ({ title: t.component_name }))]
                                 .map(c => c.title)
                                 .filter(compName => !(isOsConjuntoNovo && ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(compName.toUpperCase())));
                             
@@ -421,7 +422,7 @@
                             const hasPendingPiece = componentsToCheck.some(compName => {
                                 const p = osTracking.find(t => (t.component_name || t.component || '').toUpperCase() === compName.toUpperCase());
                                 const stage = p ? (p.target_sector || p.current_stage || p.stage || '').toUpperCase().trim() : '';
-                                const postSectors = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'MONTAGEM', 'BALANCEAMENTO', 'BANCADA DE USINAGEM'];
+                                const postSectors = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'MONTAGEM', 'BALANCEAMENTO', 'BANCADA DE USINAGEM', 'COMPRA'];
                                 return !postSectors.includes(stage);
                             });
 
@@ -541,6 +542,7 @@
                     .eq('service_order_id', os.id);
                 
                 currentSelection.triage_parts = triagePartsData || [];
+                currentSelection.tracking = ProductionFlow.tracking(currentSelection);
 
                 // O recebimento e o envio de peças compradas são feitos somente pela Triagem.
             } catch (e) {
@@ -648,9 +650,10 @@
             const grid = document.getElementById('component-grid');
             if (!grid || !currentSelection) return;
             const accessories = (currentSelection.tracking || [])
-                .filter(t => AccessoryFlow.part(t.component_name) && t.current_stage === 'DESMONTAGEM')
+                .filter(t => (AccessoryFlow.part(t.component_name) || t.component_name === 'CONJUNTO ROTATIVO') && t.current_stage === 'DESMONTAGEM')
                 .map(t => ({ title: t.component_name, items: ['Análise', 'Desmontagem/Limpeza', 'Conferência'] }));
-            const allToRender = [...MASTER_COMPONENTS, ...accessories, ...specialItemsList];
+            const hasCore = (currentSelection.tracking || []).some(t => t.component_name === 'CONJUNTO ROTATIVO');
+            const allToRender = [...MASTER_COMPONENTS.filter(c => !hasCore || !ProductionFlow.core.includes(c.title)), ...accessories, ...specialItemsList];
             
             let todasPecasEnviadas = true;
 
@@ -961,96 +964,9 @@
         }
 
         async function sendPieceToSector(pieceName, sector, btnElement) {
-            if (!await Rework.ensureFinished(pieceName)) return;
-            const cardId = 'card-comp-' + pieceName.replace(/\s+/g, '-');
-            const card = document.getElementById(cardId);
-            const services = Array.from(card.querySelectorAll('input:checked')).map(c => c.dataset.service);
-            
-            const originalText = btnElement.innerHTML;
-            btnElement.disabled = true;
-            btnElement.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i>`;
-
-            try {
-                const { data: existing } = await supabaseClient
-                    .from('component_tracking')
-                    .select('id, executed_services')
-                    .eq('service_order_id', currentSelection.id)
-                    .eq('component_name', pieceName.toUpperCase().trim())
-                    .maybeSingle();
-
-                const prevServices = existing?.executed_services || [];
-                const mergedServices = [...new Set([...prevServices, ...services])];
-
-                const { error: upsertErr } = await supabaseClient
-                    .from('component_tracking')
-                    .upsert({
-                        service_order_id: currentSelection.id,
-                        component_name: pieceName.toUpperCase().trim(),
-                        current_stage: sector.toUpperCase(),
-                        current_sector: sector.toUpperCase(),
-                        executed_services: mergedServices,
-                        last_update: new Date().toISOString()
-                    }, { onConflict: 'service_order_id,component_name' });
-
-                if (upsertErr) throw upsertErr;
-
-                const { data: sessionData } = await supabaseClient.auth.getSession();
-                const userId = sessionData?.session?.user?.id || null;
-                await supabaseClient.from('history_events').insert({
-                    service_order_id: currentSelection.id,
-                    user_id: userId,
-                    action: 'ROTEAMENTO DESMONTAGEM',
-                    description: `Peça "${pieceName}" encaminhada para ${sector}. Serviços: ${mergedServices.join(', ')}`
-                }).then(result => { if (result.error) throw result.error; });
-
-                if (true) { // keeping response.ok block working
-                    // ATUALIZAÇÃO DE ESTADO EM TEMPO REAL:
-                    // Adiciona ou atualiza a peça no rastreio da OS na memória do navegador
-                    if (!currentSelection.tracking) currentSelection.tracking = [];
-                    
-                    let trk = currentSelection.tracking.find(t => 
-                        (t.component_name || t.component || '').toUpperCase() === pieceName.toUpperCase()
-                    );
-                    if (trk) {
-                        trk.current_stage = sector;
-                        trk.stage = sector;
-                    } else {
-                        currentSelection.tracking.push({ 
-                            component_name: pieceName, 
-                            component: pieceName, 
-                            current_stage: sector, 
-                            stage: sector 
-                        });
-                    }
-
-                    // Redesenha o grid de componentes para aplicar o novo badge e as cores
-                    renderComponentGrid();
-                    
-                    // Se a OS ainda estava aguardando desmontagem, transiciona para Em Produção
-                    if (currentSelection.status === 'Aguardando Desmontagem OS') {
-                        currentSelection.status = 'Em Produção';
-                        await supabaseClient
-                            .from('service_orders')
-                            .update({ status: 'Em Produção', updated_at: new Date().toISOString() })
-                            .eq('id', currentSelection.id);
-                    }
-
-                    console.log(`${pieceName} movido para ${sector}`);
-                } else {
-                    throw new Error("Erro no servidor");
-                }
-            } catch (e) {
-                console.error(e);
-                alert("Falha ao rotear peça. Tente novamente.");
-                btnElement.disabled = false;
-                btnElement.innerHTML = originalText;
-            }
+            await ProductionFlow.send(pieceName, sector);
         }
 
-        
-
-        // FUNÇÃO PARA PERSISTIR TODAS AS ABAS DO CHECKLIST EXCLUSIVO DA DESMONTAGEM (UPSERT)
-        // FUNÇÃO PARA RENDERIZAR O RESUMO DO LAUDO DE FORMA ESTÁTICA (LEITURA)
         function renderChecklistSummary(checklistData) {
             const list = document.getElementById('checklist-summary-list');
             if (!list) return;

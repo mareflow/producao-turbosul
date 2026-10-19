@@ -146,7 +146,7 @@
                             Iniciar Torque e Montagem
                         </button>
                         <button id="btn-concluir-etapa" onclick="confirmarEtapaMontagem()" class="hidden w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest transition-all shadow-lg">
-                            Enviar para o Balanceamento
+                            Liberar para Carcaçamento
                         </button>
                     </div>
                 </div>
@@ -259,6 +259,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/condenar_peca.js"></script>
     <script src="js/accessory-flow.js"></script>
+    <script src="js/production-flow.js"></script>
     <script src="js/rework.js"></script>
     <script>
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
@@ -337,6 +338,7 @@
                     os.full_tracking = os.full_tracking.map(t => purchasePending(os, t.component_name)
                         ? { ...t, current_stage: 'COMPRA', current_sector: 'COMPRA', status: 'AGUARDANDO_COMPRA' }
                         : t);
+                    os.full_tracking = ProductionFlow.tracking(os);
                     return os;
                 });
 
@@ -540,12 +542,8 @@
             if (isConjuntoBalanceado) {
                 const ctStage = ct ? (ct.target_sector || ct.current_stage || ct.stage || '').toUpperCase() : '';
                 const ccoStage = cco ? (cco.target_sector || cco.current_stage || cco.stage || '').toUpperCase() : '';
-                const accessoriesReady = (selectedOS.triage_parts || []).filter(p => AccessoryFlow.part(p.item_name, false) && AccessoryFlow.decision(p)).every(p => {
-                    const part = AccessoryFlow.part(p.item_name, false);
-                    const tracked = tracking.find(t => AccessoryFlow.part(t.component_name)?.code === part.code);
-                    return tracked?.current_stage === 'MONTAGEM' && !purchasePending(selectedOS, part.code);
-                });
-                const carcasasProntas = ctStage === 'MONTAGEM' && ccoStage === 'MONTAGEM' && accessoriesReady;
+                const coreReady = conjuntoRotativo && stageConjunto === 'MONTAGEM';
+                const carcasasProntas = ctStage === 'MONTAGEM' && ccoStage === 'MONTAGEM' && coreReady;
 
                 if (!carcasasProntas) {
                     return 'CARCACAMENTO_AGUARDANDO';
@@ -559,7 +557,8 @@
                 }
 
                 const ctTrackingData = ct && ct.tracking_data ? (typeof ct.tracking_data === 'string' ? JSON.parse(ct.tracking_data) : ct.tracking_data) : [];
-                const logSalvo = Array.isArray(ctTrackingData) ? ctTrackingData.find(log => log.service === 'Carcaçamento Completo') : null;
+                const relatedLogs = [conjuntoRotativo, cco].flatMap(part => typeof part?.tracking_data === 'string' ? JSON.parse(part.tracking_data) : (part?.tracking_data || []));
+                const logSalvo = ProductionFlow.serviceDone([...(ctTrackingData || []), ...relatedLogs], 'Carcaçamento Completo');
 
                 if (logSalvo) {
                     return 'CARCACAMENTO_CONCLUIDO';
@@ -572,7 +571,10 @@
                 const cceStage = cce ? (cce.target_sector || cce.current_stage || cce.stage || '').toUpperCase() : '';
                 const reparosStage = reparos ? (reparos.target_sector || reparos.current_stage || reparos.stage || '').toUpperCase() : '';
 
-                const todosDisponiveis = eixoStage === 'MONTAGEM' && rotorStage === 'MONTAGEM' && cceStage === 'MONTAGEM' && reparosStage === 'MONTAGEM';
+                const eixoLogs = typeof eixo?.tracking_data === 'string' ? JSON.parse(eixo.tracking_data) : (eixo?.tracking_data || []);
+                const lastDeparture = eixoLogs.filter(log => log.action === 'ROTEAMENTO' && log.from === 'MONTAGEM').reduce((latest, log) => Math.max(latest, Date.parse(log.timestamp) || 0), 0);
+                const eixoBalanceado = eixo?.status === 'BALANCEADO' || eixoLogs.some(log => log.sector === 'BALANCEAMENTO' && log.duration_seconds > 0 && Date.parse(log.end_time) >= lastDeparture);
+                const todosDisponiveis = eixoBalanceado && eixoStage === 'MONTAGEM' && rotorStage === 'MONTAGEM' && cceStage === 'MONTAGEM' && reparosStage === 'MONTAGEM';
 
                 if (!todosDisponiveis) {
                     return 'NUCLEO_AGUARDANDO';
@@ -586,7 +588,7 @@
                 }
 
                 const eixoTrackingData = eixo && eixo.tracking_data ? (typeof eixo.tracking_data === 'string' ? JSON.parse(eixo.tracking_data) : eixo.tracking_data) : [];
-                const logSalvo = Array.isArray(eixoTrackingData) ? eixoTrackingData.find(log => log.service === 'Montagem de Núcleo') : null;
+                const logSalvo = ProductionFlow.serviceDone(eixoTrackingData, 'Montagem de Núcleo');
 
                 if (logSalvo) {
                     return 'NUCLEO_CONCLUIDO';
@@ -613,6 +615,16 @@
             const btnIniciar = document.getElementById('btn-iniciar-torque');
             const btnEnviar = document.getElementById('btn-concluir-etapa');
             const timerContainer = document.getElementById('assembly-timer-container');
+            let accompaniment = document.getElementById('assembly-accompaniment');
+            if (!accompaniment) {
+                accompaniment = document.createElement('div'); accompaniment.id = 'assembly-accompaniment';
+                accompaniment.className = 'mt-4 p-3 rounded-xl border border-slate-200 bg-slate-50';
+                document.getElementById('dynamic-pieces-grid').after(accompaniment);
+            }
+            const annexes = tracking.filter(t => AccessoryFlow.part(t.component_name));
+            accompaniment.innerHTML = '<p class="text-xs font-bold text-slate-500 mb-2">ANEXOS DE ACOMPANHAMENTO — não fazem parte da montagem</p>' +
+                annexes.map(t => '<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-bold">' + Rework.escape(t.component_name) + ': ' + Rework.escape(t.current_stage) + '</span>' + (t.current_stage === 'MONTAGEM' ? '<details class="text-xs"><summary class="cursor-pointer text-blue-700">Encaminhar / retornar</summary>' + ProductionFlow.render(t.component_name) + '</details>' : '') + '</div>').join('');
+            accompaniment.classList.toggle('hidden', annexes.length === 0);
 
             if (etapa === 'NUCLEO') {
                 document.getElementById('assembly-step-badge').innerText = "Etapa 1: Conjunto Rotativo";
@@ -640,12 +652,12 @@
 
                 if (isConjuntoNovo) {
                     renderPecasCards({ 
-                        "Conjunto Novo": { current_stage: newCoreReceived(selectedOS) ? 'MONTAGEM' : 'COMPRA', status: newCoreReceived(selectedOS) ? 'CONJUNTO NOVO' : 'AGUARDANDO_COMPRA' },
+                        "Conjunto Novo": tracking.find(t => t.component_name === 'CONJUNTO ROTATIVO') || { current_stage: 'COMPRA' },
                         CT: ct, 
                         CCO: cco 
                     });
                 } else {
-                    renderPecasCards({ CT: ct, CCO: cco });
+                    renderPecasCards({ 'Conjunto Rotativo': tracking.find(t => t.component_name === 'CONJUNTO ROTATIVO'), CT: ct, CCO: cco });
                 }
             }
 
@@ -674,7 +686,7 @@
 
             switch (state) {
                 case 'NUCLEO_AGUARDANDO':
-                    bannerStatus.innerHTML = `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ AGUARDANDO CHEGADA DAS PEÇAS DO NÚCLEO NO SETOR</span>`;
+                    bannerStatus.innerHTML = `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ AGUARDANDO PEÇAS DO NÚCLEO E BALANCEAMENTO DO EIXO</span>`;
                     btnIniciar.disabled = true;
                     btnIniciar.classList.remove('hidden');
                     btnIniciar.className = 'w-full bg-slate-400 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest transition-all cursor-not-allowed';
@@ -721,7 +733,7 @@
                 case 'CARCACAMENTO_AGUARDANDO':
                     bannerStatus.innerHTML = isNewCore(selectedOS) && !newCoreReceived(selectedOS)
                         ? `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ CONJUNTO NOVO AGUARDANDO BAIXA DE RECEBIMENTO NA TRIAGEM</span>`
-                        : `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ AGUARDANDO CARCAÇAS E ANEXOS NA MONTAGEM</span>`;
+                        : `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ AGUARDANDO CONJUNTO, CT E CCO NA MONTAGEM</span>`;
                     btnIniciar.disabled = true;
                     btnIniciar.classList.remove('hidden');
                     btnIniciar.className = 'w-full bg-slate-400 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest transition-all cursor-not-allowed';
@@ -766,11 +778,6 @@
 
         function renderPecasCards(pecasObj) {
             const tracking = selectedOS.full_tracking || selectedOS.tracking || [];
-            for (const item of selectedOS.triage_parts || []) {
-                const part = AccessoryFlow.part(item.item_name, false);
-                if (!part || !AccessoryFlow.decision(item)) continue;
-                pecasObj[part.name] = tracking.find(t => AccessoryFlow.part(t.component_name)?.code === part.code) || { current_stage: 'AGUARDANDO ENCAMINHAMENTO' };
-            }
             const grid = document.getElementById('dynamic-pieces-grid');
             const colsCount = Object.keys(pecasObj).length;
             grid.className = `grid grid-cols-1 md:grid-cols-${colsCount} gap-6`;
@@ -971,12 +978,12 @@
             const buttonsContainer = document.getElementById('modal-buttons-container');
 
             if (!isConjuntoBalanceado) {
-                title.innerText = "Enviar para Balanceamento?";
-                desc.innerText = "Isso montará o Conjunto Rotativo e o encaminhará para o primeiro balanceamento.";
+                title.innerText = "Liberar conjunto para Carcaçamento?";
+                desc.innerText = "O conjunto rotativo foi montado após o balanceamento do eixo. Liberar para o carcaçamento com CT e CCO?";
                 buttonsContainer.innerHTML = `
                     <div class="flex gap-3 w-full">
                         <button onclick="closeModal()" class="flex-1 py-4 px-6 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition">Cancelar</button>
-                        <button onclick="enviarProximaEtapa('BALANCEAMENTO', 'Conjunto Rotativo')" class="flex-1 py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg transition">Confirmar</button>
+                        <button onclick="enviarProximaEtapa('MONTAGEM', 'Conjunto Rotativo')" class="flex-1 py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg transition">Confirmar</button>
                     </div>
                 `;
             } else {
@@ -997,106 +1004,21 @@
         }
 
         async function enviarProximaEtapa(setorAlvo, tipoMontagem) {
-            if (!await Rework.ensureFinished()) return;
             if (blockPendingCore()) return;
-            if (tipoMontagem === 'Peça Inteira' && getAssemblyDetailedState() === 'CARCACAMENTO_AGUARDANDO') {
-                alert('Aguarde a chegada de todas as carcaças e anexos na Montagem.');
-                return;
+            if (tipoMontagem === 'Conjunto Rotativo' && getAssemblyDetailedState() !== 'NUCLEO_CONCLUIDO') {
+                alert('Conclua a montagem do núcleo antes de liberar o carcaçamento.'); return;
+            }
+            if (tipoMontagem === 'Peça Inteira' && getAssemblyDetailedState() !== 'CARCACAMENTO_CONCLUIDO') {
+                alert('Conclua o carcaçamento antes de encaminhar a turbina.'); return;
             }
             closeModal();
-            const btn = document.getElementById('btn-concluir-etapa');
-            btn.disabled = true;
-            btn.innerText = "ENVIANDO...";
-
-            try {
-                const osId = selectedOS.service_order_id || selectedOS.os_id || selectedOS.id;
-                const componentName = tipoMontagem;
-                const targetStage = setorAlvo.toUpperCase();
-                const executedServices = [tipoMontagem === 'Conjunto Rotativo' ? 'Montagem de Núcleo' : 'Carcaçamento Completo'];
-
-                const { data: existing } = await supabaseClient
-                    .from('component_tracking')
-                    .select('id, executed_services')
-                    .eq('service_order_id', osId)
-                    .eq('component_name', componentName.toUpperCase().trim())
-                    .maybeSingle();
-
-                const prevServices = existing?.executed_services || [];
-                const mergedServices = [...new Set([...prevServices, ...executedServices])];
-
-                const { error: upsertErr } = await supabaseClient
-                    .from('component_tracking')
-                    .upsert({
-                        service_order_id: osId,
-                        component_name: componentName.toUpperCase().trim(),
-                        current_stage: targetStage,
-                        status: targetStage === 'BALANCEAMENTO' ? 'Aguardando' : 'Finalizado',
-                        executed_services: mergedServices,
-                        last_update: new Date().toISOString()
-                    }, { onConflict: 'service_order_id,component_name' });
-
-                if (upsertErr) throw upsertErr;
-
-                // Sincroniza as demais peças no tracking e o status geral da OS
-                if (tipoMontagem === 'Peça Inteira') {
-                    // Carcaçamento finalizado e enviado à Qualidade ou Balanceamento:
-                    // Atualiza todas as peças que estavam em MONTAGEM nesta OS para o setor destino com status Finalizado
-                    await supabaseClient
-                        .from('component_tracking')
-                        .update({
-                            current_stage: targetStage,
-                            status: 'Finalizado',
-                            last_update: new Date().toISOString()
-                        })
-                        .eq('service_order_id', osId)
-                        .eq('current_stage', 'MONTAGEM');
-
-                    const newOsStatus = targetStage === 'QUALIDADE' 
-                        ? 'Aguardando Controle de Qualidade' 
-                        : 'Aguardando Balanceamento';
-
-                    await supabaseClient
-                        .from('service_orders')
-                        .update({ status: newOsStatus })
-                        .eq('id', osId);
-                } else if (tipoMontagem === 'Conjunto Rotativo') {
-                    // Montagem de Núcleo finalizada e enviada ao Balanceamento:
-                    // As peças do núcleo acompanham o Conjunto Rotativo para o Balanceamento
-                    await supabaseClient
-                        .from('component_tracking')
-                        .update({
-                            current_stage: 'BALANCEAMENTO',
-                            status: 'Finalizado',
-                            last_update: new Date().toISOString()
-                        })
-                        .eq('service_order_id', osId)
-                        .in('component_name', ['EIXO', 'ROTOR', 'CCE', 'REPAROS']);
-
-                    await supabaseClient
-                        .from('service_orders')
-                        .update({ status: 'Aguardando Balanceamento' })
-                        .eq('id', osId);
-                }
-
-                const { data: sessionData } = await supabaseClient.auth.getSession();
-                const userId = sessionData?.session?.user?.id || null;
-                await supabaseClient.from('history_events').insert({
-                    service_order_id: osId,
-                    user_id: userId,
-                    action: 'ROTEAMENTO MONTAGEM',
-                    description: `Peça "${componentName}" encaminhada para ${targetStage}. Serviços: ${executedServices.join(', ')}`
-                });
-
-                alert(`✅ Enviado para ${setorAlvo} com Sucesso!`);
-                window.location.reload();
-            } catch (e) {
-                console.error(e);
-                alert("Erro ao salvar etapa: " + e.message);
-                btn.disabled = false;
-            }
+            await ProductionFlow.send(tipoMontagem, setorAlvo, {
+                note: tipoMontagem === 'Conjunto Rotativo' ? 'Montagem do núcleo concluída; liberado para carcaçamento.' : 'Carcaçamento concluído.',
+                services: [tipoMontagem === 'Conjunto Rotativo' ? 'Montagem de Núcleo' : 'Carcaçamento Completo'],
+                status: setorAlvo === 'MONTAGEM' ? 'MONTADO' : setorAlvo === 'QUALIDADE' ? 'Finalizado' : 'Aguardando'
+            });
         }
 
-        
         async function toggleSectorCleaning(sectorName) {
             const timerKey = `timer_sector_cleaning_start_${sectorName}`;
             const startTimeStr = localStorage.getItem(timerKey);

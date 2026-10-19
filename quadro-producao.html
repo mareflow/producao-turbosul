@@ -185,6 +185,7 @@
     <!-- SCRIPTS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase.js"></script> <!-- usa client exportado globalmente como supabaseClient se possivel -->
+    <script src="js/production-flow.js"></script>
     <script>
         const COLUMNS = [
             { id: 'pre_vendas', title: 'Pré-Vendas', statuses: ['Aguardando Entrada', 'Pré-Venda'] },
@@ -312,7 +313,7 @@
                 if (osIds.length > 0) {
                     const { data: trackData, error: trackError } = await supabaseClient
                         .from('component_tracking')
-                        .select('service_order_id, current_stage, current_sector, status')
+                        .select('service_order_id, component_name, verdict_vendas, current_stage, current_sector, status')
                         .in('service_order_id', osIds);
                     if (!trackError && trackData) {
                         trackingData = trackData;
@@ -320,7 +321,7 @@
                 }
 
                 allOrders = (data || []).map(o => {
-                    o.tracking = trackingData.filter(t => t.service_order_id === o.id);
+                    o.tracking = ProductionFlow.tracking({ tracking: trackingData.filter(t => t.service_order_id === o.id) });
                     return o;
                 });
                 
