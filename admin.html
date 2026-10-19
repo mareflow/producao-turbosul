@@ -284,6 +284,7 @@
                             <option value="BANCADA">Bancada</option>
                             <option value="BALANCEAMENTO">Balanceamento</option>
                             <option value="MONTAGEM">Montagem</option>
+                            <option value="QUALIDADE">Controle de Qualidade</option>
                         </select>
                     </div>
                     <div class="flex-1 min-w-[150px]">
@@ -751,6 +752,7 @@
     </div>
 
     <!-- LOGIC SCRIPT -->
+    <script src="js/rework.js"></script>
     <script>
 
         let allOrders = [];
@@ -1320,7 +1322,7 @@
                                             <span class="text-[9px] text-amber-800 font-mono bg-amber-100 px-1 rounded">${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</span>
                                         </div>
                                         <p class="text-xs font-black text-amber-950 uppercase tracking-tight">${ev.action}</p>
-                                        ${ev.details ? `<div class="text-[10px] text-amber-900 bg-amber-100/70 rounded p-2 mt-2 font-medium border border-amber-200">${ev.details}</div>` : ''}
+                                        ${ev.details ? `<div class="text-[10px] text-amber-900 bg-amber-100/70 rounded p-2 mt-2 font-medium border border-amber-200">${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}</div>` : ''}
                                     </div>
                                 </div>
                             `;
@@ -1336,7 +1338,7 @@
                                         <p class="text-[11px] font-black text-brand-gray uppercase tracking-tight">${ev.action}</p>
                                         <p class="text-[9px] text-zinc-400 font-mono bg-zinc-50 px-1 rounded border border-zinc-100">${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</p>
                                     </div>
-                                    ${ev.details ? `<p class="text-[10px] text-zinc-500 font-medium leading-relaxed italic border-l-2 border-zinc-200 pl-2 mt-2">${ev.details}</p>` : ''}
+                                    ${ev.details ? `<p class="text-[10px] text-zinc-500 font-medium leading-relaxed italic border-l-2 border-zinc-200 pl-2 mt-2">${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}</p>` : ''}
                                 </div>
                             </div>
                         `;
@@ -1931,11 +1933,20 @@
                     .select('tracking_data')
                     .not('tracking_data', 'is', null);
 
+                if (errTrack) throw errTrack;
+                const reworkEvents = await Rework.events(supabaseClient);
+                const completedRework = (reworkEvents || []).map(event => Rework.parse(event))
+                    .filter(session => session?.state === 'finished')
+                    .map(session => ({ ...session, is_rework: true, service: `RETRABALHO / ${session.sector} / ${session.component}` }));
+                const performanceRows = [...(trackData || []), { tracking_data: completedRework }];
+                let reworkSeconds = 0;
+                let reworkCount = 0;
+
                 let serviceMap = {};
                 let userPerfMap = {};
                 
-                if (trackData) {
-                    trackData.forEach(row => {
+                if (performanceRows) {
+                    performanceRows.forEach(row => {
                         if (Array.isArray(row.tracking_data)) {
                             row.tracking_data.forEach(item => {
                                 if (item.service && item.duration_seconds && item.user_id) {
@@ -1949,13 +1960,10 @@
                                         itemDate.setHours(0,0,0,0);
                                         if (startDate) {
                                             const sDate = new Date(startDate + 'T00:00:00');
-                                            // Correção de timezone simples
-                                            sDate.setMinutes(sDate.getMinutes() + sDate.getTimezoneOffset());
                                             if (itemDate < sDate) pass = false;
                                         }
                                         if (endDate) {
                                             const eDate = new Date(endDate + 'T00:00:00');
-                                            eDate.setMinutes(eDate.getMinutes() + eDate.getTimezoneOffset());
                                             if (itemDate > eDate) pass = false;
                                         }
                                     }
@@ -1967,6 +1975,7 @@
                                     if (operatorFilter && item.user_id !== operatorFilter) pass = false;
 
                                     if (pass) {
+                                        if (item.is_rework) { reworkSeconds += item.duration_seconds; reworkCount++; }
                                         // Acumula para Serviço
                                         if (!serviceMap[item.service]) {
                                             serviceMap[item.service] = { totalSecs: 0, count: 0 };
@@ -1991,6 +2000,14 @@
                     });
                 }
 
+                let reworkTotal = document.getElementById('performance-rework-total');
+                if (!reworkTotal) {
+                    reworkTotal = document.createElement('div');
+                    reworkTotal.id = 'performance-rework-total';
+                    reworkTotal.className = 'p-3 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold';
+                    srvList.before(reworkTotal);
+                }
+                reworkTotal.textContent = `Retrabalho nos filtros: ${Math.floor(reworkSeconds / 60)}m ${reworkSeconds % 60}s · ${reworkCount} execuções concluídas`;
                 // Renderiza Serviços
                 let srvHtml = '';
                 const srvKeys = Object.keys(serviceMap);

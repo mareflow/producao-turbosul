@@ -335,6 +335,7 @@
     </div>
 
 <script src="js/accessory-flow.js"></script>
+    <script src="js/rework.js"></script>
     <script>
         // 1. CONFIGURAÇÕES E CONEXÕES
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
@@ -826,6 +827,7 @@
                     </div>
                     <div class="flex-1 flex flex-col">
                         ${retraBannerHtml}
+                        ${Rework.render(comp.title, !isBlocked)}
                         ${bodyContentHtml}
                     </div>
                 </div>`;
@@ -959,6 +961,7 @@
         }
 
         async function sendPieceToSector(pieceName, sector, btnElement) {
+            if (!await Rework.ensureFinished(pieceName)) return;
             const cardId = 'card-comp-' + pieceName.replace(/\s+/g, '-');
             const card = document.getElementById(cardId);
             const services = Array.from(card.querySelectorAll('input:checked')).map(c => c.dataset.service);
@@ -998,7 +1001,7 @@
                     user_id: userId,
                     action: 'ROTEAMENTO DESMONTAGEM',
                     description: `Peça "${pieceName}" encaminhada para ${sector}. Serviços: ${mergedServices.join(', ')}`
-                });
+                }).then(result => { if (result.error) throw result.error; });
 
                 if (true) { // keeping response.ok block working
                     // ATUALIZAÇÃO DE ESTADO EM TEMPO REAL:
@@ -1119,6 +1122,8 @@
                     .eq('service_order_id', currentSelection.id);
 
                 if (baselineError) throw baselineError;
+                const checklistSignature = JSON.stringify({ rows, baseline });
+                if (Rework.approvedChecklists.get(currentSelection.id) === checklistSignature) return true;
 
                 // 2. Compara rigorosamente TODOS os itens para detectar qualquer divergência
                 let hasDivergence = false;
@@ -1169,6 +1174,7 @@
                 window.currentComparisonList = comparisonList;
 
                 const executeSave = async (isAuthorized = false, supervisorName = "", supervisorObs = "") => {
+                    Rework.validateLeader(hasDivergence, isAuthorized, supervisorObs);
                     const { error } = await supabaseClient
                         .from('checklist_desmontagem')
                         .upsert(rows, { onConflict: 'service_order_id,item_name' });
@@ -1194,7 +1200,7 @@
 
                         // 2. Grava log detalhado de divergência no histórico geral da OS
                         const itemsSummary = divergentItems.map(d => `${d.itemName} (${d.analysisStatus} ➔ ${d.disassemblyStatus})`).join(', ');
-                        const detailsMsg = `Supervisor ${supervisorName} autorizou divergências na Desmontagem: ${itemsSummary}. Justificativa: "${supervisorObs}".${pdfUrl ? ` [PDF de Auditoria: ${pdfUrl}]` : ''}`;
+                        const detailsMsg = `Supervisor ${supervisorName} autorizou divergências na Desmontagem: ${itemsSummary}. Tratamento da divergência e justificativa: "${supervisorObs}".${pdfUrl ? ` [PDF de Auditoria: ${pdfUrl}]` : ''}`;
                         
                         await supabaseClient
                             .from('history_events')
@@ -1203,7 +1209,7 @@
                                 action: 'Divergência de Checklist Autorizada',
                                 details: detailsMsg,
                                 timestamp: new Date().toISOString()
-                            });
+                            }).then(result => { if (result.error) throw result.error; });
                     } else {
                         // Grava o log padrão de sucesso de checklist de desmontagem finalizado na timeline
                         await supabaseClient
@@ -1213,9 +1219,10 @@
                                 action: 'Checklist de Desmontagem Salvo',
                                 details: `Checklist de desmontagem preenchido com sucesso e integrado ao laudo técnico.`,
                                 timestamp: new Date().toISOString()
-                            });
+                            }).then(result => { if (result.error) throw result.error; });
                     }
 
+                    Rework.approvedChecklists.set(currentSelection.id, checklistSignature);
                     const inputContainer = document.getElementById('checklist-inputs-container');
                     const summaryContainer = document.getElementById('checklist-summary-container');
                     if (inputContainer) inputContainer.classList.add('hidden');
@@ -1322,44 +1329,6 @@
             }
         }
 
-        async function handleAction(type) {
-            const btn = type === 'START' ? document.getElementById('btn-start') : document.querySelector('.bg-turbo-orange');
-            btn.disabled = true;
-            
-            if (type === 'FINISH') {
-                btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Salvando Checklist...`;
-                const saved = await saveChecklistDisassembly();
-                if (!saved) {
-                    alert("Erro ao salvar checklist. A liberação foi cancelada.");
-                    btn.disabled = false;
-                    btn.innerText = "Concluir Limpeza e Liberar OS";
-                    return;
-                }
-            }
-
-            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Processando...`;
-
-            try {
-                let targetStatus = type === 'START' ? 'Em Desmontagem Operacional' : 'Em Produção';
-                const { error } = await supabaseClient
-                    .from('service_orders')
-                    .update({ status: targetStatus, updated_at: new Date().toISOString() })
-                    .eq('id', currentSelection.id);
-
-                if (!error) {
-                    await supabaseClient.from('history_events').insert({
-                        service_order_id: currentSelection.id,
-                        user_id: USER_ID,
-                        action: type === 'START' ? 'INÍCIO DESMONTAGEM' : 'FIM DESMONTAGEM',
-                        description: type === 'START' ? 'Desmontagem iniciada.' : 'Desmontagem concluída e liberada para os setores de produção.'
-                    });
-                    document.getElementById('modalSuccess').classList.remove('hidden'); 
-                    if(type === 'FINISH') window.location.reload(); 
-                }
-            } catch (e) { console.error(e); }
-            finally { btn.disabled = false; btn.innerText = type === 'START' ? "Iniciar Desmontagem" : "Concluir Limpeza e Liberar OS"; }
-        }
-
         function updateSelectColor(el) {
             const val = el.value;
             el.classList.remove('bg-slate-400', 'bg-emerald-500', 'bg-yellow-500', 'bg-red-600', 'text-white');
@@ -1436,7 +1405,7 @@
                                         <span class="text-[10px] text-amber-800 font-bold">${new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
                                     </div>
                                     <p class="text-xs font-black text-amber-950 uppercase tracking-tight">${ev.action}</p>
-                                    ${ev.details ? `<div class="text-[10px] text-amber-900 bg-amber-100/70 rounded p-2 mt-1.5 font-medium border border-amber-200">${ev.details}</div>` : ''}
+                                    ${ev.details ? `<div class="text-[10px] text-amber-900 bg-amber-100/70 rounded p-2 mt-1.5 font-medium border border-amber-200">${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}</div>` : ''}
                                 </div>
                             </div>`;
                         }
@@ -1446,7 +1415,7 @@
                             <div class="absolute -left-[9px] top-1 w-4 h-4 bg-turbo-teal rounded-full border-2 border-white shadow-sm"></div>
                             <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight">${ev.action}</p>
                             <p class="text-[10px] text-slate-500 font-medium mt-1">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
-                            ${ev.details ? `<p class="text-[9px] text-turbo-teal italic mt-1 font-semibold leading-relaxed">"${ev.details}"</p>` : ''}
+                            ${ev.details ? `<p class="text-[9px] text-turbo-teal italic mt-1 font-semibold leading-relaxed">"${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}"</p>` : ''}
                         </div>`;
                     }).join('');
                 } else { 
@@ -1870,7 +1839,7 @@
                     <label class="block text-[10px] font-black text-slate-600 uppercase tracking-wider mb-1">
                         Justificativa / Observação do Supervisor <span class="text-red-500">*</span>:
                     </label>
-                    <textarea id="input-supervisor-observation" placeholder="Descreva a justificativa para a aprovação das divergências..." rows="2" class="w-full bg-slate-50 border border-slate-200 focus:border-red-500 focus:bg-white rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none resize-none transition-all"></textarea>
+                    <textarea id="input-supervisor-observation" required placeholder="Descreva o que foi feito para tratar a divergência e o motivo da liberação..." rows="2" class="w-full bg-slate-50 border border-slate-200 focus:border-red-500 focus:bg-white rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none resize-none transition-all"></textarea>
                 </div>
                 
                 <div>
@@ -1895,8 +1864,10 @@
 
     <script>
         async function handleAction(actionType) {
+            if (!await Rework.ensureFinished()) return;
             if (actionType === 'FINISH') {
                 if (!currentSelection) return;
+                if (!await saveChecklistDisassembly()) return;
                 const btn = document.getElementById('btn-concluir-desmontagem');
                 if (btn) {
                     btn.disabled = true;
@@ -1920,7 +1891,7 @@
                         action: 'DESMONTAGEM CONCLUÍDA',
                         details: 'Todas as peças foram desmontadas e encaminhadas para seus respectivos setores na produção.',
                         timestamp: new Date().toISOString()
-                    });
+                    }).then(result => { if (result.error) throw result.error; });
 
                     alert(`✅ Desmontagem da OS ${currentSelection.business_id} concluída com sucesso! Peças liberadas para a produção.`);
                     

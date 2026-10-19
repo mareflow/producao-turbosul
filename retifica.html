@@ -247,6 +247,7 @@
     <!-- Biblioteca Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/condenar_peca.js"></script>
+    <script src="js/rework.js"></script>
     <script>
         // Configurações Supabase
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
@@ -565,6 +566,7 @@
                         </div>
                         <div class="flex-1 flex flex-col relative">
                             ${retraBannerHtml}
+                        ${Rework.render(name, !isSent)}
                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">CHECKLIST DE EXECUÇÃO (RETÍFICA):</p>
                             <div class="checklist-scroll overflow-y-auto max-h-[200px] space-y-1 mb-8 pr-1">${itemHtml}</div>
                             <hr class="border-slate-100 mb-6">
@@ -595,6 +597,7 @@
         };
 
         async function sendPieceTo(btn, componentName, targetSector) {
+            if (!await Rework.ensureFinished(componentName)) return;
             if (!selectedOS) return;
 
             const modal = document.getElementById('modal-confirm-routing');
@@ -1267,7 +1270,7 @@ function openSpecialServiceModal() {
                                             <span class="text-[9px] text-amber-800 font-mono font-bold">${new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
                                         </div>
                                         <p class="text-[11px] font-black text-slate-900 uppercase mt-1 leading-snug">${ev.action}</p>
-                                        ${ev.details ? `<p class="text-[10px] text-amber-950 font-medium bg-white/90 border border-amber-200 rounded-lg p-2.5 mt-2 leading-relaxed whitespace-pre-wrap"><i class="fa-solid fa-circle-info mr-1 text-amber-600"></i>${ev.details}</p>` : ''}
+                                        ${ev.details ? `<p class="text-[10px] text-amber-950 font-medium bg-white/90 border border-amber-200 rounded-lg p-2.5 mt-2 leading-relaxed whitespace-pre-wrap"><i class="fa-solid fa-circle-info mr-1 text-amber-600"></i>${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}</p>` : ''}
                                     </div>
                                 </div>
                             `;
@@ -1280,7 +1283,7 @@ function openSpecialServiceModal() {
                                     <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight leading-none">${ev.action}</p>
                                     <span class="text-[9px] text-slate-400 font-mono">${new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
                                 </div>
-                                ${ev.details ? `<p class="text-[9px] text-slate-600 italic mt-1 font-semibold leading-relaxed bg-slate-50 p-2 rounded border border-slate-100">"${ev.details}"</p>` : ''}
+                                ${ev.details ? `<p class="text-[9px] text-slate-600 italic mt-1 font-semibold leading-relaxed bg-slate-50 p-2 rounded border border-slate-100">"${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}"</p>` : ''}
                             </div>
                         `;
                     }).join('');
