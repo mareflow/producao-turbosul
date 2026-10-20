@@ -1222,21 +1222,13 @@
                     });
                 }
 
-                currentOrders = sortOrdersByUrgencyAndDate(rawOrders.map(rawOrder => {
+                currentOrders = sortOrdersByUrgencyAndDate((orders || []).map(rawOrder => {
                     const order = rawOrder.json || rawOrder;
                     order.entry_date = order.entry_date || order.created_at; 
                     return order;
                 }));
                 
                 loadingMessage.classList.add('hidden');
-                
-                if (currentOrders.length === 0) {
-                    filaContainer.innerHTML = '<p class="text-gray-500 text-center mt-4">Nenhuma ordem de serviço na fila de análise.</p>';
-                    filaCountSpan.textContent = '0';
-                    return;
-                }
-
-                filaCountSpan.textContent = currentOrders.length;
                 
                 updateSidebarUI();
                 addCardClickListeners();
