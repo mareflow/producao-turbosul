@@ -54,7 +54,7 @@ function order() { return { triage_parts: tables.checklist_analysis_general, pur
     tables.triage_parts.push({ service_order_id: 'os', part_name: 'CANOTE DA GEOMETRIA', availability: 'ORDER', is_resolved: false });
     tables.component_tracking.push({ service_order_id: 'os', component_name: 'CANOTE', current_stage: 'COMPRA' });
     const source = [...fs.readFileSync('montagem.html', 'utf8').matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].find(m => m[2].includes('getAssemblyDetailedState')).at(2);
-    vm.runInContext(source.slice(source.indexOf('        const CORE_PARTS'), source.indexOf('        async function fetchQueue()')), context);
+    vm.runInContext(source.slice(source.indexOf('        const CORE_PARTS'), source.indexOf('        async function fetchQueue(')), context);
     vm.runInContext(source.slice(source.indexOf('        function getAssemblyDetailedState()'), source.indexOf('        function getEtapaMontagemAtual()')), context);
     context.selectedOS = { ...order(), full_tracking: flow.tracking(order()) };
     assert.equal(vm.runInContext('getAssemblyDetailedState()', context), 'CARCACAMENTO_PRONTO');
@@ -83,6 +83,16 @@ function order() { return { triage_parts: tables.checklist_analysis_general, pur
     assert.equal(vm.runInContext('getAssemblyDetailedState()', context), 'CARCACAMENTO_PRONTO');
     await flow.move('PEÇA INTEIRA', 'BALANCEAMENTO', { note: 'Teste final opcional' });
     assert.equal(tables.service_orders[0].status, 'Aguardando Balanceamento');
+    // Mesma localização para todas as telas, mesmo com rastreio residual em outro setor.
+    const phases = {'Aguardando Entrada':'PRE_VENDAS','Aguardando Análise Técnica':'ANALISE_TECNICA','Em Análise Técnica':'ANALISE_TECNICA','Aguardando Aprovação Comercial':'VENDAS','Aguardando Triagem':'TRIAGEM','Standby':'TRIAGEM','Standby / Aguardando Casco':'ANALISE_TECNICA','Aguardando Desmontagem OS':'PRODUCAO','Em Produção':'PRODUCAO','Aguardando Controle de Qualidade':'QUALIDADE','Pronto para Entrega':'EXPEDICAO','Standby - Aguardando Nota Fiscal':'EXPEDICAO','Finalizado':'ENCERRADA'};
+    for(const [status,phase] of Object.entries(phases)) {
+        const sample = {status,tracking:[{component_name:'ATUADOR',current_stage:'MONTAGEM'}]};
+        assert.equal(flow.phase(sample),phase,status);
+        if(!['PRODUCAO','ENCERRADA'].includes(phase)) assert.equal(Array.from(flow.stations(sample)).join(),phase);
+    }
+    assert.equal(flow.sort([{id:1,urgency:'Normal'},{id:2,urgency:'Alta'}])[0].id,2);
+    const commercial=fs.readFileSync('comercial.html','utf8');
+    assert.ok(!commercial.includes("newStatus = 'Concluída'"), 'Troca de conjunto também precisa de triagem');
     // Encerramento prevalece sobre rastreio antigo em todos os painéis.
     for (const status of ['Finalizado', 'Finalizada', 'Concluído', 'Concluída', 'Entregue', 'Cancelada', 'Arquivado']) {
         assert.equal(flow.isClosed({status}), true);

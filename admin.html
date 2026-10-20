@@ -786,7 +786,7 @@
             loadAdminDashboard();
         });
 
-        async function loadAdminDashboard() {
+        async function loadAdminDashboard(quiet = false) {
             const listContainer = document.getElementById('admin-queue-list');
             try {
                 const { data: orders, error: ordersError } = await supabaseClient.from('service_orders').select('*').order('created_at', { ascending: false });
@@ -808,6 +808,7 @@
             } catch (e) {
                 console.error("Erro banco de dados:", e);
                 listContainer.innerHTML = '<div class="p-10 text-center text-red-500 text-xs font-bold uppercase">Falha na conexão DB.</div>';
+                return false;
             }
         }
 
@@ -857,63 +858,7 @@
             return '';
         }
 
-        function getOSActiveStations(os) {
-            const status = (os.status || '').toUpperCase().trim();
-            if (ProductionFlow.isClosed(os)) {
-                return [];
-            }
-
-            const activeStations = [];
-
-            // 1. Etapas pré-produção comercial/triagem
-            if (status.includes('TRIAGEM')) activeStations.push('TRIAGEM');
-            else if (status.includes('ANÁLISE') || status.includes('ANALISE')) activeStations.push('ANALISE_TECNICA');
-            else if (status.includes('VENDAS') || status.includes('COMERCIAL')) activeStations.push('VENDAS');
-            else if (status.includes('PENDENTE') || status.includes('ENTRADA') || status.includes('PRÉ-VENDA') || status.includes('PRE-VENDA')) activeStations.push('PRE_VENDAS');
-
-            // 2. Etapas finais da OS
-            if (status.includes('EXPEDIÇÃO') || status.includes('EXPEDICAO') || status.includes('PRONTO PARA ENTREGA') || status.includes('STANDBY - AGUARDANDO NOTA FISCAL') || status.includes('STANDBY - AGUARDANDO NF')) {
-                return ['EXPEDICAO'];
-            } else if (status.includes('QUALIDADE') && !status.includes('DESMONTAGEM')) {
-                return ['QUALIDADE'];
-            }
-
-            // 3. Produção e Rastreio Real por Peça (M.E.S)
-            const tracking = os.tracking || [];
-            if (tracking.length > 0) {
-                let hasPiecesInDesmontagem = false;
-                let hasPiecesInPostSectors = false;
-
-                tracking.forEach(t => {
-                    const norm = normalizeSectorKey(t.current_stage || t.current_sector || t.stage);
-                    if (['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'BALANCEAMENTO', 'MONTAGEM', 'QUALIDADE', 'EXPEDICAO'].includes(norm)) {
-                        activeStations.push(norm);
-                        hasPiecesInPostSectors = true;
-                    } else if (norm === 'DESMONTAGEM') {
-                        hasPiecesInDesmontagem = true;
-                    }
-                });
-
-                // Se houver peça na Desmontagem e o turbo ainda não terminou desmonte:
-                if (hasPiecesInDesmontagem && !hasPiecesInPostSectors) {
-                    activeStations.push('DESMONTAGEM');
-                } else if (hasPiecesInDesmontagem && hasPiecesInPostSectors) {
-                    if (status.includes('DESMONTAGEM')) {
-                        activeStations.push('DESMONTAGEM');
-                    }
-                }
-            } else if (status.includes('DESMONTAGEM')) {
-                activeStations.push('DESMONTAGEM');
-            } else if (status === 'EM PRODUÇÃO') {
-                activeStations.push('DESMONTAGEM');
-            }
-
-            if (activeStations.length === 0 && (status.includes('PENDENTE') || status.includes('ENTRADA'))) {
-                activeStations.push('PRE_VENDAS');
-            }
-
-            return [...new Set(activeStations)];
-        }
+        function getOSActiveStations(os) { return ProductionFlow.stations(os); }
 
         function getOSPiecesAtStation(os, stationKey) {
             if (!os.tracking || os.tracking.length === 0) return '';
@@ -948,7 +893,7 @@
                     if (os.status === 'Concluída' || os.status === 'Cancelada' || os.status === 'Arquivado') return false;
                     return getOSActiveStations(os).includes(station.key);
                 });
-                const activeOSs = sortOrdersByUrgencyAndDate(rawStationOrders);
+                const activeOSs = ProductionFlow.sort(rawStationOrders);
 
                 const osTags = activeOSs.map(os => {
                     const piecesText = getOSPiecesAtStation(os, station.key);
@@ -1024,20 +969,8 @@
                 }
             });
 
-            function sortOrdersByUrgencyAndDate(orders) {
-                if (!Array.isArray(orders)) return [];
-                const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
-                return [...orders].sort((a, b) => {
-                    const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                    const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                    if (urgB !== urgA) return urgB - urgA;
-                    const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
-                    const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
-                    return dateA - dateB;
-                });
-            }
 
-            filteredOrders = sortOrdersByUrgencyAndDate(filteredOrders);
+            filteredOrders = ProductionFlow.sort(filteredOrders);
             renderQueue();
         }
 
@@ -2397,5 +2330,6 @@
             </div>
         </div>
     </div>
+    <script src="js/live-workflow.js"></script>
 </body>
 </html>

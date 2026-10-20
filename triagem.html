@@ -531,9 +531,9 @@
 
         document.addEventListener('DOMContentLoaded', carregarDados);
 
-        async function carregarDados() {
+        async function carregarDados(quiet = false) {
             const container = document.getElementById('fila-container');
-            container.innerHTML = `<div class="p-4 animate-pulse"><div class="h-4 bg-slate-200 rounded w-1/2 mb-3"></div><div class="h-3 bg-slate-100 rounded w-3/4"></div></div>`;
+            if (quiet !== true) container.innerHTML = `<div class="p-4 animate-pulse"><div class="h-4 bg-slate-200 rounded w-1/2 mb-3"></div><div class="h-3 bg-slate-100 rounded w-3/4"></div></div>`;
             try {
                 // 1. Busca direto do Supabase - OSs em Aguardando Triagem e Standby
                 const { data: baseData, error } = await supabaseClient
@@ -546,24 +546,27 @@
                 if (error) throw error;
 
                 // 2. Busca OSs ativas com peças condenadas em produção ou pendentes em triage_parts
-                const { data: pendingTriageParts } = await supabaseClient
+                const { data: pendingTriageParts, error: pendingError } = await supabaseClient
                     .from('triage_parts')
                     .select('*, service_orders(*)')
                     .eq('is_resolved', false);
 
+                if (pendingError) throw pendingError;
+
                 // 3. Busca rastreios com status CONDENADO EM PRODUÇÃO
-                const { data: condemnedTracks } = await supabaseClient
+                const { data: condemnedTracks, error: condemnedError } = await supabaseClient
                     .from('component_tracking')
                     .select('service_order_id, component_name, current_sector, status')
                     .eq('status', 'CONDENADO EM PRODUÇÃO');
 
+                if (condemnedError) throw condemnedError;
                 const ordersMap = new Map();
                 (baseData || []).forEach(o => ordersMap.set(o.id, o));
 
                 (pendingTriageParts || []).forEach(tp => {
-                    if (tp.service_orders && !['Finalizado', 'Concluída', 'Cancelada'].includes(tp.service_orders.status)) {
+                    if (tp.service_orders && !ProductionFlow.isClosed(tp.service_orders)) {
                         const existing = ordersMap.get(tp.service_orders.id) || tp.service_orders;
-                        existing.tem_peca_condenada_producao = true;
+                        existing.tem_peca_condenada_producao = ProductionFlow.isProductionActive(existing);
                         existing.pecas_solicitadas = existing.pecas_solicitadas || [];
                         existing.pecas_solicitadas.push(tp);
                         ordersMap.set(tp.service_orders.id, existing);
@@ -578,33 +581,14 @@
                     }
                 });
 
-                function sortOrdersByUrgencyAndDate(orders) {
-                    if (!Array.isArray(orders)) return [];
-                    const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
-                    return [...orders].sort((a, b) => {
-                        const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                        const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                        if (urgB !== urgA) return urgB - urgA;
-                        const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
-                        const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
-                        return dateA - dateB;
-                    });
-                }
 
-                allOrders = sortOrdersByUrgencyAndDate(Array.from(ordersMap.values()));
+                allOrders = ProductionFlow.sort(Array.from(ordersMap.values()));
                 renderizarFila();
                 atualizarContadores();
             } catch (err) {
-                console.warn("Falha no Supabase para Triagem, tentando webhook:", err);
-                try {
-                    const response = await fetch(API_GET);
-                    const data = await response.json();
-                    allOrders = Array.isArray(data) ? sortOrdersByUrgencyAndDate(data) : [];
-                } catch(e) {
-                    allOrders = [];
-                }
-                renderizarFila();
-                atualizarContadores();
+                console.error('Erro ao carregar a Triagem:', err);
+                container.innerHTML = '<p class="p-4 text-red-600 text-xs font-bold">Não foi possível atualizar a fila. Use Atualizar ou recarregue a página.</p>';
+                return false;
             }
         }
 
@@ -648,7 +632,7 @@
                 labelFiltro = 'Standby';
             }
 
-            ordensParaMostrar = sortOrdersByUrgencyAndDate(ordensParaMostrar);
+            ordensParaMostrar = ProductionFlow.sort(ordensParaMostrar);
 
             if (ordensParaMostrar.length === 0) {
                 container.innerHTML = `<div class="py-10 text-center"><p class="text-slate-400 font-bold text-[10px] uppercase tracking-widest leading-relaxed">Nenhuma ordem em<br>${labelFiltro}.</p></div>`;
@@ -1585,21 +1569,13 @@
                     updatePayload.serial_number = serialNum;
                 }
 
-                // Grava marcação e serial diretamente no Supabase antes de rodar o webhook
-                const { error: updateError } = await supabaseClient
-                    .from('service_orders')
-                    .update(updatePayload)
-                    .eq('id', osId);
-
-                if (updateError) throw updateError;
-
-                // Registra o evento de marcação e número de série no histórico
+// Registra o evento de marcação e número de série no histórico
                 await supabaseClient.from('history_events').insert({
                     service_order_id: osId,
                     action: 'Identificação e Série Gravados',
                     details: `Marcação: ${type} [ ${code} ]${serialNum ? ' | Nº Série: ' + serialNum : ''}`,
                     timestamp: new Date().toISOString()
-                });
+                }).then(result => { if (result.error) throw result.error; });
 
                 // ✅ Grava disponibilidade de peças diretamente no Supabase (triage_parts e checklist)
                 const triageItems = pecasEstado.map(p => ({
@@ -1609,13 +1585,13 @@
                     is_resolved: p.availability === 'STOCK',
                     resolved_at: p.availability === 'STOCK' ? new Date().toISOString() : null
                 }));
-                await supabaseClient.from('triage_parts').upsert(triageItems, { onConflict: 'service_order_id,part_name' });
+                await supabaseClient.from('triage_parts').upsert(triageItems, { onConflict: 'service_order_id,part_name' }).then(result => { if (result.error) throw result.error; });
 
                 for (const p of pecasEstado) {
                     await supabaseClient.from('checklist_analysis_general')
                         .update({ availability: p.availability, is_resolved: p.availability === 'STOCK' })
                         .eq('service_order_id', osId)
-                        .eq('item_name', p.name);
+                        .eq('item_name', p.name).then(result => { if (result.error) throw result.error; });
                 }
 
                 // Atualiza component_tracking para todas as peças da triagem
@@ -1642,7 +1618,7 @@
                             : 'Conjunto Rotativo Completo retirado do estoque. Pronto para montagem.',
                         verdict_vendas: 'TROCAR CONJUNTO',
                         last_update: new Date().toISOString()
-                    })), { onConflict: 'service_order_id,component_name' });
+                    })), { onConflict: 'service_order_id,component_name' }).then(result => { if (result.error) throw result.error; });
                 }
 
                 // 2. Trata itens adicionais (Canote, Flange, Atuador, Geometria, etc.)
@@ -1664,9 +1640,11 @@
                                 ? `Aguardando compra da peça adicional ${p.name}`
                                 : `Peça adicional ${p.name} em estoque. Liberada diretamente para a Montagem.`,
                             last_update: new Date().toISOString()
-                        }, { onConflict: 'service_order_id,component_name' });
+                        }, { onConflict: 'service_order_id,component_name' }).then(result => { if (result.error) throw result.error; });
                     }
                 }
+
+                await ProductionFlow.setOrderStatus(supabaseClient, osId, targetStatus, updatePayload, ['Aguardando Triagem', 'Standby']);
 
                 const payload = {
                     os_id: osId,
@@ -1889,12 +1867,14 @@
                 items_availability: pecasEstado
             };
             try {
-                const res = await fetch(API_POST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (res.ok) {
-                    document.getElementById('modal-status-msg').innerText = "OS movida para Standby. Peças preservadas.";
-                    document.getElementById('modal-status-standby').classList.remove('hidden');
-                    document.getElementById('modal-status-standby').classList.add('flex');
-                }
+                if (pecasEstado.length) await supabaseClient.from('triage_parts').upsert(pecasEstado.map(p => ({
+                    service_order_id: osId, part_name: p.name, availability: p.availability,
+                    is_resolved: p.availability === 'STOCK', resolved_at: p.availability === 'STOCK' ? new Date().toISOString() : null
+                })), {onConflict:'service_order_id,part_name'}).then(result => {if (result.error) throw result.error;});
+                await ProductionFlow.setOrderStatus(supabaseClient, osId, 'Standby', {observation: payload.observations}, ['Aguardando Triagem']);
+                document.getElementById('modal-status-msg').innerText = "OS movida para Standby. Peças preservadas.";
+                document.getElementById('modal-status-standby').classList.remove('hidden');
+                document.getElementById('modal-status-standby').classList.add('flex');
             } catch (err) {
                 alert("Erro ao mover.");
                 btn.disabled = false;
@@ -1912,8 +1892,12 @@
                 items_availability: pecasEstado
             };
             try {
-                const res = await fetch(API_POST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (res.ok) location.reload();
+                if (pecasEstado.length) await supabaseClient.from('triage_parts').upsert(pecasEstado.map(p => ({
+                    service_order_id: osId, part_name: p.name, availability: p.availability,
+                    is_resolved: p.availability === 'STOCK', resolved_at: p.availability === 'STOCK' ? new Date().toISOString() : null
+                })), {onConflict:'service_order_id,part_name'}).then(result => {if (result.error) throw result.error;});
+                await ProductionFlow.setOrderStatus(supabaseClient, osId, 'Aguardando Triagem', {observation: payload.observations}, ['Standby']);
+                location.reload();
             } catch (err) { alert("Erro ao retornar."); }
         }
 
@@ -2144,6 +2128,7 @@
             });
         }, 1000);
     </script>
+    <script src="js/live-workflow.js"></script>
 </body>
 
 </html>

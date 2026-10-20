@@ -205,7 +205,7 @@
 
         window.addEventListener('load', fetchQueue);
 
-        async function fetchQueue() {
+        async function fetchQueue(quiet = false) {
             try {
                 // 🔄 Busca direto do Supabase - peças com current_stage = BALANCEAMENTO ou OS em Aguardando Balanceamento
                 const { data: trackings, error: tErr } = await supabaseClient
@@ -274,22 +274,11 @@
                     return activeBalancing.some(t => t.component_name === 'CONJUNTO ROTATIVO');
                 });
 
-                function sortOrdersByUrgencyAndDate(orders) {
-                    if (!Array.isArray(orders)) return [];
-                    const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
-                    return [...orders].sort((a, b) => {
-                        const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                        const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                        if (urgB !== urgA) return urgB - urgA;
-                        const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
-                        const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
-                        return dateA - dateB;
-                    });
-                }
 
-                queueData = sortOrdersByUrgencyAndDate(rawQueue);
+                queueData = ProductionFlow.sort(rawQueue);
                 renderSidebar();
-            } catch (e) { console.error("Erro na fila:", e); }
+            } catch (e) { console.error("Erro na fila:", e); return false;
+            }
         }
 
         function renderSidebar() {
@@ -503,39 +492,35 @@
             const osId = selectedOS.service_order_id || selectedOS.os_id || selectedOS.id;
 
             try {
-                const response = await fetch('https://webhook.mareflow.com.br/webhook/production/start-component-service', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ os_id: osId, component_name: name })
+                const startTime = new Date().toISOString();
+                const { data: started, error } = await supabaseClient.from('component_tracking')
+                    .update({status: 'Em Execução', rework_start_time: startTime, last_update: startTime})
+                    .eq('service_order_id', osId).eq('component_name', name).eq('current_stage', 'BALANCEAMENTO').select('id').maybeSingle();
+                if (error) throw error;
+                if (!started) throw new Error('A peça não está mais no Balanceamento. Atualize a fila.');
+                await supabaseClient.from('history_events').insert({service_order_id: osId, action: 'Início de Balanceamento', description: 'Balanceamento iniciado em ' + name}).then(result => {if (result.error) throw result.error;});
+                localStorage.setItem(`timer_${osId}_${name}`, startTime);
+
+                if (!selectedOS.tracking) selectedOS.tracking = [];
+                if (!selectedOS.full_tracking) selectedOS.full_tracking = [];
+
+                [selectedOS.tracking, selectedOS.full_tracking].forEach(lista => {
+                    let trk = lista.find(t => (t.component_name || t.component || '').toUpperCase() === name.toUpperCase());
+                    if (trk) {
+                        trk.status = 'Em Execução';
+                        trk.rework_start_time = startTime;
+                    } else {
+                        lista.push({
+                            component_name: name,
+                            status: 'Em Execução',
+                            rework_start_time: startTime,
+                            current_stage: 'BALANCEAMENTO'
+                        });
+                    }
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const startTime = data.rework_start_time || new Date().toISOString();
-
-                    localStorage.setItem(`timer_${osId}_${name}`, startTime);
-
-                    if (!selectedOS.tracking) selectedOS.tracking = [];
-                    if (!selectedOS.full_tracking) selectedOS.full_tracking = [];
-
-                    [selectedOS.tracking, selectedOS.full_tracking].forEach(lista => {
-                        let trk = lista.find(t => (t.component_name || t.component || '').toUpperCase() === name.toUpperCase());
-                        if (trk) {
-                            trk.status = 'Em Execução';
-                            trk.rework_start_time = startTime;
-                        } else {
-                            lista.push({
-                                component_name: name,
-                                status: 'Em Execução',
-                                rework_start_time: startTime,
-                                current_stage: 'BALANCEAMENTO'
-                            });
-                        }
-                    });
-
-                    renderSidebar();
-                    processarTipoBalanceamento();
-                }
+                renderSidebar();
+                processarTipoBalanceamento();
             } catch (e) { console.error(e); }
         }
 
@@ -851,5 +836,6 @@
         </div>
     </div>
     <script src="js/auth.js"></script>
+    <script src="js/live-workflow.js"></script>
 </body>
 </html>

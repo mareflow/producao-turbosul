@@ -6,19 +6,50 @@ const ProductionFlow = {
         return ['FINALIZADO', 'FINALIZADA', 'CONCLUIDO', 'CONCLUIDA', 'ENTREGUE', 'CANCELADO', 'CANCELADA', 'ARQUIVADO', 'ARQUIVADA'].includes(this.normalize(order.status));
     },
     isProductionActive(order) {
-        const status = this.normalize(order.status);
-        return !this.isClosed(order) && !/QUALIDADE|EXPEDICAO|PRONTO PARA ENTREGA|STANDBY/.test(status);
+        return this.phase(order) === 'PRODUCAO';
     },
-    async transitionOrder(client, id, status, fields = {}, allowed = []) {
+    sort(orders) {
+        const weight = { URGENTE: 4, ALTA: 3, NORMAL: 2, BAIXA: 1 };
+        return [...(Array.isArray(orders) ? orders : [])].sort((a, b) =>
+            (weight[this.normalize(b.urgency)] || 2) - (weight[this.normalize(a.urgency)] || 2) ||
+            new Date(a.created_at || a.entry_date || a.timestamp || 0) - new Date(b.created_at || b.entry_date || b.timestamp || 0));
+    },
+    phase(order) {
+        const status = this.normalize(order.status);
+        if (this.isClosed(order)) return 'ENCERRADA';
+        if (/EXPEDICAO|PRONTO PARA ENTREGA|AGUARDANDO (NOTA FISCAL|NF)/.test(status)) return 'EXPEDICAO';
+        if (status.includes('QUALIDADE')) return 'QUALIDADE';
+        if (/ANALISE|AGUARDANDO CASCO/.test(status)) return 'ANALISE_TECNICA';
+        if (/COMERCIAL|VENDA/.test(status) && !/PRE.?VENDA/.test(status)) return 'VENDAS';
+        if (/TRIAGEM/.test(status) || status === 'STANDBY') return 'TRIAGEM';
+        if (/ENTRADA|PRE.?VENDA|PENDENTE/.test(status)) return 'PRE_VENDAS';
+        return 'PRODUCAO';
+    },
+    stations(order) {
+        const phase = this.phase(order);
+        if (phase === 'ENCERRADA') return [];
+        if (phase !== 'PRODUCAO') return [phase];
+        const stages = this.tracking(order).map(t => this.normalize(t.current_stage || t.current_sector));
+        const active = this.sectors.filter(s => stages.includes(s));
+        if (stages.includes('COMPRA')) active.push('TRIAGEM');
+        if (!active.length && /DESMONTAGEM|PRODUCAO/.test(this.normalize(order.status))) active.push('DESMONTAGEM');
+        if (!active.length && /BALANCEAMENTO/.test(this.normalize(order.status))) active.push('BALANCEAMENTO');
+        return active;
+    },
+    async setOrderStatus(client, id, status, fields = {}, allowed = []) {
         const { data: order, error: readError } = await client.from('service_orders').select('id,status').eq('id', id).maybeSingle();
         if (readError) throw readError;
         if (!order || (this.isClosed(order) && order.status !== status) || (allowed.length && order.status !== status && !allowed.includes(order.status))) {
             throw new Error('A O.S. não está mais nesta etapa. Atualize a fila.');
         }
-        const now = new Date().toISOString();
-        const { data: updated, error } = await client.from('service_orders').update({ ...fields, status, updated_at: now }).eq('id', id).eq('status', order.status).select('id').maybeSingle();
+        const { data: updated, error } = await client.from('service_orders').update({ ...fields, status, updated_at: new Date().toISOString() })
+            .eq('id', id).eq('status', order.status).select('id').maybeSingle();
         if (error) throw error;
         if (!updated) throw new Error('A O.S. foi alterada em outra tela. Atualize a fila.');
+    },
+    async transitionOrder(client, id, status, fields = {}, allowed = []) {
+        await this.setOrderStatus(client, id, status, fields, allowed);
+        const now = new Date().toISOString();
         const stage = this.isClosed({ status }) ? 'FINALIZADO' : 'EXPEDICAO';
         const { error: trackingError } = await client.from('component_tracking').update({ current_stage: stage, current_sector: stage,
             status: stage === 'FINALIZADO' ? 'Finalizado' : 'Aguardando', last_update: now }).eq('service_order_id', id);
@@ -71,6 +102,7 @@ const ProductionFlow = {
         const { data: order, error: orderReadError } = await client.from('service_orders').select('status').eq('id', id).maybeSingle();
         if (orderReadError) throw orderReadError;
         if (!order || this.isClosed(order)) throw new Error('Esta O.S. está encerrada. Atualize a fila.');
+        if (!this.isProductionActive(order) && sector !== 'QUALIDADE') throw new Error('A O.S. ainda não foi liberada para este setor. Atualize a fila.');
         const results = await Promise.all([
             client.from('component_tracking').select('*').eq('service_order_id', id),
             client.from('checklist_analysis_general').select('*').eq('service_order_id', id),
@@ -88,7 +120,7 @@ const ProductionFlow = {
         const names = whole ? [...new Set([...tracking.filter(t => t.current_stage === sector || this.coreNames().includes(t.component_name) || ['CT', 'CCO'].includes(t.component_name)).map(t => t.component_name), 'PEÇA INTEIRA'])] : grouped ? this.coreNames() : [name];
         const pending = receipts.some(p => names.includes(this.component(p.part_name)) && (p.availability === 'ORDER' || p.is_resolved !== true));
         if (pending) throw new Error('A peça ainda aguarda baixa de recebimento na Triagem.');
-        const activeTimer = Object.keys(localStorage).some(key => names.some(part => key.startsWith(`timer_${id}_${part}_`) || key.startsWith(`timer_paused_${id}_${part}_`)) ||
+        const activeTimer = Object.keys(localStorage).some(key => names.some(part => key === `timer_${id}_${part}` || key === `timer_paused_${id}_${part}` || key.startsWith(`timer_${id}_${part}_`) || key.startsWith(`timer_paused_${id}_${part}_`)) ||
             (sector === 'MONTAGEM' && (key.startsWith(`timer_${id}_MONTAGEM_`) || key.startsWith(`timer_paused_${id}_MONTAGEM_`))));
         if (activeTimer) throw new Error('Finalize os cronômetros dos serviços desta O.S. antes de encaminhar.');
         const note = options.note ?? prompt(`Motivo do encaminhamento de ${grouped ? 'CONJUNTO ROTATIVO' : name} para ${target}:`);

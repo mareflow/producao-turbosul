@@ -172,3 +172,13 @@ A expedição gravava Finalizado apenas na O.S.; os componentes permaneciam em Q
 ProductionFlow.isClosed centraliza os estados finais. Produção exclui ordens encerradas e etapas de qualidade/expedição. A aprovação da qualidade e o despacho usam transitionOrder para sincronizar current_stage e current_sector, mantendo tempos e serviços. O status da O.S. prevalece sobre rastreamento antigo nos indicadores e estações. Transições consultam o status atual para rejeitar ações de telas antigas.
 
 A O.S-859 teve os dez componentes encerrados com base no despacho já registrado, preservando NF, data de finalização, logs e serviços. Verificação no navegador: pipeline com todas as estações vazias, O.S. identificada como Finalizado e filtros Produção/Qualidade sem registros.
+
+## Acompanhamento e atualização automática — 20/10/2026
+
+O.S-001 estava corretamente em Aguardando Triagem no banco. A triagem e a esteira administrativa chamavam uma função de ordenação definida em outro escopo. O painel também só atualizava ao abrir/recarregar a página.
+
+As 15 telas usam agora ProductionFlow.sort e uma regra comum de fase/localização (phase/stations). Antes da produção, o status da O.S. prevalece sobre rastreamentos de anexos preparados pelo comercial. A troca de conjunto não encerra mais a ordem na aprovação comercial: segue para Triagem. As transições principais usam setOrderStatus, verificam o estado atual, atualizam updated_at e rejeitam tela antiga. A liberação da triagem ocorre após as gravações das peças, com verificação dos erros. Standby/retorno da triagem são gravados diretamente no banco. O início de balanceamento não usa mais o webhook que registrava início de retífica.
+
+js/live-workflow.js atualiza as filas pelas consultas existentes a cada 5 segundos, agrupa chamadas e evita consultas de fundo sobrepostas; suspende em aba oculta e retoma ao voltar ou reconectar. Formulários abertos são preservados, com aviso quando a ordem muda. Realtime por publicação foi bloqueado pela revisão automática devido às tabelas sem RLS; nenhuma publicação ou permissão foi alterada. A alternativa implementada usa o acesso REST existente.
+
+Validação: testes das consultas dos 13 setores, administração e quadro; fases e transições; ordenação; sincronização automática; conjunto/compras; retrabalho; busca de PN. Navegador: 001 visível na triagem e na mesma coluna do quadro e painel, ausente da análise/comercial, com horário de atualização automática.

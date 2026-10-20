@@ -257,7 +257,7 @@
             'REPAROS': ['ANÁLISE VISUAL', 'TROCA DO COMPONENTE', 'DEFINIÇÃO FOLGAS P/ USINAGEM', 'ANÁLISE LIMPEZA', 'CONFERÊNCIA DO ESTOQUE', 'PEDIDO DE COMPRAS', 'LEVANTAMENTO ESTOQUE', 'LIMPEZA DE PRATO', 'LIMPEZA DE COLAR', 'LIMPEZA DE FLANGE', 'LIMPEZA DE PROT. TÉRMICO', 'LIMPEZA DE MANCAL ENCOSTO', 'LIMPEZA DE DEFLETOR', 'LIMPEZA DE ESPAÇADOR', 'ESTOQUE DE PORCAS', 'ESTOQUE DE VITON', 'ESTOQUE DE ANEL', 'ESTOQUE TRAVA']
         };
 
-        async function fetchQueue() {
+        async function fetchQueue(quiet = false) {
             try {
                 // 🔄 Busca direto do Supabase - peças com current_stage = METROLOGIA
                 const { data: trackings, error: tErr } = await supabaseClient
@@ -286,23 +286,12 @@
                     return os;
                 });
 
-                function sortOrdersByUrgencyAndDate(orders) {
-                    if (!Array.isArray(orders)) return [];
-                    const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
-                    return [...orders].sort((a, b) => {
-                        const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                        const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                        if (urgB !== urgA) return urgB - urgA;
-                        const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
-                        const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
-                        return dateA - dateB;
-                    });
-                }
 
-                queueData = sortOrdersByUrgencyAndDate(queueData);
+                queueData = ProductionFlow.sort(queueData);
                 renderSidebar();
             } catch (e) {
                 console.error("Erro ao carregar fila da Metrologia:", e);
+                return false;
             }
         }
 
@@ -1562,5 +1551,6 @@
         }
     </script>
     <script src="js/auth.js"></script>
+    <script src="js/live-workflow.js"></script>
 </body>
 </html>

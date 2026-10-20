@@ -514,6 +514,7 @@
 
     <!-- Inclusão da biblioteca do Supabase via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/production-flow.js"></script>
 
     <!-- Lógica de Frontend com JavaScript Puro (Vanilla JS) -->
     <!-- Inclusão da biblioteca do Supabase via CDN -->
@@ -1194,9 +1195,9 @@
             }
         }
 
-        async function loadAnalysisOrders() { 
-            filaContainer.innerHTML = '';
-            loadingMessage.classList.remove('hidden');
+        async function loadAnalysisOrders(quiet = false) {
+            if (quiet !== true) filaContainer.innerHTML = '';
+            if (quiet !== true) loadingMessage.classList.remove('hidden');
             
             try {
                 // 🔄 Busca direto do Supabase (sem dependência de webhook externo)
@@ -1209,20 +1210,8 @@
 
                 if (error) throw error;
                 
-                function sortOrdersByUrgencyAndDate(orders) {
-                    if (!Array.isArray(orders)) return [];
-                    const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
-                    return [...orders].sort((a, b) => {
-                        const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                        const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                        if (urgB !== urgA) return urgB - urgA;
-                        const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
-                        const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
-                        return dateA - dateB;
-                    });
-                }
 
-                currentOrders = sortOrdersByUrgencyAndDate((orders || []).map(rawOrder => {
+                currentOrders = ProductionFlow.sort((orders || []).map(rawOrder => {
                     const order = rawOrder.json || rawOrder;
                     order.entry_date = order.entry_date || order.created_at; 
                     return order;
@@ -1238,6 +1227,7 @@
                 loadingMessage.textContent = `Erro ao carregar a fila. ${error.message}.`;
                 loadingMessage.classList.remove('hidden');
                 filaCountSpan.textContent = 'ERRO';
+                return false;
             }
         }
         
@@ -1422,11 +1412,8 @@
                 }
 
                 // Atualiza a OS para Aguardando Aprovação Comercial
-                const { error } = await supabaseClient.from('service_orders').update({
-                    status: 'Aguardando Aprovação Comercial',
-                    observation: payload.general_observations,
-                    maintenance_extras: payload.maintenance_extras
-                }).eq('id', activeOSId);
+                await ProductionFlow.setOrderStatus(supabaseClient, activeOSId, 'Aguardando Aprovação Comercial', {observation: payload.general_observations, maintenance_extras: payload.maintenance_extras}, ['Aguardando Análise Técnica', 'Em Análise Técnica']);
+                const error = null;
                 
                 if (!error) {
                     await supabaseClient.from('history_events').insert({
@@ -1924,5 +1911,6 @@
     </script>
     <script src="js/auth.js"></script>
     <script src="js/pdf_generator.js"></script>
+    <script src="js/live-workflow.js"></script>
 </body>
 </html>

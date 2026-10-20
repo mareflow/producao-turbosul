@@ -296,7 +296,7 @@
             `).join('');
         }
 
-        async function loadOrders() {
+        async function loadOrders(quiet = false) {
             try {
                 // Para carregar todas as OSs ativas, pegamos as mais recentes
                 const { data, error } = await supabaseClient
@@ -328,74 +328,14 @@
                 distributeOrders();
             } catch (err) {
                 console.error("Erro ao buscar OSs", err);
+                return false;
             }
         }
 
         function getOrderColumnId(o) {
-            const status = (o.status || '').trim();
-            const statusLower = status.toLowerCase();
-
-            // 1. Concluídas (Prioridade máxima para estados finais)
-            if (['finalizado', 'finalizada', 'concluído', 'concluido', 'concluída', 'concluida', 'entregue'].includes(statusLower)) {
-                return 'concluida';
-            }
-
-            // 2. Canceladas / Arquivadas não aparecem em produção
-            if (['cancelada', 'cancelado', 'arquivado', 'arquivada'].includes(statusLower)) {
-                return null;
-            }
-
-            // 3. Expedição
-            if (['pronto para entrega', 'aguardando expedição', 'aguardando expedicao', 'expedição', 'expedicao', 'standby - aguardando nota fiscal', 'standby - aguardando nf'].includes(statusLower)) {
-                return 'expedicao';
-            }
-
-            // 4. Qualidade
-            if (['aguardando controle de qualidade', 'controle de qualidade', 'aguardando qualidade'].includes(statusLower)) {
-                return 'qualidade';
-            }
-
-            // 5. Etapas iniciais / pré-produção
-            if (['aguardando entrada', 'pré-venda', 'pre-venda'].includes(statusLower)) {
-                return 'pre_vendas';
-            }
-            if (['aguardando análise técnica', 'aguardando analise tecnica', 'em análise técnica', 'em analise tecnica', 'standby / aguardando casco'].includes(statusLower)) {
-                return 'analise';
-            }
-            if (['aguardando aprovação comercial', 'aguardando aprovacao comercial', 'aguardando vendas comercial', 'aguardando venda'].includes(statusLower)) {
-                return 'vendas';
-            }
-            if (['aguardando triagem', 'standby'].includes(statusLower)) {
-                return 'triagem';
-            }
-
-            // 6. Status diretos de Produção
-            const prodStatuses = [
-                'aguardando desmontagem os', 'em desmontagem operacional', 'em produção', 'em producao',
-                'aguardando reparos oficina', 'em metrologia', 'em solda', 'em bancada', 'em montagem',
-                'aguardando balanceamento', 'aguardando peças', 'aguardando pecas'
-            ];
-            if (prodStatuses.includes(statusLower)) {
-                return 'producao';
-            }
-
-            // 7. Se tem componentes em setores ativos de produção
-            const prodStages = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'BALANCEAMENTO', 'MONTAGEM', 'DESMONTAGEM', 'JATEAMENTO'];
-            if (o.tracking && o.tracking.some(t => {
-                const stage = (t.current_stage || t.current_sector || '').toUpperCase();
-                return prodStages.includes(stage);
-            })) {
-                return 'producao';
-            }
-
-            // 8. Fallback: mapeia pelos statuses configurados em COLUMNS
-            for (const col of COLUMNS) {
-                if (col.statuses.some(s => s.toLowerCase() === statusLower)) {
-                    return col.id;
-                }
-            }
-
-            return null;
+            const phase = ProductionFlow.phase(o);
+            if (phase === 'ENCERRADA') return ['CANCELADO', 'CANCELADA', 'ARQUIVADO', 'ARQUIVADA'].includes(ProductionFlow.normalize(o.status)) ? null : 'concluida';
+            return ({PRE_VENDAS:'pre_vendas',ANALISE_TECNICA:'analise',VENDAS:'vendas',TRIAGEM:'triagem',PRODUCAO:'producao',QUALIDADE:'qualidade',EXPEDICAO:'expedicao'})[phase] || null;
         }
 
         function distributeOrders() {
@@ -456,24 +396,11 @@
                 }
             });
 
-            function sortOrdersByUrgencyAndDate(orders) {
-                if (!Array.isArray(orders)) return [];
-                const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
-                return [...orders].sort((a, b) => {
-                    const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                    const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                    if (urgB !== urgA) return urgB - urgA;
-                    const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
-                    const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
-                    return dateA - dateB;
-                });
-            }
-
             COLUMNS.forEach(col => {
                 const container = document.getElementById(`col-${col.id}`);
                 const counter = document.getElementById(`count-${col.id}`);
                 const rawColOrders = ordersByCol[col.id] || [];
-                const columnOrders = sortOrdersByUrgencyAndDate(rawColOrders);
+                const columnOrders = ProductionFlow.sort(rawColOrders);
 
                 counter.innerText = columnOrders.length;
 
@@ -778,5 +705,6 @@
             modal.classList.remove('flex');
         }
     </script>
+    <script src="js/live-workflow.js"></script>
 </body>
 </html>

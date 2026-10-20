@@ -296,10 +296,10 @@
                 alert('Conjunto novo aguardando baixa de recebimento na Triagem.');
                 return true;
             }
-            return false;
+                return false;
         }
 
-        async function fetchQueue() {
+        async function fetchQueue(quiet = false) {
             try {
                 // 🔄 Busca direto do Supabase - peças com current_stage = MONTAGEM
                 const { data: trackings, error: tErr } = await supabaseClient
@@ -387,20 +387,8 @@
                     return hasPiecesInMontagem;
                 });
 
-                function sortOrdersByUrgencyAndDate(orders) {
-                    if (!Array.isArray(orders)) return [];
-                    const urgencyWeight = { 'URGENTE': 4, 'ALTA': 3, 'NORMAL': 2, 'BAIXA': 1 };
-                    return [...orders].sort((a, b) => {
-                        const urgA = urgencyWeight[((a && a.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                        const urgB = urgencyWeight[((b && b.urgency) || 'Normal').toUpperCase().trim()] || 2;
-                        if (urgB !== urgA) return urgB - urgA;
-                        const dateA = new Date((a && (a.created_at || a.entry_date || a.timestamp)) || 0).getTime();
-                        const dateB = new Date((b && (b.created_at || b.entry_date || b.timestamp)) || 0).getTime();
-                        return dateA - dateB;
-                    });
-                }
 
-                queueData = sortOrdersByUrgencyAndDate(queueData);
+                queueData = ProductionFlow.sort(queueData);
 
                 // Se a OS atualmente selecionada não estiver mais na fila, reseta a visualização
                 if (selectedOS) {
@@ -415,7 +403,8 @@
                 }
 
                 renderSidebar();
-            } catch (e) { console.error("Erro na fila:", e); }
+            } catch (e) { console.error("Erro na fila:", e); return false;
+            }
         }
 
         function renderSidebar() {
@@ -1220,5 +1209,6 @@
         }, 1000);
     </script>
     <script src="js/auth.js"></script>
+    <script src="js/live-workflow.js"></script>
 </body>
 </html>
