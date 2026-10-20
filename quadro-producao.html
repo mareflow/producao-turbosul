@@ -336,7 +336,7 @@
             const statusLower = status.toLowerCase();
 
             // 1. Concluídas (Prioridade máxima para estados finais)
-            if (['finalizado', 'finalizada', 'concluída', 'concluida'].includes(statusLower)) {
+            if (['finalizado', 'finalizada', 'concluído', 'concluido', 'concluída', 'concluida', 'entregue'].includes(statusLower)) {
                 return 'concluida';
             }
 
@@ -402,7 +402,7 @@
             const activeOrders = allOrders.filter(o => getOrderColumnId(o) !== null);
 
             // Contadores globais no switcher
-            const totalProd = activeOrders.filter(o => !isOrderInStandby(o)).length;
+            const totalProd = activeOrders.filter(o => !ProductionFlow.isClosed(o) && !isOrderInStandby(o)).length;
             const totalStandby = activeOrders.filter(o => isOrderInStandby(o)).length;
             const totalAll = activeOrders.length;
 

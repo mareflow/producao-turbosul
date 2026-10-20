@@ -302,7 +302,7 @@
                 const { data: allTrackings } = await supabaseClient
                     .from('component_tracking').select('*').in('service_order_id', osIds);
 
-                let rawQueue = (orders || []).map(os => {
+                let rawQueue = (orders || []).filter(os => ProductionFlow.isProductionActive(os)).map(os => {
                     os.full_tracking = ProductionFlow.tracking({ full_tracking: (allTrackings || []).filter(t => t.service_order_id === os.id) });
                     os.components_to_render = os.full_tracking
                         .filter(t => (t.current_stage || '').toUpperCase().trim() === 'SOLDA')

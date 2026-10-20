@@ -164,3 +164,11 @@ Referências do próprio advisor:
 Priorizar erros que impedem funcionamento e proteção real de credenciais/ações administrativas. Corrigir segurança exige alinhar login por username, administração, perfis e integrações antes de fechar permissões, para não interromper operações existentes.
 
 Ao mudar produção, conferir em conjunto: service_orders.status, component_tracking.current_stage/current_sector/status, triage_parts, checklist_analysis_general, history_events, quadro e dashboard. Ao mudar uma decisão comercial ou recebimento de conjunto, validar também montagem e balanceamento.
+
+## Correção de mapeamento de encerramento — 20/10/2026
+
+A expedição gravava Finalizado apenas na O.S.; os componentes permaneciam em Qualidade. A administração não reconhecia Finalizado como estado terminal e contava qualquer rastreamento como produção. A fila da expedição também incluía indevidamente ordens aguardando qualidade.
+
+ProductionFlow.isClosed centraliza os estados finais. Produção exclui ordens encerradas e etapas de qualidade/expedição. A aprovação da qualidade e o despacho usam transitionOrder para sincronizar current_stage e current_sector, mantendo tempos e serviços. O status da O.S. prevalece sobre rastreamento antigo nos indicadores e estações. Transições consultam o status atual para rejeitar ações de telas antigas.
+
+A O.S-859 teve os dez componentes encerrados com base no despacho já registrado, preservando NF, data de finalização, logs e serviços. Verificação no navegador: pipeline com todas as estações vazias, O.S. identificada como Finalizado e filtros Produção/Qualidade sem registros.

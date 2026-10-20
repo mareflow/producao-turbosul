@@ -387,7 +387,7 @@
 
                 if (error) throw error;
                 
-                let rawQueue = orders || [];
+                let rawQueue = (orders || []).filter(os => ProductionFlow.isProductionActive(os));
 
                 // Filtro Inteligente: Remove OSs onde todas as peças já foram enviadas para fora da Desmontagem
                 if (rawQueue.length > 0) {

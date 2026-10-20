@@ -721,12 +721,7 @@
                 const osId = selectedOS.id || selectedOS.os_id || selectedOS.service_order_id;
                 
                 // 1. Atualiza diretamente no Supabase para Pronto para Entrega
-                const { error: updateErr } = await supabaseClient
-                    .from('service_orders')
-                    .update({ status: 'Pronto para Entrega' })
-                    .eq('id', osId);
-
-                if (updateErr) throw updateErr;
+                await ProductionFlow.transitionOrder(supabaseClient, osId, 'Pronto para Entrega', {}, ['Aguardando Controle de Qualidade']);
 
                 // 2. Registra no histórico da OS
                 const { data: sessionData } = await supabaseClient.auth.getSession();

@@ -2,6 +2,28 @@ const ProductionFlow = {
     core: ['EIXO', 'ROTOR', 'CCE', 'REPAROS'],
     sectors: ['DESMONTAGEM', 'RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'BALANCEAMENTO', 'MONTAGEM'],
     normalize(value) { return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase(); },
+    isClosed(order) {
+        return ['FINALIZADO', 'FINALIZADA', 'CONCLUIDO', 'CONCLUIDA', 'ENTREGUE', 'CANCELADO', 'CANCELADA', 'ARQUIVADO', 'ARQUIVADA'].includes(this.normalize(order.status));
+    },
+    isProductionActive(order) {
+        const status = this.normalize(order.status);
+        return !this.isClosed(order) && !/QUALIDADE|EXPEDICAO|PRONTO PARA ENTREGA|STANDBY/.test(status);
+    },
+    async transitionOrder(client, id, status, fields = {}, allowed = []) {
+        const { data: order, error: readError } = await client.from('service_orders').select('id,status').eq('id', id).maybeSingle();
+        if (readError) throw readError;
+        if (!order || (this.isClosed(order) && order.status !== status) || (allowed.length && order.status !== status && !allowed.includes(order.status))) {
+            throw new Error('A O.S. não está mais nesta etapa. Atualize a fila.');
+        }
+        const now = new Date().toISOString();
+        const { data: updated, error } = await client.from('service_orders').update({ ...fields, status, updated_at: now }).eq('id', id).eq('status', order.status).select('id').maybeSingle();
+        if (error) throw error;
+        if (!updated) throw new Error('A O.S. foi alterada em outra tela. Atualize a fila.');
+        const stage = this.isClosed({ status }) ? 'FINALIZADO' : 'EXPEDICAO';
+        const { error: trackingError } = await client.from('component_tracking').update({ current_stage: stage, current_sector: stage,
+            status: stage === 'FINALIZADO' ? 'Finalizado' : 'Aguardando', last_update: now }).eq('service_order_id', id);
+        if (trackingError) throw trackingError;
+    },
     component(value) {
         const key = this.normalize(value);
         return ({ 'CONJUNTO NOVO': 'CONJUNTO ROTATIVO', 'PECA INTEIRA': 'PEÇA INTEIRA', 'CARCACA DE TURBINA (CT)': 'CT',
@@ -46,6 +68,9 @@ const ProductionFlow = {
         if (!id || ![...this.sectors, 'QUALIDADE'].includes(target)) throw new Error('Setor ou O.S. inválidos.');
         if (!await Rework.ensureFinished()) return false;
         const client = Rework.client();
+        const { data: order, error: orderReadError } = await client.from('service_orders').select('status').eq('id', id).maybeSingle();
+        if (orderReadError) throw orderReadError;
+        if (!order || this.isClosed(order)) throw new Error('Esta O.S. está encerrada. Atualize a fila.');
         const results = await Promise.all([
             client.from('component_tracking').select('*').eq('service_order_id', id),
             client.from('checklist_analysis_general').select('*').eq('service_order_id', id),

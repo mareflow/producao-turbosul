@@ -858,7 +858,7 @@
 
         function getOSActiveStations(os) {
             const status = (os.status || '').toUpperCase().trim();
-            if (['CONCLUÍDA', 'CONCLUIDA', 'CANCELADA', 'CANCELADO', 'ARQUIVADO', 'ARQUIVADA'].includes(status)) {
+            if (ProductionFlow.isClosed(os)) {
                 return [];
             }
 
@@ -872,9 +872,9 @@
 
             // 2. Etapas finais da OS
             if (status.includes('EXPEDIÇÃO') || status.includes('EXPEDICAO') || status.includes('PRONTO PARA ENTREGA') || status.includes('STANDBY - AGUARDANDO NOTA FISCAL') || status.includes('STANDBY - AGUARDANDO NF')) {
-                activeStations.push('EXPEDICAO');
+                return ['EXPEDICAO'];
             } else if (status.includes('QUALIDADE') && !status.includes('DESMONTAGEM')) {
-                activeStations.push('QUALIDADE');
+                return ['QUALIDADE'];
             }
 
             // 3. Produção e Rastreio Real por Peça (M.E.S)
@@ -1012,9 +1012,9 @@
                 switch (currentFilterSection) {
                     case 'TRIAGEM': return status.includes('TRIAGEM');
                     case 'STANDBY': return status.includes('STANDBY') || status.includes('CASCO');
-                    case 'QUALIDADE': return status.includes('QUALIDADE');
-                    case 'EXPEDICAO': return status.includes('EXPEDIÇÃO') || status.includes('EXPEDICAO') || status.includes('CONCLUÍDA');
-                    case 'PRODUCAO': return !status.includes('TRIAGEM') && !status.includes('STANDBY') && !status.includes('QUALIDADE') && !status.includes('EXPED') && !status.includes('CONCLUÍDA') && status !== 'ARQUIVADO' && status !== 'CANCELADA';
+                    case 'QUALIDADE': return !ProductionFlow.isClosed(os) && status.includes('QUALIDADE');
+                    case 'EXPEDICAO': return !ProductionFlow.isClosed(os) && (status.includes('EXPEDIÇÃO') || status.includes('EXPEDICAO') || status.includes('PRONTO PARA ENTREGA'));
+                    case 'PRODUCAO': return ProductionFlow.isProductionActive(os) && !status.includes('TRIAGEM') && !status.includes('STANDBY') && !status.includes('QUALIDADE') && !status.includes('EXPED') && !status.includes('CONCLUÍDA') && status !== 'ARQUIVADO' && status !== 'CANCELADA';
                     case 'ARQUIVADO': return status === 'ARQUIVADO';
                     case 'CANCELADA': return status === 'CANCELADA';
                     default: return true;
@@ -1081,12 +1081,12 @@
         }
 
         function updateKPIs() {
-            document.getElementById('kpi-total-active').innerText = allOrders.filter(o => o.status !== 'Concluída' && o.status !== 'Cancelada' && o.status !== 'Arquivado').length;
+            document.getElementById('kpi-total-active').innerText = allOrders.filter(o => !ProductionFlow.isClosed(o)).length;
             document.getElementById('kpi-production').innerText = allOrders.filter(o => {
                 const s = (o.status || '').toUpperCase();
-                return s === 'EM PRODUÇÃO' || s.includes('DESMONTAGEM') || (o.tracking && o.tracking.length > 0);
+                return ProductionFlow.isProductionActive(o) && (s === 'EM PRODUÇÃO' || s.includes('DESMONTAGEM') || getOSActiveStations(o).some(stage => ProductionFlow.sectors.includes(stage)));
             }).length;
-            document.getElementById('kpi-final-stages').innerText = allOrders.filter(o => o.status.includes('Qualidade') || o.status.includes('Expedição')).length;
+            document.getElementById('kpi-final-stages').innerText = allOrders.filter(o => !ProductionFlow.isClosed(o) && getOSActiveStations(o).some(s => ['QUALIDADE', 'EXPEDICAO'].includes(s))).length;
             document.getElementById('kpi-standby').innerText = allOrders.filter(o => o.status.includes('Standby') || o.status.includes('Casco')).length;
         }
 
@@ -1101,12 +1101,13 @@
             let [normal, alta, urgente] = [0,0,0];
 
             allOrders.forEach(os => {
+                if (ProductionFlow.isClosed(os)) return;
                 const s = (os.status || '').toUpperCase().trim();
                 const activeSt = getOSActiveStations(os);
                 if (s.includes('TRIAGEM')) triage++;
                 else if (activeSt.includes('DESMONTAGEM')) desmonte++;
                 else if (s.includes('QUALIDADE')) qualidade++;
-                else if (s.includes('EXPEDIÇÃO') || s.includes('CONCLUÍDA')) expedicao++;
+                else if (activeSt.includes('EXPEDICAO')) expedicao++;
                 else if (s === 'EM PRODUÇÃO' || activeSt.length > 0) producao++;
 
                 const urg = (os.urgency || 'Normal').toUpperCase().trim();

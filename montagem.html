@@ -331,7 +331,7 @@
                     .from('triage_parts').select('*').in('service_order_id', osIds);
                 if (purchaseError) throw purchaseError;
 
-                const rawQueue = (orders || []).map(os => {
+                const rawQueue = (orders || []).filter(os => ProductionFlow.isProductionActive(os)).map(os => {
                     os.full_tracking = (allTrackings || []).filter(t => t.service_order_id === os.id);
                     os.triage_parts = (triageParts || []).filter(t => t.service_order_id === os.id);
                     os.purchase_parts = (purchaseParts || []).filter(t => t.service_order_id === os.id);

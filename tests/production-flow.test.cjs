@@ -5,9 +5,9 @@ const tables = { component_tracking: [], checklist_analysis_general: [], triage_
 const client = {
     auth: { getSession: async () => ({ data: { session: { user: { id: 'operator' } } } }) },
     from(table) {
-        let op = 'select', payload, filters = [];
+        let op = 'select', payload, filters = [], single = false;
         const q = {
-            select() { return q; }, eq(k, v) { filters.push(r => r[k] === v); return q; },
+            maybeSingle() { single = true; return q; }, select() { return q; }, eq(k, v) { filters.push(r => r[k] === v); return q; },
             insert(p) { op = 'insert'; payload = p; return q; },
             update(p) { op = 'update'; payload = p; return q; },
             upsert(p) { op = 'upsert'; payload = p; return q; },
@@ -19,7 +19,7 @@ const client = {
                     const existing = tables[table].find(r => r.service_order_id === row.service_order_id && r.component_name === row.component_name);
                     if (existing) Object.assign(existing, row); else tables[table].push({ ...row });
                 }
-                resolve({ data: found, error: null });
+                resolve({ data: single ? found[0] || null : found, error: null });
             }
         }; return q;
     }
@@ -83,5 +83,39 @@ function order() { return { triage_parts: tables.checklist_analysis_general, pur
     assert.equal(vm.runInContext('getAssemblyDetailedState()', context), 'CARCACAMENTO_PRONTO');
     await flow.move('PEÇA INTEIRA', 'BALANCEAMENTO', { note: 'Teste final opcional' });
     assert.equal(tables.service_orders[0].status, 'Aguardando Balanceamento');
-    console.log('OK: conjunto agrupado, compra pendente, ida/volta, anexos independentes, reabertura e invalidação de conclusão antiga');
+    // Encerramento prevalece sobre rastreio antigo em todos os painéis.
+    for (const status of ['Finalizado', 'Finalizada', 'Concluído', 'Concluída', 'Entregue', 'Cancelada', 'Arquivado']) {
+        assert.equal(flow.isClosed({status}), true);
+        assert.equal(flow.isProductionActive({status}), false);
+    }
+    const admin = fs.readFileSync('admin.html', 'utf8');
+    vm.runInContext(admin.slice(admin.indexOf('        function normalizeSectorKey('), admin.indexOf('        function getOSPiecesAtStation(')), context);
+    const stale = { status: 'Finalizado', tracking: [{component_name: 'CT',current_stage:'QUALIDADE'}] };
+    context.stale = stale;
+    assert.equal(vm.runInContext('getOSActiveStations(stale).length', context), 0);
+    context.stale.status = 'Pronto para Entrega';
+    assert.equal(vm.runInContext('getOSActiveStations(stale).join()', context), 'EXPEDICAO');
+    context.stale.status = 'Aguardando Controle de Qualidade';
+    assert.equal(vm.runInContext('getOSActiveStations(stale).join()', context), 'QUALIDADE');
+    const kpis = {};
+    context.document.getElementById = id => kpis[id] ||= {};
+    context.allOrders = [{status:'Finalizado',tracking:stale.tracking},{status:'Em Produção',tracking:[{current_stage:'SOLDA'}]}, {status:'Pronto para Entrega',tracking:stale.tracking}, {status:'Aguardando Controle de Qualidade',tracking:stale.tracking}];
+    vm.runInContext(admin.slice(admin.indexOf('        function updateKPIs()'), admin.indexOf('        function updateCharts()')),context);
+    vm.runInContext('updateKPIs()',context);
+    assert.equal(kpis['kpi-total-active'].innerText,3);
+    assert.equal(kpis['kpi-production'].innerText,1);
+    assert.equal(kpis['kpi-final-stages'].innerText,2);
+    tables.service_orders[0].status = 'Aguardando Controle de Qualidade';
+    await assert.rejects(() => flow.transitionOrder(client,'os','Finalizado',{},['Pronto para Entrega']), /etapa/);
+    const logs = JSON.stringify(tables.component_tracking.map(t => t.tracking_data));
+    await flow.transitionOrder(client, 'os', 'Pronto para Entrega', {}, ['Aguardando Controle de Qualidade']);
+    assert.ok(tables.component_tracking.every(t => t.current_stage === 'EXPEDICAO' && t.current_sector === 'EXPEDICAO'));
+    await flow.transitionOrder(client, 'os', 'Standby - Aguardando Nota Fiscal', {}, ['Pronto para Entrega']);
+    assert.ok(tables.component_tracking.every(t => t.current_stage === 'EXPEDICAO'));
+    await flow.transitionOrder(client, 'os', 'Finalizado', {nota_fiscal:'123',data_finalizacao:'2026-10-20'}, ['Standby - Aguardando Nota Fiscal']);
+    assert.ok(tables.component_tracking.every(t => t.current_stage === 'FINALIZADO' && t.current_sector === 'FINALIZADO'));
+    assert.equal(JSON.stringify(tables.component_tracking.map(t => t.tracking_data)), logs, 'Tempos e histórico preservados no fechamento');
+    await assert.rejects(() => flow.move('CT', 'SOLDA', {note:'Tela antiga'}), /encerrada/);
+    await assert.rejects(() => flow.transitionOrder(client,'os','Pronto para Entrega',{},['Aguardando Controle de Qualidade']), /etapa/);
+    console.log('OK: produção, retornos, compra, Qualidade → Expedição → Finalizado, standby, indicadores e proteção contra tela antiga');
 })().catch(error => { console.error(error); process.exitCode = 1; });
