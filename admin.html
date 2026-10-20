@@ -97,6 +97,7 @@
                 <button onclick="setFilter('QUALIDADE')" id="filter-quality" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Qualidade</button>
                 <button onclick="setFilter('EXPEDICAO')" id="filter-dispatch" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Expedição</button>
                 <button onclick="setFilter('STANDBY')" id="filter-standby" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Standby</button>
+                <button onclick="setFilter('FINALIZADA')" id="filter-finished" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Finalizadas</button>
                 <button onclick="setFilter('ARQUIVADO')" id="filter-archived" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Arquivadas</button>
                 <button onclick="setFilter('CANCELADA')" id="filter-canceled" class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider bg-zinc-100 text-zinc-600 hover:bg-zinc-200 border border-zinc-200 transition-all">Canceladas</button>
             </div>
@@ -978,7 +979,7 @@
 
         function setFilter(section) {
             currentFilterSection = section;
-            const buttons = ['filter-all', 'filter-triage', 'filter-production', 'filter-quality', 'filter-dispatch', 'filter-standby', 'filter-archived', 'filter-canceled'];
+            const buttons = ['filter-all', 'filter-triage', 'filter-production', 'filter-quality', 'filter-dispatch', 'filter-standby', 'filter-finished', 'filter-archived', 'filter-canceled'];
             
             buttons.forEach(id => {
                 const btn = document.getElementById(id);
@@ -988,6 +989,7 @@
             let btnId = `filter-${section.toLowerCase()}`;
             if (section === 'ARQUIVADO') btnId = 'filter-archived';
             if (section === 'CANCELADA') btnId = 'filter-canceled';
+            if (section === 'FINALIZADA') btnId = 'filter-finished';
 
             const activeBtn = document.getElementById(btnId) || document.getElementById('filter-all');
             if (activeBtn) {
@@ -1010,6 +1012,7 @@
                 if (currentFilterSection !== 'CANCELADA' && status === 'CANCELADA') return false;
 
                 switch (currentFilterSection) {
+                    case 'FINALIZADA': return ['FINALIZADO', 'FINALIZADA', 'CONCLUIDO', 'CONCLUIDA', 'ENTREGUE'].includes(ProductionFlow.normalize(status));
                     case 'TRIAGEM': return status.includes('TRIAGEM');
                     case 'STANDBY': return status.includes('STANDBY') || status.includes('CASCO');
                     case 'QUALIDADE': return !ProductionFlow.isClosed(os) && status.includes('QUALIDADE');
