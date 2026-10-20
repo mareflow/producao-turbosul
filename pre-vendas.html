@@ -192,14 +192,10 @@
                 </div>
 
                 <div class="p-4 rounded-lg bg-amber-50 border border-amber-200 space-y-3">
-                    <div class="flex items-center">
-                        <input type="checkbox" id="venda_base_troca_check" name="venda_base_troca_check" class="h-4 w-4 text-brand-blue border-gray-300 rounded focus:ring-brand-blue">
-                        <label for="venda_base_troca_check" class="ml-2 text-sm font-bold text-gray-800">Venda à Base de Troca</label>
-                    </div>
-                    <div id="hull-state-options" class="ml-6 space-y-2 text-sm text-gray-700 hidden">
-<div class="flex items-center"><input type="radio" id="recebido" name="base_troca_status" value="Já Recebido" class="h-4 w-4 text-brand-blue border-gray-300 focus:ring-brand-blue"><label for="recebido" class="ml-2">Já Recebido (Seguir Processo)</label></div>
-<div class="flex items-center"><input type="radio" id="aguardando_cliente" name="base_troca_status" value="Standby" class="h-4 w-4 text-brand-blue border-gray-300 focus:ring-brand-blue"><label for="aguardando_cliente" class="ml-2">Aguardando Cliente Trazer (Standby)</label></div>
-<div class="flex items-center"><input type="radio" id="pago_incluso" name="base_troca_status" value="Pago/Incluso" class="h-4 w-4 text-brand-blue border-gray-300 focus:ring-brand-blue"><label for="pago_incluso" class="ml-2">Pago/Incluso (Seguir Processo)</label></div>
+                    <div id="hull-state-options" class="space-y-2 text-sm text-gray-700" role="radiogroup" aria-label="Situação do casco">
+                        <div class="flex items-center"><input type="radio" id="recebido" name="base_troca_status" required value="Já Recebido" class="h-4 w-4 text-brand-blue border-gray-300 focus:ring-brand-blue"><label for="recebido" class="ml-2">Já Recebido (Seguir Processo)</label></div>
+                        <div class="flex items-center"><input type="radio" id="aguardando_cliente" name="base_troca_status" value="Standby" class="h-4 w-4 text-brand-blue border-gray-300 focus:ring-brand-blue"><label for="aguardando_cliente" class="ml-2">Aguardando Cliente Trazer (Standby)</label></div>
+                        <div class="flex items-center"><input type="radio" id="pago_incluso" name="base_troca_status" value="Pago/Incluso" class="h-4 w-4 text-brand-blue border-gray-300 focus:ring-brand-blue"><label for="pago_incluso" class="ml-2">Pago/Incluso (Seguir Processo)</label></div>
                     </div>
                 </div>
 
@@ -381,8 +377,6 @@
         const confirmDispatchMessage = document.getElementById('confirm-dispatch-message');
         const dispatchSuccessMessage = document.getElementById('dispatch-success-message');
         const form = document.getElementById('new-os-form');
-        const baseTrocaCheck = document.getElementById('venda_base_troca_check');
-        const baseTrocaRadiosDiv = document.getElementById('hull-state-options');
         const successOkBtn = document.getElementById('success-modal-ok-btn');
         const closeDetailsBtn = document.getElementById('close-details-modal-btn');
         const confirmDispatchBtn = document.getElementById('confirm-dispatch-btn');
@@ -908,7 +902,6 @@
                 budgetInput.value = 'ORÇ-';
                 document.getElementById('data_programacao').valueAsDate = new Date();
                 setUnidadeSelection('MATRIZ');
-                baseTrocaRadiosDiv.classList.add('hidden'); 
             });
 
             // Lógica para forçar o prefixo "ORÇ-" e apenas números depois
@@ -935,18 +928,6 @@
                 }
             });
 
-            baseTrocaCheck.addEventListener('change', (event) => {
-                if (!event.target.checked) {
-                    // Se desmarcar o checkbox, limpa os rádio botões para não enviar dados "sujos"
-                    document.querySelectorAll('input[name="base_troca_status"]').forEach(radio => {
-                        radio.checked = false;
-                    });
-                    baseTrocaRadiosDiv.classList.add('hidden');
-                } else {
-                    baseTrocaRadiosDiv.classList.remove('hidden');
-                }
-            });
-
             // Listener de Submissão com Validação Rigorosa (CORRIGIDO)
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
@@ -958,7 +939,6 @@
                 const partNumber = document.getElementById('part_number').value.trim();
                 const dataProg = document.getElementById('data_programacao').value;
                 const observacoes = document.getElementById('observacoes').value.trim();
-                const isBaseTroca = document.getElementById('venda_base_troca_check').checked;
                 const baseTrocaStatus = document.querySelector('input[name="base_troca_status"]:checked');
 
                 // CORREÇÃO: Busca o botão no documento inteiro, pois ele está fora da tag <form>
@@ -978,7 +958,7 @@
                 if (dataProg === "") return showError("Selecione uma Data de Programação.");
                 if (observacoes === "") return showError("Descreva a Reclamação do Cliente em 'Observações'.");
 
-                if (isBaseTroca && !baseTrocaStatus) {
+                if (!baseTrocaStatus) {
                     return showError("Selecione o status da carcaça (Recebido, Standby ou Pago).");
                 }
 
@@ -992,7 +972,7 @@
                     part_number: partNumber,
                     client: nomeCliente,
                     model: modeloTurbo,
-                    is_exchange_sale: isBaseTroca,
+                    is_exchange_sale: true,
                     exchange_status: baseTrocaStatus ? baseTrocaStatus.value : null, 
                     program_date: dataProg,
                     urgency: document.getElementById('grau_urgencia').value,
