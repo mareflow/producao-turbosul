@@ -4,3 +4,5 @@ node_modules/
 *.log
 tests/quality-preview.html
 tests/quality-fixture.js
+tests/commercial-preview.html
+tests/commercial-fixture.js

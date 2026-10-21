@@ -7,7 +7,7 @@ function functionSource(file,name){
     throw Error('Função não encontrada: '+name);
 }
 const noop=()=>{};
-function node(){return {innerHTML:'',textContent:'',value:'',classList:{add:noop,remove:noop,toggle:noop},appendChild:noop,insertAdjacentHTML:noop,addEventListener:noop,querySelector:()=>node()};}
+function node(){return {innerHTML:'',textContent:'',value:'',classList:{add:noop,remove:noop,toggle:noop},appendChild:noop,insertAdjacentHTML:noop,addEventListener:noop,querySelectorAll:()=>[],querySelector:()=>node()};}
 async function check(page,loader,status,sector,names=['EIXO','ROTOR','CCE','REPAROS','CT','CCO'],extra=[],expected=1){
     const nodes=new Map(),errors=[];
     const order={id:'001',service_order_id:'001',business_id:'O.S-001',status,urgency:'Alta',created_at:'2026-10-20',client:'Teste',model:'Teste',is_blocked:false,maintenance_extras:{}};
