@@ -92,16 +92,15 @@ const ProductionFlow = {
         return history.some(log => log.service === service && (Date.parse(log.end_time) || 0) >= lastReturn);
     },
     destinations(component, sector = Rework.context().sector) {
-        return this.sectors.filter(s => s !== sector && (s !== 'BALANCEAMENTO' || ['EIXO', 'CONJUNTO ROTATIVO', 'PEÇA INTEIRA'].includes(this.component(component))));
+        return this.sectors.filter(s => s !== sector);
     },
     render(component, enabled = true) {
         const ctx = Rework.context();
         if (!ctx.id) return '';
         return `<div class="mt-3 w-full text-left" data-routing-component="${Rework.escape(component)}" data-routing-order="${Rework.escape(ctx.id)}">
-            <label class="text-xs font-bold text-slate-600">Encaminhar / retornar para</label>
-            <div class="flex flex-wrap gap-2 mt-1"><select aria-label="Setor de destino de ${Rework.escape(component)}" class="min-w-0 flex-1 border rounded-lg px-2 py-2 text-xs" ${!enabled ? 'disabled' : ''}>
-                ${this.destinations(component, ctx.sector).map(s => `<option value="${s}">${s}</option>`).join('')}</select>
-                <button type="button" data-routing-send ${!enabled ? 'disabled' : ''} class="bg-slate-700 text-white px-3 py-2 rounded-lg text-xs font-bold disabled:opacity-40">Encaminhar</button></div></div>`;
+            <p class="text-[10px] font-black text-slate-400 uppercase mb-3">Encaminhar para:</p>
+            <div class="grid grid-cols-2 gap-2">${this.destinations(component, ctx.sector).map(s => `<button type="button" data-routing-send data-routing-target="${s}" ${!enabled ? 'disabled' : ''}
+                class="${s === 'MONTAGEM' ? 'col-span-2 bg-emerald-600 text-white' : 'bg-slate-50 text-slate-700'} py-3 rounded-lg text-[10px] uppercase font-black disabled:opacity-40 hover:brightness-95">${s === 'MONTAGEM' ? 'Pronto p/ Montagem' : ({DESMONTAGEM:'Desmontagem',RETIFICA:'Retífica',SOLDA:'Solda',METROLOGIA:'Metrologia',BANCADA:'Bancada',BALANCEAMENTO:'Balanceamento'})[s] || s}</button>`).join('')}</div></div>`;
     },
     async move(component, target, options = {}) {
         const { id, sector } = Rework.context();
@@ -123,7 +122,6 @@ const ProductionFlow = {
         const newCore = this.isNew({ analysis });
         const whole = name === 'PEÇA INTEIRA';
         const grouped = name === 'CONJUNTO ROTATIVO' || (newCore && this.core.includes(name));
-        if (target === 'BALANCEAMENTO' && !grouped && !['EIXO', 'PEÇA INTEIRA'].includes(name)) throw new Error('O Balanceamento recebe eixo, conjunto rotativo ou turbina completa.');
         const current = tracking.find(t => t.component_name === (grouped ? 'CONJUNTO ROTATIVO' : name));
         if (current && !['REABERTA', sector].includes(current.current_stage)) throw new Error('A peça já está em outro setor. Atualize a tela.');
         const names = whole ? [...new Set([...tracking.filter(t => t.current_stage === sector || this.coreNames().includes(t.component_name) || ['CT', 'CCO'].includes(t.component_name)).map(t => t.component_name), 'PEÇA INTEIRA'])] : grouped ? this.coreNames() : [name];
@@ -132,9 +130,7 @@ const ProductionFlow = {
         const activeTimer = Object.keys(localStorage).some(key => names.some(part => key === `timer_${id}_${part}` || key === `timer_paused_${id}_${part}` || key.startsWith(`timer_${id}_${part}_`) || key.startsWith(`timer_paused_${id}_${part}_`)) ||
             (sector === 'MONTAGEM' && (key.startsWith(`timer_${id}_MONTAGEM_`) || key.startsWith(`timer_paused_${id}_MONTAGEM_`))));
         if (activeTimer) throw new Error('Finalize os cronômetros dos serviços desta O.S. antes de encaminhar.');
-        const note = options.note ?? prompt(`Motivo do encaminhamento de ${grouped ? 'CONJUNTO ROTATIVO' : name} para ${target}:`);
-        if (note === null) return false;
-        if (!note.trim()) throw new Error('Informe o motivo do encaminhamento.');
+        const note = String(options.note || '').trim();
         const now = new Date().toISOString();
         const payload = names.map(part => {
             const existing = tracking.find(t => t.component_name === part);
@@ -142,7 +138,7 @@ const ProductionFlow = {
             return { service_order_id: id, component_name: part, current_stage: target, current_sector: target,
                 status: options.status || (target === 'MONTAGEM' && name === 'EIXO' && sector === 'BALANCEAMENTO' ? 'BALANCEADO' : 'Aguardando'),
                 executed_services: [...new Set([...(existing?.executed_services || []), ...(options.services || [])])],
-                tracking_data: [...logs, { action: 'ROTEAMENTO', from: existing?.current_stage || sector, to: target, reason: note.trim(), timestamp: now }],
+                tracking_data: [...logs, { action: 'ROTEAMENTO', from: existing?.current_stage || sector, to: target, ...(note ? {reason:note} : {}), timestamp: now }],
                 last_update: now };
         });
         if (!whole && tracking.some(t => t.component_name === 'PEÇA INTEIRA') && this.sectors.includes(target)) {
@@ -155,7 +151,7 @@ const ProductionFlow = {
         if (orderError) throw orderError;
         const { data: { session } } = await client.auth.getSession();
         const { error: historyError } = await client.from('history_events').insert({ service_order_id: id, user_id: session?.user?.id || null,
-            action: 'ROTEAMENTO ENTRE SETORES', description: `${grouped ? 'CONJUNTO ROTATIVO' : name}: ${sector} → ${target}. Motivo: ${note.trim()}`, timestamp: now });
+            action: 'ROTEAMENTO ENTRE SETORES', description: `${grouped ? 'CONJUNTO ROTATIVO' : name}: ${sector} → ${target}.${note ? ' Motivo: '+note : ''}`, timestamp: now });
         if (historyError) throw historyError;
         return true;
     },
@@ -172,6 +168,8 @@ document.addEventListener('click', async event => {
     const panel = button.closest('[data-routing-component]');
     if (panel.dataset.routingOrder !== Rework.context().id) return;
     button.disabled = true;
-    await ProductionFlow.send(panel.dataset.routingComponent, panel.querySelector('select').value);
+    const card = panel.closest('[id]');
+    const services = Array.from(card?.querySelectorAll('input[data-service]:checked') || []).map(input => input.dataset.service).filter(Boolean);
+    await ProductionFlow.send(panel.dataset.routingComponent, button.dataset.routingTarget, {services});
     button.disabled = false;
 });

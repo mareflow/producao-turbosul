@@ -246,34 +246,8 @@
                     return os;
                 });
 
-                // Regra de Exibição na Fila do Balanceamento:
-                // Se a OS tiver PEÇA INTEIRA com current_stage === 'BALANCEAMENTO', ou status geral 'Aguardando Balanceamento',
-                // ela está no estágio de Balanceamento Final (pós-carcaçamento na Montagem) e SEMPRE deve ser listada!
-                rawQueue = rawQueue.filter(os => {
-                    const activeBalancing = (os.full_tracking || []).filter(t => (t.current_stage || '').toUpperCase().trim() === 'BALANCEAMENTO');
-                    const hasPecaInteira = activeBalancing.some(t => {
-                        const name = (t.component_name || t.component || '').toUpperCase().trim();
-                        return name === 'PEÇA INTEIRA' || name === 'PECA INTEIRA';
-                    });
-                    const isStatusAguardandoBal = (os.status || '').toUpperCase().trim() === 'AGUARDANDO BALANCEAMENTO';
-
-                    // Balanceamento Final pós-carcaçamento sempre deve aparecer!
-                    if (hasPecaInteira || isStatusAguardandoBal) return true;
-
-                    if (activeBalancing.length === 0) return false;
-
-                    // Se for Conjunto Novo (Full), o balanceamento de núcleo isolado (Eixo / Conjunto Rotativo) é pulado
-                    const isConjuntoNovo = (os.triage_parts || []).some(p => 
-                        ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || "").toUpperCase().trim()) && 
-                        (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
-                    );
-
-                    if (!isConjuntoNovo) return true;
-
-                    // Se for conjunto novo e não está no balanceamento final de peça inteira, não balanceia núcleo
-                    return activeBalancing.some(t => t.component_name === 'CONJUNTO ROTATIVO');
-                });
-
+                // Toda peça encaminhada ao setor deve estar disponível, inclusive nos retornos.
+                rawQueue = rawQueue.filter(os => os.full_tracking.some(t => t.current_stage === 'BALANCEAMENTO'));
 
                 queueData = ProductionFlow.sort(rawQueue);
                 renderSidebar();
@@ -350,49 +324,26 @@
 
         function getActiveBalancingComponent() {
             const tracking = selectedOS.full_tracking || selectedOS.tracking || [];
-            
-            const eixo = tracking.find(t => (t.component_name || t.component || '').toUpperCase() === 'EIXO');
-            const conjuntoRotativo = tracking.find(t => (t.component_name || t.component || '').toUpperCase() === 'CONJUNTO ROTATIVO');
-            const pecaCompleta = tracking.find(t => {
-                const n = (t.component_name || t.component || '').toUpperCase().trim();
-                return n === 'PEÇA INTEIRA' || n === 'PECA INTEIRA';
-            });
-
-            const stageEixo = eixo ? (eixo.target_sector || eixo.current_stage || eixo.stage || '').toUpperCase().trim() : '';
-            const stageConjunto = conjuntoRotativo ? (conjuntoRotativo.target_sector || conjuntoRotativo.current_stage || conjuntoRotativo.stage || '').toUpperCase().trim() : '';
-            const stageCompleta = pecaCompleta ? (pecaCompleta.target_sector || pecaCompleta.current_stage || pecaCompleta.stage || '').toUpperCase().trim() : '';
-
-            const isAguardandoBal = ((selectedOS.status || '').toUpperCase().trim() === 'AGUARDANDO BALANCEAMENTO');
-
-            // 1. Se a PEÇA INTEIRA está em BALANCEAMENTO ou a OS chegou pós-carcaçamento (Aguardando Balanceamento)
-            if (pecaCompleta && stageCompleta === 'BALANCEAMENTO') {
-                return { name: 'PEÇA INTEIRA', raw: pecaCompleta };
-            }
-            if (isAguardandoBal && pecaCompleta) {
-                return { name: 'PEÇA INTEIRA', raw: pecaCompleta };
-            }
-
-            // 2. Se o CONJUNTO ROTATIVO montado está em BALANCEAMENTO
-            if (conjuntoRotativo && stageConjunto === 'BALANCEAMENTO') {
-                return { name: 'CONJUNTO ROTATIVO', raw: conjuntoRotativo };
-            }
-
-            // 3. Se o EIXO solo está em BALANCEAMENTO
-            if (eixo && stageEixo === 'BALANCEAMENTO') {
-                return { name: 'EIXO', raw: eixo };
-            }
-
-            // Fallback
-            if (pecaCompleta) return { name: 'PEÇA INTEIRA', raw: pecaCompleta };
-            if (conjuntoRotativo) return { name: 'CONJUNTO ROTATIVO', raw: conjuntoRotativo };
-            if (eixo) return { name: 'EIXO', raw: eixo };
-
-            return { name: 'PEÇA INTEIRA', raw: null };
+            const active = tracking.filter(t => t.current_stage === 'BALANCEAMENTO');
+            const selected = document.getElementById('balancing-component-select')?.value;
+            const raw = active.find(t => t.component_name === selected) ||
+                ['PEÇA INTEIRA','CONJUNTO ROTATIVO','EIXO'].map(name => active.find(t => t.component_name === name)).find(Boolean) || active[0];
+            return {name:raw?.component_name || '',raw:raw || null};
         }
 
         function processarTipoBalanceamento() {
-            document.getElementById("rework-balancing").innerHTML = Rework.render(getActiveBalancingComponent().name);
             const { name, raw } = getActiveBalancingComponent();
+            if (!raw) {
+                document.getElementById('rework-balancing').innerHTML = '<p class="text-sm">Nenhuma peça desta O.S. está no Balanceamento. Atualize a fila.</p>';
+                document.getElementById('balancing-start-overlay').classList.add('hidden');
+                document.getElementById('btn-concluir-balanceamento').disabled = true;
+                document.getElementById('btn-reprovar-balanceamento').disabled = true;
+                return;
+            }
+            const active = (selectedOS.full_tracking || selectedOS.tracking || []).filter(t => t.current_stage === 'BALANCEAMENTO');
+            document.getElementById('rework-balancing').innerHTML = '<label class="text-xs font-bold">Peça no setor</label><select id="balancing-component-select" aria-label="Peça no balanceamento" onchange="processarTipoBalanceamento()" class="w-full border rounded-lg p-2 mb-3">' +
+                active.map(t => '<option value="'+Rework.escape(t.component_name)+'" '+(t.component_name === name ? 'selected' : '')+'>'+Rework.escape(t.component_name)+'</option>').join('') + '</select>' + Rework.render(name);
+
             
             const badge = document.getElementById('balancing-type-badge');
             const title = document.getElementById('balancing-title');
@@ -478,11 +429,16 @@
                 title.innerText = "Balanceamento de Núcleo (Conjunto Rotativo)";
                 desc.innerText = "Realizando balanceamento dinâmico no núcleo para validação de estabilidade rotativa.";
                 btnConcluirFinal.innerText = "Concluir Núcleo e Enviar para Montagem";
-            } else {
+            } else if (name === "PEÇA INTEIRA") {
                 badge.innerText = "BALANCEAMENTO FINAL (PEÇA COMPLETA)";
                 title.innerText = "Aferição Final de Peça Inteira";
                 desc.innerText = "Aferição final em ambiente simulado de fluxo. Validação final de estabilidade mecânica.";
                 btnConcluirFinal.innerText = "Finalizar Turbina e Enviar para Controle de Qualidade";
+            } else {
+                badge.innerText = "PEÇA NO SETOR";
+                title.innerText = name;
+                desc.innerText = "Peça recebida no Balanceamento. Pode ser encaminhada a qualquer setor de produção.";
+                btnConcluirFinal.innerText = "Concluir serviço e enviar para Montagem";
             }
         }
 
@@ -753,9 +709,12 @@
             } else if (name === 'CONJUNTO ROTATIVO') {
                 desc.innerText = "Isso marcará o Conjunto Rotativo como BALANCEADO e retornará a OS para a Montagem para a finalização (Carcaçamento).";
                 confirmBtn.onclick = () => concluirEtapa('MONTAGEM', 'Conjunto Rotativo');
-            } else {
+            } else if (name === 'PEÇA INTEIRA') {
                 desc.innerText = "Isso finalizará com sucesso o ciclo de balanceamento e encaminhará o turbo diretamente ao Controle de Qualidade.";
                 confirmBtn.onclick = () => concluirEtapa('QUALIDADE', 'Peça Inteira');
+            } else {
+                desc.innerText = "O serviço será concluído e a peça retornará à Montagem.";
+                confirmBtn.onclick = () => concluirEtapa('MONTAGEM', name);
             }
 
             modal.style.display = 'flex';
@@ -765,7 +724,7 @@
             closeModal();
             await ProductionFlow.send(tipoFinalizado, setorAlvo, {
                 note: 'Balanceamento concluído. ' + document.getElementById('input-desempenho').value.trim(),
-                services: [tipoFinalizado.toUpperCase() === 'EIXO' ? 'Balanceamento Solo do Eixo' : 'Balanceamento Final'],
+                services: [tipoFinalizado.toUpperCase() === 'EIXO' ? 'Balanceamento Solo do Eixo' : tipoFinalizado.toUpperCase() === 'PEÇA INTEIRA' ? 'Balanceamento Final' : 'Serviço de ' + tipoFinalizado + ' no Balanceamento'],
                 status: setorAlvo === 'MONTAGEM' ? 'BALANCEADO' : 'Finalizado'
             });
         }

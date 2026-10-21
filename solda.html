@@ -551,22 +551,12 @@
                         </div>
                         <div class="flex-1 flex flex-col relative">
                             ${retraBannerHtml}
-                        ${Rework.render(name, !isSent)}
+                        ${Rework.render(name, !isSent, false)}
                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">CHECKLIST DE SOLDAGEM:</p>
                             <div class="checklist-scroll overflow-y-auto max-h-[200px] space-y-1 mb-8 pr-1">${itemHtml}</div>
                             <hr class="border-slate-100 mb-6">
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">ENCAMINHAR PARA:</p>
                             <div class="grid grid-cols-2 gap-2">
-                                <button class="py-3 bg-turbo-teal text-white text-[10px] font-black uppercase rounded-lg cursor-default shadow-md">Solda</button>
-                                <button onclick="sendPieceTo(this, '${name}', 'RETIFICA')" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition shadow-sm border border-slate-100">Retífica</button>
-                                <button onclick="sendPieceTo(this, '${name}', 'METROLOGIA')" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition shadow-sm border border-slate-100">Metrologia</button>
-                                <button onclick="sendPieceTo(this, '${name}', 'BANCADA')" class="py-3 bg-slate-50 text-slate-700 text-[10px] font-black uppercase rounded-lg hover:bg-slate-100 transition shadow-sm border border-slate-100">Bancada</button>
-                                
-                                ${name.toUpperCase() === 'EIXO' ? `
-                                    <button onclick="sendPieceTo(this, '${name}', 'BALANCEAMENTO')" class="col-span-2 py-3 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black uppercase rounded-lg transition shadow-md">Enviar p/ Balanceamento Solo</button>
-                                ` : ''}
-
-                                <button onclick="sendPieceTo(this, '${name}', 'MONTAGEM')" class="col-span-2 py-4 bg-emerald-600 text-white text-[11px] font-black uppercase rounded-xl transition hover:bg-emerald-700 shadow-lg shadow-emerald-100 mt-2">Pronto p/ Montagem</button>
+                                <div class="col-span-2">${ProductionFlow.render(name, !isSent)}</div>
 
                                 <button type="button" onclick="CondenarPecaManager.abrirModal('${selectedOS.service_order_id || selectedOS.os_id || selectedOS.id}', '${selectedOS.business_id || ''}', '${name}', 'SOLDA', () => onPecaCondenada('${name}'))" class="col-span-2 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all mt-1">
                                     <i class="fa-solid fa-triangle-exclamation text-red-600"></i> Condenar Peça (Líder)

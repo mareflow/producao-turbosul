@@ -357,32 +357,8 @@
 
                     const tracking = os.full_tracking || [];
 
-                    // 1. Se PEÇA INTEIRA já foi roteada para outro setor ou finalizada, Montagem está 100% concluída
-                    const pecaInteira = tracking.find(t => (t.component_name || t.component || '').toUpperCase().trim() === 'PEÇA INTEIRA');
-                    if (pecaInteira) {
-                        const piStage = (pecaInteira.target_sector || pecaInteira.current_stage || '').toUpperCase().trim();
-                        if (['QUALIDADE', 'BALANCEAMENTO', 'EXPEDICAO', 'EXPEDIÇÃO', 'FINALIZADO'].includes(piStage)) {
-                            return false;
-                        }
-                    }
-
-                    // 2. Se o CONJUNTO ROTATIVO foi enviado para BALANCEAMENTO e ainda está lá (não finalizado/não retornado),
-                    // a OS não deve ocupar a fila de Montagem, devendo ficar apenas no Balanceamento
-                    const conjuntoRotativo = tracking.find(t => (t.component_name || t.component || '').toUpperCase().trim() === 'CONJUNTO ROTATIVO');
-                    if (conjuntoRotativo) {
-                        const crStage = (conjuntoRotativo.target_sector || conjuntoRotativo.current_stage || '').toUpperCase().trim();
-                        const crStatus = (conjuntoRotativo.status || '').toUpperCase().trim();
-                        if (crStage === 'BALANCEAMENTO' && crStatus !== 'FINALIZADO' && crStatus !== 'BALANCEADO') {
-                            return false;
-                        }
-                    }
-
-                    // 3. Deve haver pelo menos uma peça ativa no setor de MONTAGEM (que não seja a Peça Inteira já finalizada)
-                    const hasPiecesInMontagem = tracking.some(t => {
-                        const cName = (t.component_name || t.component || '').toUpperCase().trim();
-                        const cStage = (t.target_sector || t.current_stage || '').toUpperCase().trim();
-                        return cStage === 'MONTAGEM' && cName !== 'PEÇA INTEIRA';
-                    });
+                    // A localização de cada peça define a fila, mesmo com outras peças em outro setor.
+                    const hasPiecesInMontagem = tracking.some(t => t.current_stage === 'MONTAGEM');
 
                     return hasPiecesInMontagem;
                 });
@@ -610,8 +586,10 @@
                 accompaniment.className = 'mt-4 p-3 rounded-xl border border-slate-200 bg-slate-50';
                 document.getElementById('dynamic-pieces-grid').after(accompaniment);
             }
-            const annexes = tracking.filter(t => AccessoryFlow.part(t.component_name));
-            accompaniment.innerHTML = '<p class="text-xs font-bold text-slate-500 mb-2">ANEXOS DE ACOMPANHAMENTO — não fazem parte da montagem</p>' +
+            const annexes = tracking.filter(t => AccessoryFlow.part(t.component_name) ||
+                (etapa === 'NUCLEO' && ['CT','CCO','CONJUNTO ROTATIVO'].includes(ProductionFlow.component(t.component_name))) ||
+                ![...ProductionFlow.core, 'CT','CCO','CONJUNTO ROTATIVO'].includes(ProductionFlow.component(t.component_name)));
+            accompaniment.innerHTML = '<p class="text-xs font-bold text-slate-500 mb-2">PEÇAS DE ACOMPANHAMENTO — localização e encaminhamento</p>' +
                 annexes.map(t => '<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-bold">' + Rework.escape(t.component_name) + ': ' + Rework.escape(t.current_stage) + '</span>' + (t.current_stage === 'MONTAGEM' ? '<details class="text-xs"><summary class="cursor-pointer text-blue-700">Encaminhar / retornar</summary>' + ProductionFlow.render(t.component_name) + '</details>' : '') + '</div>').join('');
             accompaniment.classList.toggle('hidden', annexes.length === 0);
 

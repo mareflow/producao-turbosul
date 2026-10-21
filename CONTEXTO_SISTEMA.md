@@ -194,3 +194,9 @@ Os módulos js/part-requests.js e js/triage-requests.js centralizam as regras e 
 ### Correção de coluna na confirmação e baixa — 21/10/2026
 
 resolved_at pertence somente a triage_parts. O compartilhamento desse campo com checklist_analysis_general causava erro de schema cache após gravar parcialmente o pedido. Confirmação e baixa agora enviam ao checklist somente availability/is_resolved; a data fica no pedido. O teste reproduz a rejeição da coluna inexistente e cobre a recuperação de confirmação parcial sem duplicar pedido/histórico nem registrar recebimento físico.
+
+## Circulação livre na produção — 21/10/2026
+
+Encaminhamentos comuns não solicitam motivo. Os sete setores (Desmontagem, Retífica, Solda, Metrologia, Bancada, Balanceamento e Montagem) podem enviar e receber peças entre si; a movimentação registra origem, destino e data automaticamente. Motivos informados por operações específicas continuam no histórico. As observações obrigatórias de retrabalho e de liberação de divergência permanecem.
+
+Os botões de destino usam a mesma lista em todos os setores. Balanceamento recebe qualquer componente e permite selecionar a peça presente, sem transformar CCO/anexos em peça inteira. Montagem considera cada peça presente mesmo com outras em outro setor. Retornos de peças especiais e peça inteira ficam visíveis também na Desmontagem. Baixa física pendente, O.S. encerrada, peça já em outro setor e cronômetros abertos continuam verificados. Testes exercitam 126 movimentações sem motivo e as filas de destino, incluindo presença simultânea em Montagem/Balanceamento.

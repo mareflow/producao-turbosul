@@ -419,7 +419,7 @@
                                 .filter(compName => !(isOsConjuntoNovo && ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(compName.toUpperCase())));
                             
                             // Se ainda houver alguma peça cujo setor atual NÃO seja pós-desmontagem, mantém na fila
-                            const hasPendingPiece = componentsToCheck.some(compName => {
+                            const hasPendingPiece = osTracking.some(t => t.current_stage === 'DESMONTAGEM') || componentsToCheck.some(compName => {
                                 const p = osTracking.find(t => (t.component_name || t.component || '').toUpperCase() === compName.toUpperCase());
                                 const stage = p ? (p.target_sector || p.current_stage || p.stage || '').toUpperCase().trim() : '';
                                 const postSectors = ['RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'MONTAGEM', 'BALANCEAMENTO', 'BANCADA DE USINAGEM', 'COMPRA'];
@@ -639,7 +639,7 @@
             const grid = document.getElementById('component-grid');
             if (!grid || !currentSelection) return;
             const accessories = (currentSelection.tracking || [])
-                .filter(t => (AccessoryFlow.part(t.component_name) || t.component_name === 'CONJUNTO ROTATIVO') && t.current_stage === 'DESMONTAGEM')
+                .filter(t => !MASTER_COMPONENTS.some(c => c.title === t.component_name) && !specialItemsList.some(c => c.title === t.component_name) && t.current_stage === 'DESMONTAGEM')
                 .map(t => ({ title: t.component_name, items: ['Análise', 'Desmontagem/Limpeza', 'Conferência'] }));
             const hasCore = (currentSelection.tracking || []).some(t => t.component_name === 'CONJUNTO ROTATIVO');
             const allToRender = [...MASTER_COMPONENTS.filter(c => !hasCore || !ProductionFlow.core.includes(c.title)), ...accessories, ...specialItemsList];

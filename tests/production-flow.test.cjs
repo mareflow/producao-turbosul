@@ -127,5 +127,40 @@ function order() { return { triage_parts: tables.checklist_analysis_general, pur
     assert.equal(JSON.stringify(tables.component_tracking.map(t => t.tracking_data)), logs, 'Tempos e histórico preservados no fechamento');
     await assert.rejects(() => flow.move('CT', 'SOLDA', {note:'Tela antiga'}), /encerrada/);
     await assert.rejects(() => flow.transitionOrder(client,'os','Pronto para Entrega',{},['Aguardando Controle de Qualidade']), /etapa/);
+    context.prompt = () => {throw new Error('Encaminhamento não deve pedir motivo');};
+    tables.checklist_analysis_general=[];tables.triage_parts=[];
+    let routes=0;
+    for(const name of ['CCO','PEÇA ESPECIAL','PEÇA INTEIRA'])for(const from of flow.sectors)for(const to of flow.sectors){
+        if(from===to)continue;
+        sector=from;tables.service_orders[0].status='Em Produção';
+        tables.component_tracking=[{service_order_id:'os',component_name:name,current_stage:from,current_sector:from,tracking_data:[{service:'Anterior',duration_seconds:45}],executed_services:['Anterior']}];
+        assert.ok(flow.destinations(name).includes(to),from+' oferece '+to);
+        assert.equal(await flow.move(name,to),true,from+' → '+to+' sem motivo');
+        const moved=tables.component_tracking.find(t=>t.component_name===name);
+        assert.equal(moved.current_stage,to);assert.equal(moved.current_sector,to);
+        assert.equal(moved.tracking_data[0].duration_seconds,45);
+        assert.equal(moved.tracking_data.at(-1).reason,undefined);
+        assert.ok(tables.history_events.at(-1).description.includes(from+' → '+to));
+        routes++;
+    }
+    assert.equal(routes,126);
+    context.Rework.escape=value=>String(value);
+    for(const from of flow.sectors){
+        sector=from;
+        const html=flow.render('CCO');
+        assert.equal((html.match(/data-routing-target=/g)||[]).length,6,from+' oferece os outros seis setores');
+        assert.ok(!html.includes('<select'),'Encaminhamento usa botões');
+        for(const to of flow.sectors.filter(s=>s!==from))assert.ok(html.includes('data-routing-target="'+to+'"'));
+    }
+    const balancing=fs.readFileSync('balanceamento.html','utf8');
+    vm.runInContext(balancing.slice(balancing.indexOf('        function getActiveBalancingComponent()'),balancing.indexOf('        function processarTipoBalanceamento()')),context);
+    context.selectedOS={full_tracking:[{component_name:'EIXO',current_stage:'MONTAGEM'},{component_name:'CCO',current_stage:'BALANCEAMENTO'},{component_name:'PEÇA ESPECIAL',current_stage:'BALANCEAMENTO'}]};
+    kpis['balancing-component-select']={value:''};
+    assert.equal(vm.runInContext('getActiveBalancingComponent().name',context),'CCO','Recebe CCO sem usar o eixo de outro setor');
+    kpis['balancing-component-select'].value='PEÇA ESPECIAL';
+    assert.equal(vm.runInContext('getActiveBalancingComponent().name',context),'PEÇA ESPECIAL','Permite selecionar cada peça recebida');
+    context.selectedOS.full_tracking=[];
+    assert.equal(vm.runInContext('getActiveBalancingComponent().raw',context),null,'Não cria peça inteira quando o setor fica vazio');
     console.log('OK: produção, retornos, compra, Qualidade → Expedição → Finalizado, standby, indicadores e proteção contra tela antiga');
+    console.log('OK: 126 encaminhamentos sem motivo entre os 7 setores, com CCO, peça especial e peça inteira; histórico e serviços preservados');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -8,10 +8,10 @@ function functionSource(file,name){
 }
 const noop=()=>{};
 function node(){return {innerHTML:'',textContent:'',value:'',classList:{add:noop,remove:noop,toggle:noop},appendChild:noop,insertAdjacentHTML:noop,addEventListener:noop,querySelector:()=>node()};}
-async function check(page,loader,status,sector){
+async function check(page,loader,status,sector,names=['EIXO','ROTOR','CCE','REPAROS','CT','CCO'],extra=[]){
     const nodes=new Map(),errors=[];
     const order={id:'001',service_order_id:'001',business_id:'O.S-001',status,urgency:'Alta',created_at:'2026-10-20',client:'Teste',model:'Teste',is_blocked:false,maintenance_extras:{}};
-    const tracking=['EIXO','ROTOR','CCE','REPAROS','CT','CCO'].map(component_name=>({component_name,service_order_id:'001',current_stage:sector||'MONTAGEM',current_sector:sector||'MONTAGEM',status:'Aguardando',executed_services:[],tracking_data:[]}));
+    const tracking=names.map(component_name=>({component_name,service_order_id:'001',current_stage:sector||'MONTAGEM',current_sector:sector||'MONTAGEM',status:'Aguardando',executed_services:[],tracking_data:[]})).concat(extra);
     const tables={service_orders:[order],component_tracking:tracking,checklist_analysis_general:[],triage_parts:[]};
     const client={from(table){let filters=[];const q={select(){return q;},eq(k,v){filters.push(r=>r[k]===v);return q;},in(k,values){filters.push(r=>values.includes(r[k]));return q;},or(){return q;},order(){return q;},limit(){return q;},then(resolve){return Promise.resolve(resolve({data:(tables[table]||[]).filter(r=>filters.every(f=>f(r))),error:null}));}};return q;}};
     const ctx=vm.createContext({window:{},document:{addEventListener:noop,getElementById:id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},createElement:node,querySelectorAll:()=>[]},console:{error:(...args)=>errors.push(args.join(' ')),warn:(...args)=>errors.push(args.join(' '))},
@@ -38,6 +38,8 @@ async function check(page,loader,status,sector){
     await check('triagem','carregarDados','Aguardando Triagem');
     await check('desmontagem','loadDisassemblyQueue','Em Produção','DESMONTAGEM');
     for(const sector of ['retifica','solda','metrologia','bancada','balanceamento','montagem'])await check(sector,'fetchQueue','Em Produção',sector.toUpperCase());
+    for(const sector of ['retifica','solda','metrologia','bancada','balanceamento','montagem'])await check(sector,'fetchQueue','Em Produção',sector.toUpperCase(),['CCO','ATUADOR','PEÇA INTEIRA','PEÇA ESPECIAL']);
+    await check('montagem','fetchQueue','Em Produção','MONTAGEM',['CT'],[{service_order_id:'001',component_name:'CONJUNTO ROTATIVO',current_stage:'BALANCEAMENTO',status:'Aguardando'},{service_order_id:'001',component_name:'PEÇA INTEIRA',current_stage:'BALANCEAMENTO',status:'Aguardando'}]);
     await check('qualidade','fetchQueue','Aguardando Controle de Qualidade','QUALIDADE');
     await check('expedicao','fetchQueue','Pronto para Entrega','EXPEDICAO');
     await check('admin','loadAdminDashboard','Aguardando Triagem');
