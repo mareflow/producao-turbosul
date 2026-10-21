@@ -35,13 +35,14 @@ const PartRequests = {
         if (existing.some(r => !['DRAFT',type].includes(this.status(r)))) throw new Error('O pedido já foi confirmado e seu tipo não pode ser alterado.');
         const draft = existing.filter(r => this.status(r) === 'DRAFT');
         const missing = ctx.codes.filter(code => !existing.some(r => this.code(r.part_name) === code));
-        const value = {availability:this.states[type],is_resolved:false,resolved_at:null};
+        const value = {availability:this.states[type],is_resolved:false};
+        const receiptValue = {...value,resolved_at:null};
         if (draft.length) {
-            const updated = await this.checked(client.from('triage_parts').update(value).in('id',draft.map(r=>r.id))
+            const updated = await this.checked(client.from('triage_parts').update(receiptValue).in('id',draft.map(r=>r.id))
                 .eq('is_resolved',false).in('availability',['PENDING','ORDER','STOCK']).select('id'));
             if ((updated || []).length !== draft.length) throw new Error('O pedido foi alterado em outra tela. Atualize a lista.');
         }
-        if (missing.length) await this.checked(client.from('triage_parts').insert(missing.map(code=>({service_order_id:id,part_name:this.label(code),...value}))));
+        if (missing.length) await this.checked(client.from('triage_parts').insert(missing.map(code=>({service_order_id:id,part_name:this.label(code),...receiptValue}))));
         const stage = this.stage(type), now = new Date().toISOString();
         const components = ctx.group ? ProductionFlow.coreNames() : ctx.codes;
         await this.checked(client.from('component_tracking').upsert(components.map(component_name=>({
@@ -75,10 +76,10 @@ const PartRequests = {
             status_description:`Baixa física: ${this.typeLabel(type)}.`,
             ...(ctx.group ? {verdict_vendas:'TROCAR CONJUNTO'} : {}),last_update:now
         })),{onConflict:'service_order_id,component_name'}));
-        const value = {availability:'STOCK',is_resolved:true,resolved_at:now};
+        const value = {availability:'STOCK',is_resolved:true};
         const ids = ctx.analysis.filter(a=>ctx.codes.includes(this.code(a.item_name))).map(a=>a.id);
         if (ids.length) await this.checked(client.from('checklist_analysis_general').update(value).in('id',ids));
-        const updated = await this.checked(client.from('triage_parts').update(value).in('id',rows.map(r=>r.id))
+        const updated = await this.checked(client.from('triage_parts').update({...value,resolved_at:now}).in('id',rows.map(r=>r.id))
             .eq('availability',this.states[type]).eq('is_resolved',false).select('id'));
         if ((updated || []).length !== rows.length) throw new Error('A baixa foi alterada em outra tela. Atualize os pedidos.');
         await this.checked(client.from('history_events').insert({service_order_id:id,

@@ -6,6 +6,9 @@ const client={from(table){let operation='select',payload,filters=[],single=false
     eq(k,v){filters.push(r=>r[k]===v);return q;},in(k,values){filters.push(r=>values.includes(r[k]));return q;},
     update(data){operation='update';payload=data;return q;},insert(data){operation='insert';payload=data;return q;},upsert(data){operation='upsert';payload=data;return q;},
     then(resolve){try{
+        const payloadRows=payload ? (Array.isArray(payload)?payload:[payload]) : [];
+        if(table==='checklist_analysis_general'&&payloadRows.some(row=>Object.hasOwn(row,'resolved_at')))
+            return resolve({error:{message:"Could not find the 'resolved_at' column of 'checklist_analysis_general' in the schema cache"}});
         let found=tables[table].filter(row=>filters.every(f=>f(row)));
         if(operation==='update'){writes++;found.forEach(r=>Object.assign(r,payload));}
         if(operation==='insert'||operation==='upsert'){
@@ -24,11 +27,13 @@ ctx.confirmarTipoPedido=async()=>false;
 const requests=ctx.window.PartRequests;
 (async()=>{
     const legacy={id:next++,service_order_id:'os',part_name:'GEOMETRIA VARIÁVEL',availability:'ORDER',is_resolved:false};tables.triage_parts.push(legacy);
+    const geometry={id:next++,service_order_id:'os',item_name:'GEOMETRIA VARIÁVEL',availability:'PENDING',is_resolved:false};tables.checklist_analysis_general.push(geometry);
     tables.component_tracking.push({service_order_id:'os',component_name:'GEOMETRIA',current_stage:'COMPRA',tracking_data:[{service:'Serviço anterior',duration_seconds:30}]});
     assert.equal((await requests.list(client)).length,0,'Pedidos antigos automáticos precisam de confirmação');
     const before=writes;await vm.runInContext("sincronizarPeca({},'GEOMETRIA VARIÁVEL','ORDER')",ctx);assert.equal(writes,before,'Cancelar não grava nem seleciona nada');
     await requests.confirm(client,'os','GEOMETRIA','STOCK');
     assert.equal(legacy.availability,'STOCK_REQUEST');assert.equal(legacy.is_resolved,false);
+    assert.equal(geometry.availability,'STOCK_REQUEST');assert.equal(geometry.is_resolved,false);assert.equal(legacy.resolved_at,null);
     assert.equal(tables.component_tracking[0].current_stage,'ESTOQUE');
     assert.equal((await requests.list(client))[0].type,'STOCK');
     await assert.rejects(()=>requests.confirm(client,'os','GEOMETRIA','PURCHASE'),/não pode ser alterado/);
@@ -38,6 +43,7 @@ const requests=ctx.window.PartRequests;
     assert.equal(tables.component_tracking[0].current_stage,'ESTOQUE');
     await requests.receive(client,'os','GEOMETRIA');
     assert.equal(legacy.is_resolved,true);assert.equal(tables.component_tracking[0].current_stage,'MONTAGEM');
+    assert.equal(geometry.availability,'STOCK');assert.equal(geometry.is_resolved,true);assert.ok(legacy.resolved_at);assert.equal(Object.hasOwn(geometry,'resolved_at'),false);
     assert.equal(tables.component_tracking[0].tracking_data[0].duration_seconds,30,'Não sobrescreve serviços anteriores');
     tables.component_tracking[0].current_stage='RETIFICA';await requests.receive(client,'os','GEOMETRIA');assert.equal(tables.component_tracking[0].current_stage,'RETIFICA','Baixa repetida não retrocede peça em produção');
     await requests.confirm(client,'os','ATUADOR','PURCHASE');
@@ -55,6 +61,17 @@ const requests=ctx.window.PartRequests;
     await requests.receive(client,'full','CONJUNTO ROTATIVO (FULL)');
     assert.ok(tables.component_tracking.filter(r=>r.service_order_id==='full').every(r=>r.current_stage==='MONTAGEM'));
     assert.equal((await requests.list(client)).length,0);
+    tables.service_orders.push({id:'partial',status:'Aguardando Triagem'});
+    const partialReceipt={id:next++,service_order_id:'partial',part_name:'GEOMETRIA VARIÁVEL',availability:'STOCK_REQUEST',is_resolved:false,resolved_at:null};
+    const partialAnalysis={id:next++,service_order_id:'partial',item_name:'GEOMETRIA VARIÁVEL',availability:'PENDING',is_resolved:false};
+    tables.triage_parts.push(partialReceipt);tables.checklist_analysis_general.push(partialAnalysis);
+    await requests.confirm(client,'partial','GEOMETRIA','STOCK');
+    assert.equal(partialAnalysis.availability,'STOCK_REQUEST','Repetir confirmação recupera checklist após falha parcial');
+    assert.equal(partialReceipt.is_resolved,false,'Recuperação não registra baixa física');
+    assert.equal(tables.triage_parts.filter(r=>r.service_order_id==='partial').length,1,'Recuperação preserva o pedido original');
+    assert.equal(tables.history_events.filter(r=>r.service_order_id==='partial').length,1);
+    await requests.confirm(client,'partial','GEOMETRIA','STOCK');
+    assert.equal(tables.history_events.filter(r=>r.service_order_id==='partial').length,1,'Recuperação não duplica histórico');
     await assert.rejects(()=>requests.receive(client,'os','CANOTE'),/Confirme o pedido/);
     tables.service_orders[0].status='Finalizado';await assert.rejects(()=>requests.confirm(client,'os','CCO','PURCHASE'),/encerrada/);
     console.log('OK: cancelamento, confirmação imutável, compra e estoque pendentes, baixa física, conjunto/avulso e preservação dos serviços');

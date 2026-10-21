@@ -190,3 +190,7 @@ A triagem agora confirma manualmente o tipo de reposição. PENDING e registros 
 A aba Pedidos lista apenas solicitações confirmadas e oferece filtros de compras/estoque e ações específicas de recebimento/retirada. A aprovação comercial e a condenação geram pendência para decisão, sem abrir compra automática. Liberar triagem ou colocar em standby não altera tipos nem baixas. Pedidos antigos pendentes requerem confirmação; baixas antigas permanecem válidas. Não foi acrescentada integração de estoque nem alterado o esquema do banco.
 
 Os módulos js/part-requests.js e js/triage-requests.js centralizam as regras e a tela. Testes cobrem cancelamento sem gravação, confirmação e bloqueio de alteração, repetição, compra/estoque, baixa física, conjunto full e eixo avulso, preservação dos serviços e fechamento de O.S.
+
+### Correção de coluna na confirmação e baixa — 21/10/2026
+
+resolved_at pertence somente a triage_parts. O compartilhamento desse campo com checklist_analysis_general causava erro de schema cache após gravar parcialmente o pedido. Confirmação e baixa agora enviam ao checklist somente availability/is_resolved; a data fica no pedido. O teste reproduz a rejeição da coluna inexistente e cobre a recuperação de confirmação parcial sem duplicar pedido/histórico nem registrar recebimento físico.
