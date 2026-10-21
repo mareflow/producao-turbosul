@@ -68,7 +68,7 @@ function order() { return { triage_parts: tables.checklist_analysis_general, pur
     assert.equal(flow.serviceDone([oldLog, { action: 'ROTEAMENTO', from: 'MONTAGEM', to: 'SOLDA', timestamp: '2026-01-01T13:00:00Z' }], 'Carcaçamento Completo'), false);
     assert.equal(flow.serviceDone([oldLog], 'Carcaçamento Completo'), true);
     assert.equal(flow.component('SERVIÇO ESPECIAL À MEDIDA'), 'SERVIÇO ESPECIAL À MEDIDA');
-    // Fluxo normal: eixo balanceado, núcleo montado e carcaçamento sem balanceamento intermediário obrigatório.
+    // Fluxo normal: eixo balanceado → núcleo montado → balanceamento do conjunto → carcaçamento.
     tables.checklist_analysis_general = [];
     tables.triage_parts = [];
     tables.component_tracking = ['EIXO', 'ROTOR', 'CCE', 'REPAROS', 'CT', 'CCO'].map(component_name => ({ service_order_id: 'os', component_name, current_stage: 'MONTAGEM', tracking_data: [] }));
@@ -78,9 +78,23 @@ function order() { return { triage_parts: tables.checklist_analysis_general, pur
     assert.equal(vm.runInContext('getAssemblyDetailedState()', context), 'NUCLEO_PRONTO');
     tables.component_tracking[0].tracking_data.push({ service: 'Montagem de Núcleo', end_time: new Date().toISOString() });
     assert.equal(vm.runInContext('getAssemblyDetailedState()', context), 'NUCLEO_CONCLUIDO');
-    sector = 'MONTAGEM'; await flow.move('CONJUNTO ROTATIVO', 'MONTAGEM', { note: 'Núcleo montado', status: 'MONTADO' });
+    sector = 'MONTAGEM'; await flow.move('CONJUNTO ROTATIVO', 'BALANCEAMENTO');
+    context.selectedOS = { ...order(), full_tracking: flow.tracking(order()) };
+    assert.equal(vm.runInContext('getAssemblyDetailedState()', context), 'NUCLEO_EM_BALANCEAMENTO');
+    assert.ok(tables.component_tracking.filter(t=>[...core,'CONJUNTO ROTATIVO'].includes(t.component_name)).every(t=>t.current_stage==='BALANCEAMENTO'));
+    sector='BALANCEAMENTO';await flow.move('CONJUNTO ROTATIVO','MONTAGEM');
+    context.selectedOS = { ...order(), full_tracking: flow.tracking(order()) };
+    assert.equal(vm.runInContext('getAssemblyDetailedState()', context), 'NUCLEO_CONCLUIDO','Retorno sem serviço não libera carcaçamento');
+    sector='MONTAGEM';await flow.move('CONJUNTO ROTATIVO','BALANCEAMENTO');
+    const mountedCore=tables.component_tracking.find(t=>t.component_name==='CONJUNTO ROTATIVO');
+    mountedCore.tracking_data.push({service:'CONJUNTO ROTATIVO',sector:'BALANCEAMENTO',duration_seconds:60,end_time:new Date(Date.now()+1000).toISOString()});
+    mountedCore.status='Finalizado';
+    sector='BALANCEAMENTO';await flow.move('CONJUNTO ROTATIVO','MONTAGEM');
     context.selectedOS = { ...order(), full_tracking: flow.tracking(order()) };
     assert.equal(vm.runInContext('getAssemblyDetailedState()', context), 'CARCACAMENTO_PRONTO');
+    assert.equal(mountedCore.status,'BALANCEADO');
+    sector='MONTAGEM';
+    tables.component_tracking.find(t=>t.component_name==='CT').tracking_data.push({service:'Carcaçamento Completo',end_time:new Date().toISOString(),duration_seconds:50});
     await flow.move('PEÇA INTEIRA', 'BALANCEAMENTO', { note: 'Teste final opcional' });
     assert.equal(tables.service_orders[0].status, 'Aguardando Balanceamento');
     // Mesma localização para todas as telas, mesmo com rastreio residual em outro setor.
@@ -129,28 +143,56 @@ function order() { return { triage_parts: tables.checklist_analysis_general, pur
     await assert.rejects(() => flow.transitionOrder(client,'os','Pronto para Entrega',{},['Aguardando Controle de Qualidade']), /etapa/);
     context.prompt = () => {throw new Error('Encaminhamento não deve pedir motivo');};
     tables.checklist_analysis_general=[];tables.triage_parts=[];
-    let routes=0;
-    for(const name of ['CCO','PEÇA ESPECIAL','PEÇA INTEIRA'])for(const from of flow.sectors)for(const to of flow.sectors){
+    let routes=0,blocked=0;
+    for(const name of ['CCO','PEÇA ESPECIAL','PEÇA INTEIRA','EIXO'])for(const from of flow.sectors)for(const to of flow.sectors){
         if(from===to)continue;
         sector=from;tables.service_orders[0].status='Em Produção';
         tables.component_tracking=[{service_order_id:'os',component_name:name,current_stage:from,current_sector:from,tracking_data:[{service:'Anterior',duration_seconds:45}],executed_services:['Anterior']}];
-        assert.ok(flow.destinations(name).includes(to),from+' oferece '+to);
+        if(to==='BALANCEAMENTO'&&name!=='EIXO'){
+            assert.ok(!flow.destinations(name).includes(to));
+            const before=JSON.stringify(tables);
+            await assert.rejects(()=>flow.move(name,to),/Somente o eixo/);
+            assert.equal(JSON.stringify(tables),before,'Rota proibida não grava dados');
+            blocked++;continue;
+        }
+        assert.ok(flow.destinations(name,from,{full_tracking:tables.component_tracking}).includes(to),from+' oferece '+to);
         assert.equal(await flow.move(name,to),true,from+' → '+to+' sem motivo');
         const moved=tables.component_tracking.find(t=>t.component_name===name);
         assert.equal(moved.current_stage,to);assert.equal(moved.current_sector,to);
+        if(name==='EIXO'&&from==='BALANCEAMENTO'&&to==='MONTAGEM')assert.equal(moved.status,'Aguardando','Retorno sem balancear não aprova o eixo');
         assert.equal(moved.tracking_data[0].duration_seconds,45);
         assert.equal(moved.tracking_data.at(-1).reason,undefined);
         assert.ok(tables.history_events.at(-1).description.includes(from+' → '+to));
         routes++;
     }
-    assert.equal(routes,126);
+    assert.equal(routes,150);assert.equal(blocked,18);
+    for(const from of ['DESMONTAGEM','RETIFICA','SOLDA','METROLOGIA','BANCADA']){
+        sector=from;tables.service_orders[0].status='Em Produção';
+        tables.component_tracking=[{service_order_id:'os',component_name:'CONJUNTO ROTATIVO',current_stage:from,status:'MONTADO'}];
+        assert.ok(!flow.destinations('CONJUNTO ROTATIVO',from,{full_tracking:tables.component_tracking}).includes('BALANCEAMENTO'));
+        await assert.rejects(()=>flow.move('CONJUNTO ROTATIVO','BALANCEAMENTO'),/Somente o eixo/);
+    }
+    sector='MONTAGEM';
+    tables.component_tracking=[];
+    assert.ok(!flow.destinations('EIXO','MONTAGEM',{full_tracking:[]}).includes('BALANCEAMENTO'));
+    await assert.rejects(()=>flow.move('EIXO','BALANCEAMENTO'),/não possui eixo/);
+    tables.component_tracking=[{service_order_id:'os',component_name:'CONJUNTO ROTATIVO',current_stage:'MONTAGEM',status:'Aguardando'}];
+    await assert.rejects(()=>flow.move('CONJUNTO ROTATIVO','BALANCEAMENTO'),/Somente o eixo/);
+    tables.component_tracking[0].status='MONTADO';
+    await assert.rejects(()=>flow.move('CONJUNTO ROTATIVO','BALANCEAMENTO'),/Eixo, rotor, CCE e reparos/);
+    for(const name of ['CT','ROTOR','CCE','REPAROS','ATUADOR','CANOTE','GEOMETRIA'])for(const from of flow.sectors.filter(s=>s!=='BALANCEAMENTO')){
+        sector=from;tables.component_tracking=[{component_name:name,current_stage:from,service_order_id:'os'},{component_name:'EIXO',current_stage:from,service_order_id:'os'}];
+        const before=JSON.stringify(tables);
+        await assert.rejects(()=>flow.move(name,'BALANCEAMENTO'),/Somente o eixo/);
+        assert.equal(JSON.stringify(tables),before);
+    }
     context.Rework.escape=value=>String(value);
     for(const from of flow.sectors){
         sector=from;
         const html=flow.render('CCO');
-        assert.equal((html.match(/data-routing-target=/g)||[]).length,6,from+' oferece os outros seis setores');
+        assert.equal((html.match(/data-routing-target=/g)||[]).length,from==='BALANCEAMENTO'?6:5,from+' não oferece Balanceamento para CCO');
         assert.ok(!html.includes('<select'),'Encaminhamento usa botões');
-        for(const to of flow.sectors.filter(s=>s!==from))assert.ok(html.includes('data-routing-target="'+to+'"'));
+        for(const to of flow.destinations('CCO'))assert.ok(html.includes('data-routing-target="'+to+'"'));
     }
     const balancing=fs.readFileSync('balanceamento.html','utf8');
     vm.runInContext(balancing.slice(balancing.indexOf('        function getActiveBalancingComponent()'),balancing.indexOf('        function processarTipoBalanceamento()')),context);
@@ -162,5 +204,5 @@ function order() { return { triage_parts: tables.checklist_analysis_general, pur
     context.selectedOS.full_tracking=[];
     assert.equal(vm.runInContext('getActiveBalancingComponent().raw',context),null,'Não cria peça inteira quando o setor fica vazio');
     console.log('OK: produção, retornos, compra, Qualidade → Expedição → Finalizado, standby, indicadores e proteção contra tela antiga');
-    console.log('OK: 126 encaminhamentos sem motivo entre os 7 setores, com CCO, peça especial e peça inteira; histórico e serviços preservados');
+    console.log('OK: 150 rotas sem motivo e 18 bloqueios; somente eixo direto, conjunto montado pela Montagem e retorno balanceado antes do carcaçamento');
 })().catch(error => { console.error(error); process.exitCode = 1; });

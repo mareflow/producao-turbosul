@@ -200,3 +200,9 @@ resolved_at pertence somente a triage_parts. O compartilhamento desse campo com 
 Encaminhamentos comuns não solicitam motivo. Os sete setores (Desmontagem, Retífica, Solda, Metrologia, Bancada, Balanceamento e Montagem) podem enviar e receber peças entre si; a movimentação registra origem, destino e data automaticamente. Motivos informados por operações específicas continuam no histórico. As observações obrigatórias de retrabalho e de liberação de divergência permanecem.
 
 Os botões de destino usam a mesma lista em todos os setores. Balanceamento recebe qualquer componente e permite selecionar a peça presente, sem transformar CCO/anexos em peça inteira. Montagem considera cada peça presente mesmo com outras em outro setor. Retornos de peças especiais e peça inteira ficam visíveis também na Desmontagem. Baixa física pendente, O.S. encerrada, peça já em outro setor e cronômetros abertos continuam verificados. Testes exercitam 126 movimentações sem motivo e as filas de destino, incluindo presença simultânea em Montagem/Balanceamento.
+
+### Exceção do Balanceamento e sequência do conjunto — 21/10/2026
+
+A regra acima foi refinada: somente EIXO avulso pode ser enviado diretamente dos setores ao Balanceamento. CT, CCO, rotor, CCE, reparos, anexos e peças especiais não oferecem esse destino e a gravação também rejeita a tentativa. CONJUNTO ROTATIVO só entra pela Montagem, após a montagem do núcleo e com suas quatro peças presentes. A circulação entre os demais setores continua sem exigir motivo.
+
+O fluxo normal é eixo balanceado → Montagem de Núcleo → Balanceamento do conjunto → retorno à Montagem → Carcaçamento. Estar em MONTAGEM ou ter status MONTADO não comprova balanceamento. Retorno sem serviço concluído não marca eixo/conjunto como BALANCEADO. Conjunto novo de fábrica continua com o tratamento de pré-balanceado após a baixa; o teste final opcional da peça inteira continua disponível pela Montagem após o Carcaçamento.

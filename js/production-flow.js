@@ -91,8 +91,38 @@ const ProductionFlow = {
             .reduce((max, log) => Math.max(max, Date.parse(log.timestamp) || 0), 0);
         return history.some(log => log.service === service && (Date.parse(log.end_time) || 0) >= lastReturn);
     },
-    destinations(component, sector = Rework.context().sector) {
-        return this.sectors.filter(s => s !== sector);
+    logs(part) {
+        return typeof part?.tracking_data === 'string' ? JSON.parse(part.tracking_data) : (part?.tracking_data || []);
+    },
+    balanceFinished(part) {
+        if (!part) return false;
+        if (this.normalize(part.status) === 'BALANCEADO') return true;
+        const logs = this.logs(part);
+        const lastDeparture = logs.filter(log => log.action === 'ROTEAMENTO' &&
+            (log.from === 'MONTAGEM' || !['MONTAGEM','BALANCEAMENTO'].includes(log.to)))
+            .reduce((max, log) => Math.max(max, Date.parse(log.timestamp) || 0), 0);
+        return logs.some(log => log.sector === 'BALANCEAMENTO' && log.duration_seconds > 0 && (Date.parse(log.end_time) || 0) >= lastDeparture);
+    },
+    coreMounted(order = {}) {
+        const tracking = order.full_tracking || order.tracking || [];
+        const core = tracking.find(t => this.component(t.component_name) === 'CONJUNTO ROTATIVO');
+        return this.isNew(order) || ['MONTADO','BALANCEADO'].includes(this.normalize(core?.status)) || (core?.executed_services || []).includes('Montagem de Núcleo') ||
+            tracking.some(t => ['EIXO','CONJUNTO ROTATIVO'].includes(this.component(t.component_name)) && this.serviceDone(this.logs(t), 'Montagem de Núcleo'));
+    },
+    coreBalanced(order = {}) {
+        const tracking = order.full_tracking || order.tracking || [];
+        return this.isNew(order) || this.balanceFinished(tracking.find(t => this.component(t.component_name) === 'CONJUNTO ROTATIVO'));
+    },
+    canEnterBalance(component, sector, order = {}) {
+        const name = this.component(component);
+        if (name === 'EIXO' && !this.isNew(order)) return (order.full_tracking || order.tracking || []).some(t => this.component(t.component_name) === 'EIXO');
+        if (sector !== 'MONTAGEM') return false;
+        if (name === 'CONJUNTO ROTATIVO') return this.coreMounted(order);
+        if (name === 'PEÇA INTEIRA') return (order.full_tracking || order.tracking || []).some(t => this.serviceDone(this.logs(t), 'Carcaçamento Completo'));
+        return false;
+    },
+    destinations(component, sector = Rework.context().sector, order = Rework.context().order || {}) {
+        return this.sectors.filter(s => s !== sector && (s !== 'BALANCEAMENTO' || this.canEnterBalance(component, sector, order)));
     },
     render(component, enabled = true) {
         const ctx = Rework.context();
@@ -123,6 +153,17 @@ const ProductionFlow = {
         const whole = name === 'PEÇA INTEIRA';
         const grouped = name === 'CONJUNTO ROTATIVO' || (newCore && this.core.includes(name));
         const current = tracking.find(t => t.component_name === (grouped ? 'CONJUNTO ROTATIVO' : name));
+        if (target === 'BALANCEAMENTO') {
+            const fresh = {analysis,full_tracking:tracking};
+            if (name === 'EIXO' && !grouped && !current) throw new Error('A O.S. não possui eixo registrado para Balanceamento.');
+            if (!this.canEnterBalance(grouped ? 'CONJUNTO ROTATIVO' : name, sector, fresh)) {
+                throw new Error('Somente o eixo pode ir direto ao Balanceamento. O conjunto rotativo deve ser montado e enviado pela Montagem.');
+            }
+            if (whole && !tracking.some(t => t.component_name === 'EIXO')) throw new Error('A O.S. não possui eixo registrado para Balanceamento.');
+            if (grouped && !this.core.every(part => tracking.some(t => t.component_name === part && t.current_stage === 'MONTAGEM'))) {
+                throw new Error('Eixo, rotor, CCE e reparos devem estar na Montagem para enviar o conjunto ao Balanceamento.');
+            }
+        }
         if (current && !['REABERTA', sector].includes(current.current_stage)) throw new Error('A peça já está em outro setor. Atualize a tela.');
         const names = whole ? [...new Set([...tracking.filter(t => t.current_stage === sector || this.coreNames().includes(t.component_name) || ['CT', 'CCO'].includes(t.component_name)).map(t => t.component_name), 'PEÇA INTEIRA'])] : grouped ? this.coreNames() : [name];
         const pending = receipts.some(p => names.includes(this.component(p.part_name)) && (p.availability === 'ORDER' || p.is_resolved !== true));
@@ -136,8 +177,10 @@ const ProductionFlow = {
             const existing = tracking.find(t => t.component_name === part);
             const logs = typeof existing?.tracking_data === 'string' ? JSON.parse(existing.tracking_data) : (existing?.tracking_data || []);
             return { service_order_id: id, component_name: part, current_stage: target, current_sector: target,
-                status: options.status || (target === 'MONTAGEM' && name === 'EIXO' && sector === 'BALANCEAMENTO' ? 'BALANCEADO' : 'Aguardando'),
-                executed_services: [...new Set([...(existing?.executed_services || []), ...(options.services || [])])],
+                status: target === 'MONTAGEM' && sector === 'BALANCEAMENTO' && (name === 'EIXO' || grouped)
+                    ? (this.balanceFinished(current) ? 'BALANCEADO' : 'Aguardando') : options.status || 'Aguardando',
+                executed_services: [...new Set([...(existing?.executed_services || []), ...(options.services || []),
+                    ...(grouped && target === 'BALANCEAMENTO' && !newCore ? ['Montagem de Núcleo'] : [])])],
                 tracking_data: [...logs, { action: 'ROTEAMENTO', from: existing?.current_stage || sector, to: target, ...(note ? {reason:note} : {}), timestamp: now }],
                 last_update: now };
         });

@@ -498,11 +498,11 @@
                 (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
             );
 
-            const isConjuntoBalanceado = isConjuntoNovo || (conjuntoRotativo && (
-                conjuntoRotativo.status === 'Finalizado' || 
-                conjuntoRotativo.status === 'BALANCEADO' || 
-                stageConjunto === 'MONTAGEM'
-            ));
+            const isConjuntoBalanceado = ProductionFlow.coreBalanced(selectedOS);
+
+            if (conjuntoRotativo && stageConjunto === 'MONTAGEM' && !isConjuntoBalanceado) {
+                return ProductionFlow.coreMounted(selectedOS) ? 'NUCLEO_CONCLUIDO' : 'NUCLEO_PRONTO';
+            }
 
             if (isConjuntoBalanceado) {
                 const ctStage = ct ? (ct.target_sector || ct.current_stage || ct.stage || '').toUpperCase() : '';
@@ -587,7 +587,7 @@
                 document.getElementById('dynamic-pieces-grid').after(accompaniment);
             }
             const annexes = tracking.filter(t => AccessoryFlow.part(t.component_name) ||
-                (etapa === 'NUCLEO' && ['CT','CCO','CONJUNTO ROTATIVO'].includes(ProductionFlow.component(t.component_name))) ||
+                (etapa === 'NUCLEO' && ['CT','CCO'].includes(ProductionFlow.component(t.component_name))) ||
                 ![...ProductionFlow.core, 'CT','CCO','CONJUNTO ROTATIVO'].includes(ProductionFlow.component(t.component_name)));
             accompaniment.innerHTML = '<p class="text-xs font-bold text-slate-500 mb-2">PEÇAS DE ACOMPANHAMENTO — localização e encaminhamento</p>' +
                 annexes.map(t => '<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-bold">' + Rework.escape(t.component_name) + ': ' + Rework.escape(t.current_stage) + '</span>' + (t.current_stage === 'MONTAGEM' ? '<details class="text-xs"><summary class="cursor-pointer text-blue-700">Encaminhar / retornar</summary>' + ProductionFlow.render(t.component_name) + '</details>' : '') + '</div>').join('');
@@ -601,7 +601,9 @@
                 const cce = tracking.find(t => (t.component_name || t.component || '').toUpperCase() === 'CCE');
                 const reparos = tracking.find(t => (t.component_name || t.component || '').toUpperCase() === 'REPAROS');
 
-                renderPecasCards({ Eixo: eixo, Rotor: rotor, CCE: cce, Reparos: reparos });
+                const conjunto = tracking.find(t => t.component_name === 'CONJUNTO ROTATIVO');
+                if (conjunto) renderPecasCards({'Conjunto Rotativo':conjunto});
+                else renderPecasCards({ Eixo: eixo, Rotor: rotor, CCE: cce, Reparos: reparos });
             } else {
                 const isConjuntoNovo = (selectedOS.triage_parts || []).some(p => 
                     ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || "").toUpperCase().trim()) && 
@@ -933,11 +935,7 @@
                 (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
             );
 
-            const isConjuntoBalanceado = isConjuntoNovo || (conjuntoRotativo && (
-                conjuntoRotativo.status === 'Finalizado' || 
-                conjuntoRotativo.status === 'BALANCEADO' || 
-                stageConjunto === 'MONTAGEM'
-            ));
+            const isConjuntoBalanceado = ProductionFlow.coreBalanced(selectedOS);
 
             const modal = document.getElementById('custom-modal');
             const title = document.getElementById('modal-title');
@@ -945,12 +943,12 @@
             const buttonsContainer = document.getElementById('modal-buttons-container');
 
             if (!isConjuntoBalanceado) {
-                title.innerText = "Liberar conjunto para Carcaçamento?";
-                desc.innerText = "O conjunto rotativo foi montado após o balanceamento do eixo. Liberar para o carcaçamento com CT e CCO?";
+                title.innerText = "Enviar conjunto rotativo para Balanceamento?";
+                desc.innerText = "O eixo já foi balanceado e o conjunto de eixo, rotor, CCE e reparos foi montado. Enviar o conjunto ao Balanceamento antes do carcaçamento?";
                 buttonsContainer.innerHTML = `
                     <div class="flex gap-3 w-full">
                         <button onclick="closeModal()" class="flex-1 py-4 px-6 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition">Cancelar</button>
-                        <button onclick="enviarProximaEtapa('MONTAGEM', 'Conjunto Rotativo')" class="flex-1 py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg transition">Confirmar</button>
+                        <button onclick="enviarProximaEtapa('BALANCEAMENTO', 'Conjunto Rotativo')" class="flex-1 py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg transition">Confirmar</button>
                     </div>
                 `;
             } else {
@@ -973,14 +971,14 @@
         async function enviarProximaEtapa(setorAlvo, tipoMontagem) {
             if (blockPendingCore()) return;
             if (tipoMontagem === 'Conjunto Rotativo' && getAssemblyDetailedState() !== 'NUCLEO_CONCLUIDO') {
-                alert('Conclua a montagem do núcleo antes de liberar o carcaçamento.'); return;
+                alert('Conclua a montagem do núcleo antes de enviar o conjunto ao Balanceamento.'); return;
             }
             if (tipoMontagem === 'Peça Inteira' && getAssemblyDetailedState() !== 'CARCACAMENTO_CONCLUIDO') {
                 alert('Conclua o carcaçamento antes de encaminhar a turbina.'); return;
             }
             closeModal();
             await ProductionFlow.send(tipoMontagem, setorAlvo, {
-                note: tipoMontagem === 'Conjunto Rotativo' ? 'Montagem do núcleo concluída; liberado para carcaçamento.' : 'Carcaçamento concluído.',
+                note: tipoMontagem === 'Conjunto Rotativo' ? 'Montagem do núcleo concluída; enviado para balanceamento do conjunto rotativo.' : 'Carcaçamento concluído.',
                 services: [tipoMontagem === 'Conjunto Rotativo' ? 'Montagem de Núcleo' : 'Carcaçamento Completo'],
                 status: setorAlvo === 'MONTAGEM' ? 'MONTADO' : setorAlvo === 'QUALIDADE' ? 'Finalizado' : 'Aguardando'
             });
