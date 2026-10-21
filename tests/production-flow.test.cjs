@@ -197,10 +197,14 @@ function order() { return { triage_parts: tables.checklist_analysis_general, pur
     const balancing=fs.readFileSync('balanceamento.html','utf8');
     vm.runInContext(balancing.slice(balancing.indexOf('        function getActiveBalancingComponent()'),balancing.indexOf('        function processarTipoBalanceamento()')),context);
     context.selectedOS={full_tracking:[{component_name:'EIXO',current_stage:'MONTAGEM'},{component_name:'CCO',current_stage:'BALANCEAMENTO'},{component_name:'PEÇA ESPECIAL',current_stage:'BALANCEAMENTO'}]};
-    kpis['balancing-component-select']={value:''};
-    assert.equal(vm.runInContext('getActiveBalancingComponent().name',context),'CCO','Recebe CCO sem usar o eixo de outro setor');
-    kpis['balancing-component-select'].value='PEÇA ESPECIAL';
-    assert.equal(vm.runInContext('getActiveBalancingComponent().name',context),'PEÇA ESPECIAL','Permite selecionar cada peça recebida');
+    assert.equal(vm.runInContext('getActiveBalancingComponent().raw',context),null,'CCO e peça especial não viram etapas de balanceamento');
+    context.selectedOS.full_tracking[0].current_stage='BALANCEAMENTO';
+    assert.equal(vm.runInContext('getActiveBalancingComponent().name',context),'EIXO','Primeira etapa: somente eixo avulso');
+    context.selectedOS.full_tracking.push({component_name:'CONJUNTO ROTATIVO',current_stage:'BALANCEAMENTO'});
+    assert.equal(vm.runInContext('getActiveBalancingComponent().name',context),'CONJUNTO ROTATIVO','Segunda etapa: conjunto; membros não duplicam operação');
+    context.selectedOS.full_tracking.push({component_name:'PEÇA INTEIRA',current_stage:'BALANCEAMENTO'},{component_name:'CT',current_stage:'BALANCEAMENTO'});
+    assert.equal(vm.runInContext('getActiveBalancingComponent().name',context),'PEÇA INTEIRA','Terceira etapa: turbina completa após carcaçamento');
+    assert.equal(flow.balancingParts(context.selectedOS).length,1,'Uma etapa por vez: carcaças não são balanceadas separadamente');
     context.selectedOS.full_tracking=[];
     assert.equal(vm.runInContext('getActiveBalancingComponent().raw',context),null,'Não cria peça inteira quando o setor fica vazio');
     console.log('OK: produção, retornos, compra, Qualidade → Expedição → Finalizado, standby, indicadores e proteção contra tela antiga');

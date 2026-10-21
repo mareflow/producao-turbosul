@@ -206,3 +206,9 @@ Os botões de destino usam a mesma lista em todos os setores. Balanceamento rece
 A regra acima foi refinada: somente EIXO avulso pode ser enviado diretamente dos setores ao Balanceamento. CT, CCO, rotor, CCE, reparos, anexos e peças especiais não oferecem esse destino e a gravação também rejeita a tentativa. CONJUNTO ROTATIVO só entra pela Montagem, após a montagem do núcleo e com suas quatro peças presentes. A circulação entre os demais setores continua sem exigir motivo.
 
 O fluxo normal é eixo balanceado → Montagem de Núcleo → Balanceamento do conjunto → retorno à Montagem → Carcaçamento. Estar em MONTAGEM ou ter status MONTADO não comprova balanceamento. Retorno sem serviço concluído não marca eixo/conjunto como BALANCEADO. Conjunto novo de fábrica continua com o tratamento de pré-balanceado após a baixa; o teste final opcional da peça inteira continua disponível pela Montagem após o Carcaçamento.
+
+### Três etapas de Balanceamento e correção da O.S. 001 — 21/10/2026
+
+balancingParts centraliza a leitura de eixo avulso, conjunto rotativo e peça inteira, nessa ordem física de evolução. Quando a turbina completa está no setor, os rastreamentos de núcleo/CT/CCO que a acompanham não criam operações avulsas. A tela e sua fila não selecionam mais CCO, CT, acessórios ou serviços especiais como alvo de balanceamento.
+
+O CCO da O.S. 001 (tracking 1194) havia sido encaminhado da Desmontagem para Balanceamento às 15:48:53.844 UTC pela regra anterior. Estava Aguardando, sem serviços executados e com apenas o evento de encaminhamento. A correção devolveu seu rastreamento à Desmontagem, preservou o evento original e acrescentou correção e auditoria. Nenhum outro componente ou tempo foi alterado.

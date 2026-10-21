@@ -8,7 +8,7 @@ function functionSource(file,name){
 }
 const noop=()=>{};
 function node(){return {innerHTML:'',textContent:'',value:'',classList:{add:noop,remove:noop,toggle:noop},appendChild:noop,insertAdjacentHTML:noop,addEventListener:noop,querySelector:()=>node()};}
-async function check(page,loader,status,sector,names=['EIXO','ROTOR','CCE','REPAROS','CT','CCO'],extra=[]){
+async function check(page,loader,status,sector,names=['EIXO','ROTOR','CCE','REPAROS','CT','CCO'],extra=[],expected=1){
     const nodes=new Map(),errors=[];
     const order={id:'001',service_order_id:'001',business_id:'O.S-001',status,urgency:'Alta',created_at:'2026-10-20',client:'Teste',model:'Teste',is_blocked:false,maintenance_extras:{}};
     const tracking=names.map(component_name=>({component_name,service_order_id:'001',current_stage:sector||'MONTAGEM',current_sector:sector||'MONTAGEM',status:'Aguardando',executed_services:[],tracking_data:[]})).concat(extra);
@@ -29,7 +29,7 @@ async function check(page,loader,status,sector,names=['EIXO','ROTOR','CCE','REPA
     vm.runInContext(functionSource(page+'.html',loader),ctx);
     await vm.runInContext(loader+'(true)',ctx);
     assert.deepEqual(errors,[],page+': '+errors.join(';'));
-    assert.equal(Math.max(ctx.allOrders.length,ctx.currentOrders.length,ctx.queueData.length),1,page+' deve receber a O.S. correta');
+    assert.equal(Math.max(ctx.allOrders.length,ctx.currentOrders.length,ctx.queueData.length),expected,page+' deve receber a O.S. correta');
 }
 (async()=>{
     await check('pre-vendas','loadPendingOrders','Aguardando Entrada');
@@ -39,6 +39,8 @@ async function check(page,loader,status,sector,names=['EIXO','ROTOR','CCE','REPA
     await check('desmontagem','loadDisassemblyQueue','Em Produção','DESMONTAGEM');
     for(const sector of ['retifica','solda','metrologia','bancada','balanceamento','montagem'])await check(sector,'fetchQueue','Em Produção',sector.toUpperCase());
     for(const sector of ['retifica','solda','metrologia','bancada','balanceamento','montagem'])await check(sector,'fetchQueue','Em Produção',sector.toUpperCase(),['CCO','ATUADOR','PEÇA INTEIRA','PEÇA ESPECIAL']);
+    await check('balanceamento','fetchQueue','Em Produção','BALANCEAMENTO',['CCO','CT','ATUADOR','PEÇA ESPECIAL'],[],0);
+    for(const name of ['EIXO','CONJUNTO ROTATIVO','PEÇA INTEIRA'])await check('balanceamento','fetchQueue','Em Produção','BALANCEAMENTO',[name]);
     await check('montagem','fetchQueue','Em Produção','MONTAGEM',['CT'],[{service_order_id:'001',component_name:'CONJUNTO ROTATIVO',current_stage:'BALANCEAMENTO',status:'Aguardando'},{service_order_id:'001',component_name:'PEÇA INTEIRA',current_stage:'BALANCEAMENTO',status:'Aguardando'}]);
     await check('qualidade','fetchQueue','Aguardando Controle de Qualidade','QUALIDADE');
     await check('expedicao','fetchQueue','Pronto para Entrega','EXPEDICAO');

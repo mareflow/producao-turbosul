@@ -246,8 +246,8 @@
                     return os;
                 });
 
-                // Toda peça encaminhada ao setor deve estar disponível, inclusive nos retornos.
-                rawQueue = rawQueue.filter(os => os.full_tracking.some(t => t.current_stage === 'BALANCEAMENTO'));
+                // Apenas eixo solo, conjunto montado ou turbina completa após o carcaçamento.
+                rawQueue = rawQueue.filter(os => ProductionFlow.balancingParts(os).length > 0);
 
                 queueData = ProductionFlow.sort(rawQueue);
                 renderSidebar();
@@ -323,11 +323,7 @@
         }
 
         function getActiveBalancingComponent() {
-            const tracking = selectedOS.full_tracking || selectedOS.tracking || [];
-            const active = tracking.filter(t => t.current_stage === 'BALANCEAMENTO');
-            const selected = document.getElementById('balancing-component-select')?.value;
-            const raw = active.find(t => t.component_name === selected) ||
-                ['PEÇA INTEIRA','CONJUNTO ROTATIVO','EIXO'].map(name => active.find(t => t.component_name === name)).find(Boolean) || active[0];
+            const raw = ProductionFlow.balancingParts(selectedOS)[0];
             return {name:raw?.component_name || '',raw:raw || null};
         }
 
@@ -340,9 +336,7 @@
                 document.getElementById('btn-reprovar-balanceamento').disabled = true;
                 return;
             }
-            const active = (selectedOS.full_tracking || selectedOS.tracking || []).filter(t => t.current_stage === 'BALANCEAMENTO');
-            document.getElementById('rework-balancing').innerHTML = '<label class="text-xs font-bold">Peça no setor</label><select id="balancing-component-select" aria-label="Peça no balanceamento" onchange="processarTipoBalanceamento()" class="w-full border rounded-lg p-2 mb-3">' +
-                active.map(t => '<option value="'+Rework.escape(t.component_name)+'" '+(t.component_name === name ? 'selected' : '')+'>'+Rework.escape(t.component_name)+'</option>').join('') + '</select>' + Rework.render(name);
+            document.getElementById('rework-balancing').innerHTML = Rework.render(name);
 
             
             const badge = document.getElementById('balancing-type-badge');
@@ -434,11 +428,6 @@
                 title.innerText = "Aferição Final de Peça Inteira";
                 desc.innerText = "Aferição final em ambiente simulado de fluxo. Validação final de estabilidade mecânica.";
                 btnConcluirFinal.innerText = "Finalizar Turbina e Enviar para Controle de Qualidade";
-            } else {
-                badge.innerText = "PEÇA NO SETOR";
-                title.innerText = name;
-                desc.innerText = "Peça recebida no Balanceamento. Pode ser encaminhada a qualquer setor de produção.";
-                btnConcluirFinal.innerText = "Concluir serviço e enviar para Montagem";
             }
         }
 
@@ -698,7 +687,8 @@
         });
 
         function confirmarConclusao() {
-            const { name } = getActiveBalancingComponent();
+            const { name, raw } = getActiveBalancingComponent();
+            if (!raw) return;
             const modal = document.getElementById('custom-modal');
             const desc = document.getElementById('modal-desc');
             const confirmBtn = document.getElementById('modal-confirm-btn');
@@ -712,9 +702,6 @@
             } else if (name === 'PEÇA INTEIRA') {
                 desc.innerText = "Isso finalizará com sucesso o ciclo de balanceamento e encaminhará o turbo diretamente ao Controle de Qualidade.";
                 confirmBtn.onclick = () => concluirEtapa('QUALIDADE', 'Peça Inteira');
-            } else {
-                desc.innerText = "O serviço será concluído e a peça retornará à Montagem.";
-                confirmBtn.onclick = () => concluirEtapa('MONTAGEM', name);
             }
 
             modal.style.display = 'flex';

@@ -113,6 +113,13 @@ const ProductionFlow = {
         const tracking = order.full_tracking || order.tracking || [];
         return this.isNew(order) || this.balanceFinished(tracking.find(t => this.component(t.component_name) === 'CONJUNTO ROTATIVO'));
     },
+    balancingParts(order = {}) {
+        const active = this.tracking(order).filter(t => this.normalize(t.current_stage || t.current_sector) === 'BALANCEAMENTO');
+        // A turbina completa inclui núcleo e carcaças; não são novos balanceamentos avulsos.
+        const part = ['PEÇA INTEIRA','CONJUNTO ROTATIVO','EIXO'].map(name =>
+            active.find(t => this.component(t.component_name) === name)).find(Boolean);
+        return part ? [part] : [];
+    },
     canEnterBalance(component, sector, order = {}) {
         const name = this.component(component);
         if (name === 'EIXO' && !this.isNew(order)) return (order.full_tracking || order.tracking || []).some(t => this.component(t.component_name) === 'EIXO');
