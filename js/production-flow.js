@@ -91,13 +91,16 @@ const ProductionFlow = {
             .reduce((max, log) => Math.max(max, Date.parse(log.timestamp) || 0), 0);
         return history.some(log => log.service === service && (Date.parse(log.end_time) || 0) >= lastReturn);
     },
+    destinations(component, sector = Rework.context().sector) {
+        return this.sectors.filter(s => s !== sector && (s !== 'BALANCEAMENTO' || ['EIXO', 'CONJUNTO ROTATIVO', 'PEÇA INTEIRA'].includes(this.component(component))));
+    },
     render(component, enabled = true) {
         const ctx = Rework.context();
         if (!ctx.id) return '';
         return `<div class="mt-3 w-full text-left" data-routing-component="${Rework.escape(component)}" data-routing-order="${Rework.escape(ctx.id)}">
             <label class="text-xs font-bold text-slate-600">Encaminhar / retornar para</label>
             <div class="flex flex-wrap gap-2 mt-1"><select aria-label="Setor de destino de ${Rework.escape(component)}" class="min-w-0 flex-1 border rounded-lg px-2 py-2 text-xs" ${!enabled ? 'disabled' : ''}>
-                ${this.sectors.filter(s => s !== ctx.sector && (s !== 'BALANCEAMENTO' || ['EIXO', 'CONJUNTO ROTATIVO', 'PEÇA INTEIRA'].includes(this.component(component)))).map(s => `<option value="${s}">${s}</option>`).join('')}</select>
+                ${this.destinations(component, ctx.sector).map(s => `<option value="${s}">${s}</option>`).join('')}</select>
                 <button type="button" data-routing-send ${!enabled ? 'disabled' : ''} class="bg-slate-700 text-white px-3 py-2 rounded-lg text-xs font-bold disabled:opacity-40">Encaminhar</button></div></div>`;
     },
     async move(component, target, options = {}) {
