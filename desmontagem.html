@@ -667,7 +667,7 @@
                 // 2. Verifica se a peça está aguardando compra, baseado no status do rastreador
                 const statusPeca = trk ? (trk.status || '').toUpperCase().trim() : 'AGUARDANDO';
                 const analysisItem = (currentSelection.triage_parts || []).find(p => (p.item_name || '').toUpperCase().trim() === comp.title.toUpperCase());
-                const isPendingOrder = (analysisItem?.availability === 'ORDER' && analysisItem?.is_resolved !== true) || statusPeca.includes('COMPRA') || stageAtual.includes('COMPRA');
+                const isPendingOrder = (['ORDER','PENDING','PURCHASE_REQUEST','STOCK_REQUEST'].includes(analysisItem?.availability) && analysisItem?.is_resolved !== true) || statusPeca.includes('COMPRA') || stageAtual.includes('COMPRA');
                 
                 // 3. Verifica se esta peça específica deve ser tratada como Conjunto Novo na UI
                 const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(comp.title.toUpperCase());

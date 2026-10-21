@@ -182,3 +182,11 @@ As 15 telas usam agora ProductionFlow.sort e uma regra comum de fase/localizaç�
 js/live-workflow.js atualiza as filas pelas consultas existentes a cada 5 segundos, agrupa chamadas e evita consultas de fundo sobrepostas; suspende em aba oculta e retoma ao voltar ou reconectar. Formulários abertos são preservados, com aviso quando a ordem muda. Realtime por publicação foi bloqueado pela revisão automática devido às tabelas sem RLS; nenhuma publicação ou permissão foi alterada. A alternativa implementada usa o acesso REST existente.
 
 Validação: testes das consultas dos 13 setores, administração e quadro; fases e transições; ordenação; sincronização automática; conjunto/compras; retrabalho; busca de PN. Navegador: 001 visível na triagem e na mesma coluna do quadro e painel, ausente da análise/comercial, com horário de atualização automática.
+
+## Pedidos de compra e estoque — 21/10/2026
+
+A triagem agora confirma manualmente o tipo de reposição. PENDING e registros antigos ORDER sem baixa são decisões pendentes; PURCHASE_REQUEST e STOCK_REQUEST representam pedidos confirmados, ambos com is_resolved=false. Marcar estoque não representa recebimento. Somente a baixa física altera para STOCK/is_resolved=true e libera o componente. A confirmação bloqueia a troca do tipo, é registrada no histórico e o conjunto full recebe um pedido único para suas quatro peças.
+
+A aba Pedidos lista apenas solicitações confirmadas e oferece filtros de compras/estoque e ações específicas de recebimento/retirada. A aprovação comercial e a condenação geram pendência para decisão, sem abrir compra automática. Liberar triagem ou colocar em standby não altera tipos nem baixas. Pedidos antigos pendentes requerem confirmação; baixas antigas permanecem válidas. Não foi acrescentada integração de estoque nem alterado o esquema do banco.
+
+Os módulos js/part-requests.js e js/triage-requests.js centralizam as regras e a tela. Testes cobrem cancelamento sem gravação, confirmação e bloqueio de alteração, repetição, compra/estoque, baixa física, conjunto full e eixo avulso, preservação dos serviços e fechamento de O.S.

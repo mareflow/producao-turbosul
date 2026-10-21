@@ -50,11 +50,11 @@ function database(rows) {
     const tracked = name => client.rows.component_tracking.find(t => t.component_name === name);
     assert.equal(tracked('ATUADOR').current_stage, 'MONTAGEM');
     assert.equal(tracked('CANOTE').current_stage, 'DESMONTAGEM');
-    assert.equal(tracked('GEOMETRIA').current_stage, 'COMPRA');
+    assert.equal(tracked('GEOMETRIA').current_stage, 'TRIAGEM');
     assert.equal(tracked('FLANGE').current_stage, 'MONTAGEM');
     assert.equal(client.rows.component_tracking.length, 4, 'Flange interna não é anexo');
     const purchase = client.rows.triage_parts.find(p => p.part_name === 'GEOMETRIA VARIÁVEL');
-    assert.equal(purchase.availability, 'ORDER');
+    assert.equal(purchase.availability, 'PENDING');
     assert.equal(purchase.is_resolved, false);
     tracked('CANOTE').current_stage = 'RETIFICA';
     await flow.routeApproved(client, 'os');

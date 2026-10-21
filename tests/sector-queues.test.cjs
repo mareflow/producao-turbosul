@@ -15,7 +15,7 @@ async function check(page,loader,status,sector){
     const tables={service_orders:[order],component_tracking:tracking,checklist_analysis_general:[],triage_parts:[]};
     const client={from(table){let filters=[];const q={select(){return q;},eq(k,v){filters.push(r=>r[k]===v);return q;},in(k,values){filters.push(r=>values.includes(r[k]));return q;},or(){return q;},order(){return q;},limit(){return q;},then(resolve){return Promise.resolve(resolve({data:(tables[table]||[]).filter(r=>filters.every(f=>f(r))),error:null}));}};return q;}};
     const ctx=vm.createContext({window:{},document:{addEventListener:noop,getElementById:id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);},createElement:node,querySelectorAll:()=>[]},console:{error:(...args)=>errors.push(args.join(' ')),warn:(...args)=>errors.push(args.join(' '))},
-        MASTER_COMPONENTS:tracking.map(t=>({title:t.component_name})),supabaseClient:client,allOrders:[],currentOrders:[],queueData:[],selectedOS:null,currentSelection:null,selecionada:null,
+        MASTER_COMPONENTS:tracking.map(t=>({title:t.component_name})),activeTab:"triage",supabaseClient:client,allOrders:[],currentOrders:[],queueData:[],selectedOS:null,currentSelection:null,selecionada:null,
         renderOrderCard:()=>"", renderQueue:noop,renderSidebar:noop,renderizarFila:noop,atualizarContadores:noop,updateSidebarUI:noop,addCardClickListeners:noop,
         filterQueue:noop,updateKPIs:noop,updateCharts:noop,renderConveyorBelt:noop,distributeOrders:noop,
         filaContainer:node(),loadingMessage:node(),filaCountSpan:node(),renderEntryLanes:noop,

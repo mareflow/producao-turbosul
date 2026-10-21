@@ -42,7 +42,13 @@ const LiveWorkflow = {
     },
     snapshot() {
         const orders = typeof allOrders !== 'undefined' ? allOrders : typeof currentOrders !== 'undefined' ? currentOrders : typeof queueData !== 'undefined' ? queueData : [];
-        return new Map(orders.map(order => [order.service_order_id || order.os_id || order.id, JSON.stringify(order)]));
+        return new Map(orders.map(order => [order.service_order_id || order.os_id || order.id, JSON.stringify({
+            status:order.status,business_id:order.business_id,updated_at:order.updated_at,model:order.model,client:order.client,
+            serial_number:order.serial_number,observation:order.observation,trade_in_option:order.trade_in_option,
+            identificacao_e_marcacao_code:order.identificacao_e_marcacao_code,is_blocked:order.is_blocked,
+            tracking:(order.full_tracking || order.tracking || []).map(t=>[t.component_name,t.current_stage,t.current_sector,t.status,t.last_update]).sort(),
+            requests:(order.purchase_parts || order.pecas_solicitadas || []).map(p=>[p.part_name,p.availability,p.is_resolved]).sort()
+        })]));
     },
     init() {
         const page = location.pathname.split('/').pop().replace('.html', '');

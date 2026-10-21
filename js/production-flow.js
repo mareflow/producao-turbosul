@@ -31,7 +31,7 @@ const ProductionFlow = {
         if (phase !== 'PRODUCAO') return [phase];
         const stages = this.tracking(order).map(t => this.normalize(t.current_stage || t.current_sector));
         const active = this.sectors.filter(s => stages.includes(s));
-        if (stages.includes('COMPRA')) active.push('TRIAGEM');
+        if (stages.some(s => ['COMPRA','ESTOQUE','TRIAGEM'].includes(s))) active.push('TRIAGEM');
         if (!active.length && /DESMONTAGEM|PRODUCAO/.test(this.normalize(order.status))) active.push('DESMONTAGEM');
         if (!active.length && /BALANCEAMENTO/.test(this.normalize(order.status))) active.push('BALANCEAMENTO');
         return active;
@@ -65,6 +65,12 @@ const ProductionFlow = {
             (order.full_tracking || order.tracking || []).some(t => t.verdict_vendas === 'TROCAR CONJUNTO');
     },
     coreNames() { return [...this.core, 'CONJUNTO ROTATIVO']; },
+    pendingStage(rows) {
+        const pending = (rows || []).filter(r => r.is_resolved !== true);
+        if (pending.some(r => r.availability === 'PURCHASE_REQUEST')) return 'COMPRA';
+        if (pending.length && pending.every(r => r.availability === 'STOCK_REQUEST')) return 'ESTOQUE';
+        return 'TRIAGEM';
+    },
     received(order) {
         return this.core.every(name => (order.purchase_parts || []).some(p => this.component(p.part_name) === name && p.availability === 'STOCK' && p.is_resolved === true));
     },
@@ -74,7 +80,7 @@ const ProductionFlow = {
         if (!this.isNew(order) && !aggregate) return list;
         const members = list.filter(t => this.core.includes(this.component(t.component_name)));
         const commonStage = members.length === 4 && members.every(t => t.current_stage === members[0].current_stage) ? members[0].current_stage : 'MONTAGEM';
-        const stage = Array.isArray(order.purchase_parts) && this.isNew(order) && !this.received(order) ? 'COMPRA' : (aggregate?.current_stage || commonStage);
+        const stage = Array.isArray(order.purchase_parts) && this.isNew(order) && !this.received(order) ? this.pendingStage(order.purchase_parts.filter(p=>this.core.includes(this.component(p.part_name)))) : (aggregate?.current_stage || commonStage);
         return [...list.filter(t => !this.core.includes(this.component(t.component_name)) && this.component(t.component_name) !== 'CONJUNTO ROTATIVO'),
             { ...aggregate, component_name: 'CONJUNTO ROTATIVO', current_stage: stage, current_sector: stage,
                 status: aggregate?.status || (stage === 'COMPRA' ? 'AGUARDANDO_COMPRA' : 'CONJUNTO NOVO') }];

@@ -283,7 +283,7 @@
             const matches = p => [normalized, aliases[normalized]].includes((p.part_name || p.item_name || '').toUpperCase().trim());
             const receipt = (order.purchase_parts || []).find(matches);
             const item = receipt || (order.triage_parts || []).find(matches);
-            return !!item && (item.availability === 'ORDER' || (receipt && item.is_resolved !== true));
+            return !!item && (receipt ? item.is_resolved !== true : ['ORDER','PENDING','PURCHASE_REQUEST','STOCK_REQUEST'].includes(item.availability) && item.is_resolved !== true);
         }
         function newCoreReceived(order) {
             return isNewCore(order) && CORE_PARTS.every(name => {
@@ -336,7 +336,7 @@
                     os.triage_parts = (triageParts || []).filter(t => t.service_order_id === os.id);
                     os.purchase_parts = (purchaseParts || []).filter(t => t.service_order_id === os.id);
                     os.full_tracking = os.full_tracking.map(t => purchasePending(os, t.component_name)
-                        ? { ...t, current_stage: 'COMPRA', current_sector: 'COMPRA', status: 'AGUARDANDO_COMPRA' }
+                        ? { ...t, current_stage: ProductionFlow.pendingStage(os.purchase_parts.filter(p => ProductionFlow.component(p.part_name) === ProductionFlow.component(t.component_name))), current_sector: ProductionFlow.pendingStage(os.purchase_parts.filter(p => ProductionFlow.component(p.part_name) === ProductionFlow.component(t.component_name))), status: 'AGUARDANDO_BAIXA' }
                         : t);
                     os.full_tracking = ProductionFlow.tracking(os);
                     return os;

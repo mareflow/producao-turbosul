@@ -42,7 +42,7 @@
                             </div>
                             <div>
                                 <h3 class="font-black text-lg uppercase tracking-tight leading-tight">Condenar Peça em Produção</h3>
-                                <p class="text-xs text-red-100 font-medium">Divergência de Processo • Pedido de Compra Automático na Triagem</p>
+                                <p class="text-xs text-red-100 font-medium">Divergência de Processo • Reposição para decisão da Triagem</p>
                             </div>
                         </div>
                         <button type="button" onclick="CondenarPecaManager.fecharModal()" class="text-white/80 hover:text-white transition p-1">
@@ -93,12 +93,12 @@
                             <textarea id="cp-modal-obs" rows="3" placeholder="Descreva exatamente o que ocorreu com a peça, medidas encontradas e o motivo da condenação..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium text-slate-800 outline-none focus:border-red-500 focus:bg-white transition resize-none"></textarea>
                         </div>
 
-                        <!-- INFORMAÇÃO DE PEDIDO DE COMPRA AUTOMÁTICO -->
+                        <!-- INFORMAÇÃO DE Reposição aguardando Triagem -->
                         <div class="bg-blue-50/80 border border-blue-200 rounded-xl p-3 flex items-start space-x-3 text-xs text-blue-900">
                             <i class="fa-solid fa-cart-shopping text-blue-600 text-sm mt-0.5"></i>
                             <div>
-                                <span class="font-black block uppercase tracking-wider text-[10px]">Pedido de Compra Automático na Triagem</span>
-                                <span class="text-[11px] text-blue-700 leading-snug">Ao confirmar, o sistema registrará automaticamente um pedido de compra (ORDER) na Triagem para reposição imediata desta peça.</span>
+                                <span class="font-black block uppercase tracking-wider text-[10px]">Reposição para decisão da Triagem</span>
+                                <span class="text-[11px] text-blue-700 leading-snug">Ao confirmar, o sistema registrará automaticamente um pendência na Triagem para decidir entre compra e retirada do estoque.</span>
                             </div>
                         </div>
 
@@ -138,7 +138,7 @@
                             Cancelar
                         </button>
                         <button type="button" id="cp-btn-confirmar" onclick="CondenarPecaManager.confirmarCondenacao()" class="bg-red-600 hover:bg-red-700 text-white font-black px-6 py-2.5 rounded-xl uppercase text-xs tracking-wider shadow-md shadow-red-200 transition-all flex items-center gap-2">
-                            <i class="fa-solid fa-cart-shopping"></i> Confirmar & Gerar Pedido de Compra
+                            <i class="fa-solid fa-cart-shopping"></i> Confirmar & Enviar à Triagem
                         </button>
                     </div>
                 </div>
@@ -170,7 +170,7 @@
 
             const btn = document.getElementById('cp-btn-confirmar');
             btn.disabled = false;
-            btn.innerHTML = `<i class="fa-solid fa-cart-shopping"></i> Confirmar & Gerar Pedido de Compra`;
+            btn.innerHTML = `<i class="fa-solid fa-cart-shopping"></i> Confirmar & Enviar à Triagem`;
 
             const modal = document.getElementById('modal-condenar-peca');
             modal.classList.remove('hidden');
@@ -260,7 +260,7 @@
 
             const btn = document.getElementById('cp-btn-confirmar');
             btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Gerando pedido de compra...`;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Registrando reposição...`;
 
             try {
                 // 1. Obtém sessão do usuário logado (se houver)
@@ -272,14 +272,19 @@
 
                 const names = this.getStandardNames(this.currentComponent);
                 const now = new Date().toISOString();
+                const { data: confirmedRequests, error: requestError } = await supabase.from('triage_parts').select('id')
+                    .eq('service_order_id', this.currentOsId).in('part_name', [names.standard, names.trackingCode])
+                    .in('availability', ['PURCHASE_REQUEST', 'STOCK_REQUEST']).eq('is_resolved', false);
+                if (requestError) throw requestError;
+                if (confirmedRequests?.length) throw new Error('Esta peça já tem um pedido confirmado aguardando baixa na Triagem.');
 
                 // 2. Registra o evento de Divergência de Processo no history_events
                 const eventPayload = {
                     service_order_id: this.currentOsId,
                     user_id: userId,
                     action: 'Divergência de Processo (Condenação de Peça em Produção)',
-                    details: `[PEDIDO DE COMPRA AUTOMÁTICO NA TRIAGEM] Componente "${names.standard}" condenado no setor "${this.currentSector}". Gerado pedido de compra na Triagem. Líder: "${lider}". Motivo: "${motivo}". Justificativa Técnica: "${obs}".`,
-                    description: `Divergência de Processo: Peça ${names.standard} condenada na ${this.currentSector}. Pedido de compra gerado na Triagem.`,
+                    details: `[REPOSIÇÃO AGUARDANDO TRIAGEM] Componente "${names.standard}" condenado no setor "${this.currentSector}". Registrada reposição para decisão da Triagem. Líder: "${lider}". Motivo: "${motivo}". Justificativa Técnica: "${obs}".`,
+                    description: `Divergência de Processo: Peça ${names.standard} condenada na ${this.currentSector}. Reposição aguardando decisão da Triagem.`,
                     timestamp: now
                 };
 
@@ -289,14 +294,14 @@
 
                 if (histError) console.warn("Aviso ao inserir history_events:", histError);
 
-                // 3. ✅ GERA AUTOMATICAMENTE O PEDIDO DE COMPRA NA TRIAGEM (triage_parts)
-                // Insere/atualiza o item como 'ORDER' e não resolvido
+                // 3. ✅ registra a reposição NA TRIAGEM (triage_parts)
+                // Registra uma pendência sem decidir compra ou retirada do estoque
                 await supabase
                     .from('triage_parts')
                     .upsert({
                         service_order_id: this.currentOsId,
                         part_name: names.standard,
-                        availability: 'ORDER',
+                        availability: 'PENDING',
                         is_resolved: false,
                         resolved_at: null
                     }, { onConflict: 'service_order_id,part_name' });
@@ -308,7 +313,7 @@
                         .upsert({
                             service_order_id: this.currentOsId,
                             part_name: names.trackingCode,
-                            availability: 'ORDER',
+                            availability: 'PENDING',
                             is_resolved: false,
                             resolved_at: null
                         }, { onConflict: 'service_order_id,part_name' });
@@ -319,7 +324,7 @@
                     await supabase
                         .from('checklist_analysis_general')
                         .update({
-                            availability: 'ORDER',
+                            availability: 'PENDING',
                             is_resolved: false,
                             decisao_vendas: 'CONDENADA EM PRODUÇÃO'
                         })
@@ -347,7 +352,7 @@
 
                 currentTrackingData.push({
                     action: 'CONDENACAO_PRODUCAO',
-                    purchase_order_generated: true,
+                    purchase_order_generated: false,
                     sector: this.currentSector,
                     reason: motivo,
                     notes: obs,
@@ -358,10 +363,10 @@
                 const trackingPayload = {
                     service_order_id: this.currentOsId,
                     component_name: names.trackingCode,
-                    current_stage: 'COMPRA',
-                    current_sector: 'COMPRA',
+                    current_stage: 'TRIAGEM',
+                    current_sector: 'TRIAGEM',
                     status: 'CONDENADO EM PRODUÇÃO',
-                    status_description: `Peça condenada no setor ${this.currentSector}: ${motivo}. Pedido de compra gerado automaticamente na Triagem.`,
+                    status_description: `Peça condenada no setor ${this.currentSector}: ${motivo}. Reposição aguardando decisão de compra ou estoque na Triagem.`,
                     tracking_data: currentTrackingData,
                     last_update: now
                 };
@@ -377,35 +382,14 @@
                         .insert(trackingPayload);
                 }
 
-                // 6. ✅ NOTIFICA WEBHOOK EXTERNO DE LOGÍSTICA / COMPRAS
-                try {
-                    await fetch('https://webhook.mareflow.com.br/webhook/logistics/sync-part', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            os_id: this.currentOsId,
-                            part_name: names.standard,
-                            availability: 'ORDER',
-                            origin: 'CONDENACAO_PRODUCAO',
-                            purchase_order_auto: true,
-                            sector: this.currentSector,
-                            reason: motivo,
-                            notes: obs,
-                            leader: lider
-                        })
-                    });
-                } catch (wErr) {
-                    console.warn("Aviso ao notificar webhook de compra:", wErr);
-                }
-
                 // 7. Se selecionado "Colocar O.S em Standby", atualiza a service_orders
                 if (colocarStandby) {
                     await supabase
                         .from('service_orders')
                         .update({
                             status: 'Standby',
-                            blockage_reason: `Peça Condenada em Produção (${names.standard}) - Pedido de Compra Gerado`,
-                            blockage_notes: `Componente ${names.standard} condenado no setor ${this.currentSector} pelo líder ${lider}. Motivo: ${motivo}. Pedido de compra gerado automaticamente na Triagem.`,
+                            blockage_reason: `Peça Condenada em Produção (${names.standard}) - Reposição aguardando Triagem`,
+                            blockage_notes: `Componente ${names.standard} condenado no setor ${this.currentSector} pelo líder ${lider}. Motivo: ${motivo}. Reposição aguardando decisão de compra ou estoque na Triagem.`,
                             updated_at: now
                         })
                         .eq('id', this.currentOsId);
@@ -413,7 +397,7 @@
 
                 // 8. Feedback visual e fechamento
                 this.fecharModal();
-                this.exibirToastSucesso(`Peça ${names.standard} condenada! Pedido de compra gerado automaticamente na Triagem.`);
+                this.exibirToastSucesso(`Peça ${names.standard} condenada! Reposição aguardando decisão de compra ou estoque na Triagem.`);
 
                 if (typeof this.onSuccessCb === 'function') {
                     this.onSuccessCb(names.standard);
@@ -432,7 +416,7 @@
             toast.innerHTML = `
                 <i class="fa-solid fa-cart-shopping text-red-500 text-lg"></i>
                 <div>
-                    <p class="font-bold text-xs uppercase tracking-wider text-red-400">Pedido de Compra Gerado na Triagem</p>
+                    <p class="font-bold text-xs uppercase tracking-wider text-red-400">Reposição aguardando Triagem na Triagem</p>
                     <p class="text-xs text-slate-200">${msg}</p>
                 </div>
             `;

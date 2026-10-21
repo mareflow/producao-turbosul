@@ -36,19 +36,19 @@ const AccessoryFlow = {
             let stage = decision === 'RECONDICIONAR' ? 'DESMONTAGEM' : 'MONTAGEM';
             let status = decision === 'RECONDICIONAR' ? 'Aguardando' : 'PEÇA OK';
             if (decision === 'TROCAR') {
-                stage = received ? 'MONTAGEM' : 'COMPRA';
-                status = received ? 'ESTOQUE DISPONÍVEL' : 'AGUARDANDO_COMPRA';
-                if (!received) {
+                stage = received ? 'MONTAGEM' : receipt?.availability === 'PURCHASE_REQUEST' ? 'COMPRA' : receipt?.availability === 'STOCK_REQUEST' ? 'ESTOQUE' : 'TRIAGEM';
+                status = received ? 'PEÇA RECEBIDA' : receipt?.availability === 'PURCHASE_REQUEST' ? 'AGUARDANDO_COMPRA' : receipt?.availability === 'STOCK_REQUEST' ? 'AGUARDANDO_RETIRADA_ESTOQUE' : 'AGUARDANDO_DEFINICAO_TRIAGEM';
+                if (!receipt) {
                     const { error } = await client.from('triage_parts').upsert({
                         service_order_id: orderId, part_name: part.name,
-                        availability: 'ORDER', is_resolved: false, resolved_at: null
+                        availability: 'PENDING', is_resolved: false, resolved_at: null
                     }, { onConflict: 'service_order_id,part_name' });
                     if (error) throw error;
                 }
             }
             // Repetir a aprovação não retrocede uma peça que já está em processamento.
             const keepProgress = existing?.verdict_vendas === decision &&
-                !(decision === 'TROCAR' && (!received || existing.current_stage === 'COMPRA'));
+                !(decision === 'TROCAR' && (!received || ['COMPRA','ESTOQUE','TRIAGEM'].includes(existing.current_stage)));
             const { error: trackError } = await client.from('component_tracking').upsert({
                 service_order_id: orderId, component_name: part.code,
                 current_stage: keepProgress ? existing.current_stage : stage,
@@ -58,7 +58,7 @@ const AccessoryFlow = {
             }, { onConflict: 'service_order_id,component_name' });
             if (trackError) throw trackError;
             const { error } = await client.from('checklist_analysis_general').update({
-                availability: decision === 'TROCAR' && !received ? 'ORDER' : 'STOCK',
+                availability: decision === 'TROCAR' && !received ? receipt?.availability || 'PENDING' : 'STOCK',
                 is_resolved: decision !== 'TROCAR' || received
             }).eq('id', item.id);
             if (error) throw error;
