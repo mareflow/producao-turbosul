@@ -230,3 +230,11 @@ O ORÇ-003 tem uma única linha no banco. loadSalesOrders(true) acrescentava car
 Também corrigido o botão Reprovar Orçamento: gravava notes, coluna inexistente no esquema conectado. Agora preserva observation, acrescenta o motivo e usa setOrderStatus com validação da etapa atual; informa corretamente a aba Canceladas. O motivo permanece também no histórico. Sem alterações de esquema ou de ordens reais para testes.
 
 Regressões em tests/commercial-queue.test.cjs cobrem 30 atualizações, seleção e edição preservadas, fila vazia/retorno, falha de conexão, concorrência de consultas/cliques/PDFs, erro no checklist e reprovação com esquema estrito. Prévia isolada reproduzível: node tests/build-commercial-preview.cjs; cliente em memória somente para leitura, sem chamadas ao banco/webhooks reais. Revisão dos renderizadores das demais filas não encontrou o mesmo padrão de acumular cards no refresh.
+
+## Rastreio do conjunto FULL no quadro — 21/10/2026
+
+O modal do Quadro de Produção reconstruía a lista fixa de seis peças e acrescentava o rastreamento do conjunto, exibindo o mesmo núcleo cinco vezes. Agora usa ProductionFlow.tracking, como as filas e o resumo dos cards. Quando houver conjunto, mostra uma única linha Conjunto Rotativo (FULL), com a indicação “Inclui eixo, rotor, CCE e reparos”. CCO, CT e acessórios mantêm seus próprios rastreamentos. Núcleo montado sem troca FULL é identificado apenas como Conjunto Rotativo; peças avulsas continuam individuais quando não há conjunto.
+
+A localização considera a baixa física das quatro peças e o rastreamento do conjunto. FULL pendente de compra, retirada do estoque ou decisão da triagem não aparece recebido em Montagem. Erros nas consultas são tratados, em vez de interpretar dados ausentes como uma localização válida. Sem exclusão ou modificação de dados operacionais. Regressões em tests/component-trace.test.cjs cobrem o exemplo da O.S-003, oito setores, baixa parcial, estoque, compra, decisão pendente, acessórios e núcleo recondicionado.
+
+Corrigido também o resumo de setores no card do quadro: includes('MONTAGEM') classificava DESMONTAGEM como Montagem. O resumo distingue os dois setores e conta o FULL como uma única unidade.

@@ -432,7 +432,7 @@
                                 else if (stg === 'METROLOGIA') stg = 'Metrologia';
                                 else if (stg === 'BANCADA' || stg === 'BANCADA DE USINAGEM') stg = 'Bancada';
                                 else if (stg === 'BALANCEAMENTO') stg = 'Balanc.';
-                                else if (stg.includes('MONTAGEM')) stg = 'Montagem';
+                                else if (stg.startsWith('MONTAGEM')) stg = 'Montagem';
                                 else if (stg === 'DESMONTAGEM') stg = 'Desmonte';
                                 else if (stg.includes('COMPRA')) stg = 'Compra';
                                 stageCounts[stg] = (stageCounts[stg] || 0) + 1;
@@ -511,14 +511,22 @@
 
                 loading.classList.add('hidden');
 
-                const components = compRes.data || [];
+                for (const result of [compRes, triagePartsRes, checklistRes, osRes]) {
+                    if (result.error) throw result.error;
+                }
                 const triageParts = triagePartsRes.data || [];
                 const triageItems = checklistRes.data || [];
+                const isConjuntoNovo = ProductionFlow.isNew({ analysis: triageItems, full_tracking: compRes.data || [] });
+                // Usa a mesma unidade de rastreio das filas: o FULL substitui seus quatro componentes.
+                const components = ProductionFlow.tracking({
+                    full_tracking: compRes.data || [], analysis: triageItems, purchase_parts: triageParts
+                });
+                const hasConjunto = components.some(t => ProductionFlow.component(t.component_name) === 'CONJUNTO ROTATIVO');
                 const osStatus = osRes?.data?.status || '';
                 const isNaDesmontagem = ['Aguardando Desmontagem OS', 'Em Desmontagem Operacional'].includes(osStatus);
 
                 // 1. Componentes base obrigatórios que compõem o turbo
-                const basePieces = ['CCO', 'CCE', 'CT', 'EIXO', 'ROTOR', 'REPAROS'];
+                const basePieces = hasConjunto ? ['CCO', 'CT', 'CONJUNTO ROTATIVO'] : ['CCO', 'CCE', 'CT', 'EIXO', 'ROTOR', 'REPAROS'];
                 const extraPieces = [];
 
                 // 2. Identifica componentes adicionais/especiais (Geometria, Atuador, etc.)
@@ -546,14 +554,10 @@
 
                 const allComponentsList = [...basePieces, ...extraPieces];
 
-                // Identifica se a OS foi marcada comercialmente como Conjunto Novo
-                const isConjuntoNovo = triageItems.some(p => 
-                    ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || '').toUpperCase().trim()) && 
-                    (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
-                );
-
                 list.innerHTML = allComponentsList.map(compName => {
                     const compUpper = compName.toUpperCase().trim();
+                    const isConjunto = compUpper === 'CONJUNTO ROTATIVO';
+                    const componentLabel = isConjunto && isConjuntoNovo ? 'CONJUNTO ROTATIVO (FULL)' : compName;
 
                     // 1. Busca tracking operacional correspondente
                     const trk = components.find(t => {
@@ -584,14 +588,17 @@
 
                     // REGRA DE INTEGRAÇÃO DE COMPRA:
                     const isTrkCompra = rawStage.includes('COMPRA') || rawStat.includes('COMPRA');
-                    const isOrderPending = orderItem && (orderItem.availability || '').toUpperCase().trim() === 'ORDER' && !orderItem.is_resolved;
+                    const isOrderPending = orderItem && ['ORDER', 'PURCHASE_REQUEST'].includes((orderItem.availability || '').toUpperCase().trim()) && !orderItem.is_resolved;
                     const isCompra = isTrkCompra || (isOrderPending && rawStage !== 'MONTAGEM' && rawStat !== 'FINALIZADO');
-
-                    const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(compUpper);
+                    const isEstoque = rawStage === 'ESTOQUE' || (orderItem?.availability === 'STOCK_REQUEST' && !orderItem.is_resolved);
 
                     let sectorName = 'DESMONTAGEM';
                     if (isCompra) {
                         sectorName = 'AGUARDANDO COMPRA';
+                    } else if (isEstoque) {
+                        sectorName = 'AGUARDANDO RETIRADA DO ESTOQUE';
+                    } else if (rawStage === 'TRIAGEM') {
+                        sectorName = 'AGUARDANDO DECISÃO NA TRIAGEM';
                     } else if (rawStage && rawStage !== 'DESMONTAGEM') {
                         // Se a peça já possui setor de produção definido no tracking, respeita rigorosamente a localização real dela
                         if (rawStage === 'RETIFICA' || rawStage === 'RETÍFICA') sectorName = 'RETÍFICA';
@@ -603,8 +610,6 @@
                         else if (rawStage === 'QUALIDADE' || rawStage === 'CONTROLE DE QUALIDADE') sectorName = 'QUALIDADE';
                         else if (rawStage === 'EXPEDICAO' || rawStage === 'EXPEDIÇÃO') sectorName = 'EXPEDIÇÃO';
                         else sectorName = rawStage;
-                    } else if (isConjuntoNovo && isCorePart) {
-                        sectorName = 'MONTAGEM';
                     } else if (isNaDesmontagem || rawStage === 'DESMONTAGEM') {
                         sectorName = 'DESMONTAGEM';
                     } else {
@@ -617,7 +622,7 @@
                         icon: '<i class="fa-solid fa-location-dot mr-1.5 text-blue-500"></i>'
                     };
 
-                    if (isCompra) {
+                    if (isCompra || isEstoque || rawStage === 'TRIAGEM') {
                         badgeConfig = {
                             color: 'bg-amber-100 text-amber-900 border-amber-300 font-black',
                             icon: '<i class="fa-solid fa-cart-shopping mr-1.5 text-amber-700"></i>'
@@ -676,7 +681,8 @@
                                     <i class="fa-solid fa-gear"></i>
                                 </div>
                                 <div>
-                                    <h4 class="font-black text-slate-800 text-sm uppercase">${compName}</h4>
+                                    <h4 class="font-black text-slate-800 text-sm uppercase">${componentLabel}</h4>
+                                    ${isConjunto ? '<p class="text-[10px] text-slate-500 mt-1">Inclui eixo, rotor, CCE e reparos</p>' : ''}
                                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                                         <i class="fa-solid fa-location-dot mr-1 text-slate-400"></i> Setor: <span class="font-black ${isCompra ? 'text-amber-700' : 'text-slate-700'}">${sectorName}</span>
                                     </p>
