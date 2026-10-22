@@ -6,3 +6,5 @@ tests/quality-preview.html
 tests/quality-fixture.js
 tests/commercial-preview.html
 tests/commercial-fixture.js
+tests/general-disassembly-preview.html
+tests/general-disassembly-fixture.js

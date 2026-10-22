@@ -754,6 +754,7 @@
 
     <!-- LOGIC SCRIPT -->
     <script src="js/rework.js"></script>
+    <script src="js/general-disassembly.js"></script>
     <script src="js/production-flow.js"></script>
     <script>
 
@@ -1876,7 +1877,8 @@
                 const completedRework = (reworkEvents || []).map(event => Rework.parse(event))
                     .filter(session => session?.state === 'finished')
                     .map(session => ({ ...session, is_rework: true, service: `RETRABALHO / ${session.sector} / ${session.component}` }));
-                const performanceRows = [...(trackData || []), { tracking_data: completedRework }];
+                const completedGeneral = await GeneralDisassembly.completed(supabaseClient);
+                const performanceRows = [...(trackData || []), { tracking_data: completedRework }, { tracking_data: completedGeneral }];
                 let reworkSeconds = 0;
                 let reworkCount = 0;
 

@@ -22,6 +22,7 @@ async function check(page,loader,status,sector,names=['EIXO','ROTOR','CCE','REPA
         location:{pathname:'/'+page+'.html'},localStorage:{getItem:()=>null},Rework:{},fetch:()=>{throw Error('Não deve depender de webhook para carregar a fila');}});
     vm.runInContext(fs.readFileSync('js/production-flow.js','utf8'),ctx);
     vm.runInContext(fs.readFileSync('js/accessory-flow.js','utf8'),ctx);
+    if(page==='desmontagem')ctx.GeneralDisassembly={openOrderIds:async()=>new Set()};
     // Apenas regras puras usadas no carregamento da Montagem.
     if(page==='montagem'){
         const s=fs.readFileSync('montagem.html','utf8');vm.runInContext(s.slice(s.indexOf('        const CORE_PARTS'),s.indexOf('        async function fetchQueue(')),ctx);

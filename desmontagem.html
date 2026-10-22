@@ -138,6 +138,18 @@
                             <p class="text-xs font-black text-white uppercase">Produção Ativa</p>
                         </div>
                     </div>
+                    <section id="general-disassembly-monitor" class="mt-3 p-3 rounded-lg border border-teal-700 bg-slate-800">
+                        <p class="text-[10px] font-black uppercase">Desmontagem geral da peça</p>
+                        <p class="mt-1 text-xs">Total nesta O.S.: <span data-general-total class="font-mono font-bold">00:00:00</span></p>
+                        <p data-general-state class="mt-1 text-[10px] text-slate-300" aria-live="polite">Selecione uma O.S.</p>
+                        <div class="mt-2 flex gap-2 flex-wrap">
+                            <button type="button" data-general-action="start" class="bg-turbo-teal hover:bg-teal-600 rounded-lg px-3 py-2 text-[10px] font-bold uppercase disabled:opacity-40">Iniciar desmontagem</button>
+                            <button type="button" data-general-action="pause" hidden class="bg-amber-600 rounded-lg px-3 py-2 text-[10px] font-bold uppercase disabled:opacity-40">Pausar</button>
+                            <button type="button" data-general-action="resume" hidden class="bg-turbo-teal rounded-lg px-3 py-2 text-[10px] font-bold uppercase disabled:opacity-40">Retomar</button>
+                            <button type="button" data-general-action="finish" hidden class="bg-red-600 rounded-lg px-3 py-2 text-[10px] font-bold uppercase disabled:opacity-40">Finalizar</button>
+                        </div>
+                        <p data-general-error role="status" class="text-xs text-amber-200 mt-2"></p>
+                    </section>
                     <button id="btn-sector-cleaning" onclick="toggleSectorCleaning('DESMONTAGEM')" class="mt-3 w-full bg-turbo-teal hover:bg-teal-600 text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition shadow-md shadow-teal-900">
                         Iniciar Limpeza Setor
                     </button>
@@ -337,6 +349,7 @@
 <script src="js/accessory-flow.js"></script>
     <script src="js/production-flow.js"></script>
     <script src="js/rework.js"></script>
+    <script src="js/general-disassembly.js"></script>
     <script>
         // 1. CONFIGURAÇÕES E CONEXÕES
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
@@ -392,6 +405,7 @@
                 // Filtro Inteligente: Remove OSs onde todas as peças já foram enviadas para fora da Desmontagem
                 if (rawQueue.length > 0) {
                     const osIds = rawQueue.map(os => os.id);
+                    const openGeneralOrders = await GeneralDisassembly.openOrderIds(supabaseClient, osIds);
                     
                     const { data: trackings, trackError } = await supabaseClient
                         .from('component_tracking')
@@ -429,7 +443,7 @@
                             // Pré-carrega o tracking para o clique ficar instantâneo
                             os.tracking = osTracking;
 
-                            return hasPendingPiece;
+                            return hasPendingPiece || openGeneralOrders.has(os.id);
                         });
                     }
                 }
@@ -463,6 +477,7 @@
 
         async function selectOS(os) {
             currentSelection = os;
+            GeneralDisassembly.select(os);
             specialItemsList = []; 
             document.querySelectorAll('#os-list > div').forEach(c => c.classList.remove('os-selected'));
             document.getElementById(`card-${os.id}`)?.classList.add('os-selected');
@@ -1768,6 +1783,7 @@
             if (!await Rework.ensureFinished()) return;
             if (actionType === 'FINISH') {
                 if (!currentSelection) return;
+                if (!await GeneralDisassembly.ensureFinished(currentSelection.id)) return;
                 if (!await saveChecklistDisassembly()) return;
                 const btn = document.getElementById('btn-concluir-desmontagem');
                 if (btn) {
@@ -1800,6 +1816,7 @@
                     document.getElementById('os-details-header').classList.add('hidden');
                     document.getElementById('main-workspace').classList.add('hidden');
                     currentSelection = null;
+                    GeneralDisassembly.select(null);
                     await loadDisassemblyQueue();
                 } catch (e) {
                     console.error("Erro ao finalizar desmontagem:", e);
