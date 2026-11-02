@@ -200,10 +200,16 @@ window.cancelSectorSelection = async function() {
     }
 };
 
+// A Vercel usa cleanUrls: /login e /login.html representam a mesma página.
+// As chaves de permissões continuam no formato .html também no servidor local.
+function getAuthPageName(pathname = window.location.pathname) {
+    const path = String(pathname || '').split(/[?#]/)[0].replace(/\/+$/, '');
+    const page = path.split('/').pop() || 'index';
+    return page.includes('.') ? page : `${page}.html`;
+}
+
 async function checkAuthAndProtect() {
-    // Descobre qual página o usuário está acessando (removendo queries e hashes)
-    let currentPage = window.location.pathname.split('/').pop().split('?')[0].split('#')[0];
-    if (!currentPage) currentPage = 'index.html';
+    const currentPage = getAuthPageName();
 
     // Lista de páginas que NÃO exigem login
     const publicPages = ['login.html', 'index.html'];
