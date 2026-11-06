@@ -301,7 +301,7 @@
                 <button type="button" onclick="closeDetailsModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 px-5 rounded-xl uppercase text-xs tracking-wider transition">Fechar</button>
                 <button type="button" id="btn-detail-modal-dispatch" onclick="dispatchFromDetailsModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 px-6 rounded-xl uppercase text-xs tracking-wider transition shadow-md shadow-blue-100 flex items-center space-x-1.5">
                     <i class="fa-solid fa-arrow-right-to-bracket text-xs"></i>
-                    <span>Despachar para Produção</span>
+                    <span>Enviar para Análise Técnica</span>
                 </button>
             </div>
         </div>
@@ -313,7 +313,7 @@
             <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <i class="fa-solid fa-arrow-right-to-bracket text-2xl"></i>
             </div>
-            <h3 class="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">Despachar para Produção</h3>
+            <h3 class="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">Enviar para Análise Técnica</h3>
             <div id="confirm-dispatch-details" class="bg-slate-50 rounded-xl p-3.5 border border-slate-100 text-left text-xs mb-4 space-y-1.5">
                 <!-- Injetado dinamicamente via JS -->
             </div>
@@ -525,9 +525,9 @@
                         <button type="button" 
                                 onclick="confirmSingleDispatch(event, '${order.id}', '${order.business_id}', '${(order.client || '').replace(/'/g, "\\'")}', '${isItajai ? 'Filial Itajaí' : 'Matriz (DPS)'}')" 
                                 class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-black uppercase px-3.5 py-2 rounded-xl transition shadow-md shadow-blue-100 flex items-center space-x-1.5 z-10"
-                                title="Decidir e autorizar a entrada deste turbo para a Produção">
+                                title="Enviar este turbo para a Análise Técnica">
                             <i class="fa-solid fa-arrow-right-to-bracket text-xs"></i>
-                            <span>Despachar p/ Produção</span>
+                            <span>Enviar para Análise Técnica</span>
                         </button>
                     </div>
                 </div>
