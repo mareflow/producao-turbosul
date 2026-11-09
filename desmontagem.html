@@ -177,14 +177,12 @@
         <div class="p-4 border-b flex space-x-8 bg-slate-50 overflow-x-auto">
             <button type="button" class="tab-button-disassembly text-turbo-teal border-b-2 border-turbo-teal font-bold text-[11px] uppercase tracking-tight whitespace-nowrap" data-tab="tab1">1. Anexos (Itens Externos do Cliente)</button>
             <button type="button" class="tab-button-disassembly text-gray-500 hover:text-gray-700 font-medium text-[11px] uppercase tracking-tight whitespace-nowrap" data-tab="tab2">2. Reparos Gerais (Interno)</button>
-            <button type="button" class="tab-button-disassembly text-gray-500 hover:text-gray-700 font-medium text-[11px] uppercase tracking-tight whitespace-nowrap" data-tab="tab3">3. Checklist do Caracol (Caixa Quente)</button>
         </div>
 
         <!-- Conteúdo das Abas -->
         <div class="p-6">
             <div id="tab1" class="tab-content-disassembly space-y-1"></div>
             <div id="tab2" class="tab-content-disassembly hidden space-y-1"></div>
-            <div id="tab3" class="tab-content-disassembly hidden space-y-1"></div>
 
             <!-- Área de Ações Unificadas do Checklist (Desmontagem) -->
             <div class="flex justify-between items-center pt-6 border-t border-slate-100 mt-4">
@@ -350,6 +348,7 @@
     <script src="js/production-flow.js"></script>
     <script src="js/rework.js"></script>
     <script src="js/general-disassembly.js"></script>
+    <script src="js/caracol-checklist.js"></script>
     <script>
         // 1. CONFIGURAÇÕES E CONEXÕES
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
@@ -370,7 +369,6 @@
         const ANALYSIS_ITEMS = {
             'tab1': ['Travas CCO', 'Travas CT', 'Parafuso CT Flangeado', 'Parafuso CCO Flangeado', 'Cano Retorno Parafusos', 'Adaptador Lubrificação', 'Nipel de Lubrificação', 'Cano Lubrificação com Nipel', 'Atuador Pressão', 'Atuador Vácuo', 'Atuador Vácuo Eletrônico', 'Atuador Eletrônico com Haste', 'Suporte Atuador Eletrônico', 'Calço Atuador', 'Chapa de Proteção Atuador', 'Parafusos Suporte Atuador', 'Parafusos Chapa Proteção', 'Mangueira na CCO', 'Prisioneiro Saída', 'Prisioneiro Pé Mesa CT', 'Prisioneiro CCE', 'Parafuso CCE', 'Prisioneiro CCO', 'Prisioneiro Especial Longo', 'Saída de Escape', 'Flange Saída CT', 'Chapa de Proteção CT', 'Freio Motor', 'Chapa de Proteção Saída', 'Nipel Fixo na CCO', 'Nipel Roscado na CCO', 'Nipel com Parafuso OCO', 'Olhal', 'Parafuso OCO', 'Coletor', 'Cinta CT CCE', 'Cinta CCO', 'Cinta Saída', 'Flange Pé Mesa CT', 'Cano Admissão CCO', 'Cano Admissão Motor', 'Cano de Água', 'Valvula Prioritária', 'Valvula Solenóide', 'Sonda Temp Pressão', 'Sensor PVF', 'Bocal Plástico Biturbo', 'Tampão CT', 'Arruela Plástica Biturbo', 'Bocal Alumínio Biturbo', 'Luva Borracha Biturbo', 'Cano Ligação Alumínio', 'Capa Alumínio Biturbo', 'Peça Alumínio com Mola', 'Juntas', 'Almofada Amianto Saída', 'Mangueira Atuador', 'Conexão T', 'Defletor Admissão com Trava', 'Abraçadeiras', 'Capa Protetiva Alumínio', 'Nipel de Retorno', 'Mangueira de Retorno', 'Suporte CT', 'Anel Cano Retorno', 'Parafuso União Biturbo', 'Valvula Pressão Partida', 'Oring', 'Valvula Sensor Partida', 'Mangueira Bocal Alumínio'],
             'tab2': ['Mancal Radial', 'Mancal Encosto', 'Flange', 'Colar', 'Espaçador', 'Calço Arruela', 'Defletor de Óleo', 'Protetor Térmico', 'Travas de Mancal CCE', 'Trava Aranha Mancal', 'Trava de Flange', 'Calço de Altura no Rotor', 'Porca do Eixo', 'Almofada Vedação Eixo', 'Almofada Vedação Caracol', 'Arruela Metálica Vedação', 'Geometria Variável TGV', 'Flange da TGV', 'Viton', 'Aneis Vedação Flange TGV', 'Anel Assentamento Valvula Biturbo'],
-            'tab3': ['Trinca Base Face ou Gases', 'Quebra Base Face', 'Espessura da Base Minima 9mm', 'Embuchamento da CT', 'Desgaste Saida Escape Flangeada', 'Desgaste Face Encaixe CCE', 'Trinca Face Assentamento CCE', 'Trinca Parede Lateral Protetor', 'Trinca ou Quebra da Voluta', 'Borboleta ou Moeda Folga', 'Bucha Guia Borboleta', 'Braco Wastegate', 'Pino de Centro', 'Assentamento Borboleta Moeda', 'Coletor Anexo', 'Plaina Coletor Uniao Biturbo', 'Empenamento Faces Alojamento', 'Necessita Gabarito Usinagem', 'Tipo de Solda']
         };
 
         const MASTER_COMPONENTS = [
@@ -605,7 +603,7 @@
                     .eq('service_order_id', os.id);
                 
                 // Se o desmontador já preencheu e salvou anteriormente, exibe apenas a visualização de leitura estática
-                if (!error && checklistData && checklistData.length > 0) {
+                if (!error && CaracolChecklist.without(checklistData).length > 0) {
                     if (inputContainer) inputContainer.classList.add('hidden');
                     if (summaryContainer) {
                         summaryContainer.classList.remove('hidden');
@@ -623,9 +621,7 @@
                 const container = document.getElementById(tabId);
                 if (!container) return;
                 let html = '';
-                if (tabId === 'tab3') {
-                    html += `<div class="p-3 mb-3 border border-red-200 rounded-xl bg-red-50/50 flex items-center space-x-3"><input type="checkbox" id="condenar-caracol-global" onchange="condenarTudoCaracol(this)" class="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500"><label for="condenar-caracol-global" class="text-[10px] font-black text-red-700 uppercase tracking-tighter">CONDENAR CARACOL COMPLETO (TROCAR)</label></div>`;
-                }
+
                 html += ANALYSIS_ITEMS[tabId].map(item => {
                     const cleanName = item.replace(/\s+/g, '_').toLowerCase();
                     return `
@@ -968,6 +964,7 @@
         }
 
         function renderChecklistSummary(checklistData) {
+            checklistData = CaracolChecklist.without(checklistData);
             const list = document.getElementById('checklist-summary-list');
             if (!list) return;
             
@@ -1038,7 +1035,7 @@
                     .eq('service_order_id', currentSelection.id);
 
                 if (baselineError) throw baselineError;
-                const checklistSignature = JSON.stringify({ rows, baseline });
+                const checklistSignature = JSON.stringify({ rows, baseline: CaracolChecklist.without(baseline) });
                 if (Rework.approvedChecklists.get(currentSelection.id) === checklistSignature) return true;
 
                 // 2. Compara rigorosamente TODOS os itens para detectar qualquer divergência
@@ -1048,7 +1045,7 @@
 
                 // Mapa da análise técnica
                 const baselineMap = new Map();
-                (baseline || []).forEach(b => {
+                CaracolChecklist.without(baseline).forEach(b => {
                     const bName = (b.item_name || '').toUpperCase().trim();
                     const bStat = (b.status || 'NÃO INFORMADO').toUpperCase().trim();
                     baselineMap.set(bName, bStat);
@@ -1264,10 +1261,7 @@
             btn.classList.add('text-turbo-teal', 'border-b-2', 'border-turbo-teal', 'font-bold');
         }
 
-        function condenarTudoCaracol(check) {
-            const selects = document.getElementById('tab3').querySelectorAll('select');
-            selects.forEach(sel => { sel.value = check.checked ? 'TROCAR' : 'NÃO INFORMADO'; updateSelectColor(sel); });
-        }
+
 
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 		

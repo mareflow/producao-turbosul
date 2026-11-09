@@ -515,6 +515,7 @@
     <!-- Inclusão da biblioteca do Supabase via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/production-flow.js"></script>
+    <script src="js/caracol-checklist.js"></script>
 
     <!-- Lógica de Frontend com JavaScript Puro (Vanilla JS) -->
     <!-- Inclusão da biblioteca do Supabase via CDN -->
@@ -571,14 +572,7 @@
                 'Arruela Metálica Vedação', 'Geometria Variável TGV', 'Flange da TGV', 'Viton', 'Aneis Vedação Flange TGV', 
                 'Anel Assentamento Valvula Biturbo'
             ],
-            tab3: [
-                'Trinca Base Face ou Gases', 'Quebra Base Face', 'Espessura da Base Minima 9mm', 'Embuchamento da CT', 
-                'Desgaste Saida Escape Flangeada', 'Desgaste Face Encaixe CCE', 'Trinca Face Assentamento CCE', 
-                'Trinca Parede Lateral Protetor', 'Trinca ou Quebra da Voluta', 'Borboleta ou Moeda Folga', 
-                'Bucha Guia Borboleta', 'Braco Wastegate', 'Pino de Centro', 'Assentamento Borboleta Moeda', 
-                'Coletor Anexo', 'Plaina Coletor Uniao Biturbo', 'Empenamento Faces Alojamento', 'Necessita Gabarito Usinagem', 
-                'Tipo de Solda'
-            ]
+            tab3: CaracolChecklist.items
         };
 
         const PADROES_LOGICA = {

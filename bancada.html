@@ -145,6 +145,7 @@
 
             <div id="main-workspace" class="hidden space-y-6">
 
+                <section id="caracol-bancada-panel" hidden class="bg-white border border-slate-200 rounded-2xl shadow-sm"></section>
                 <div id="metrology-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-32"></div>
             </div>
         </main>
@@ -304,6 +305,8 @@
     <script src="js/condenar_peca.js"></script>
     <script src="js/production-flow.js"></script>
     <script src="js/rework.js"></script>
+    <script src="js/caracol-checklist.js"></script>
+    <script src="js/caracol-bancada.js"></script>
     <script>
         const SUPABASE_URL = 'https://zghaqlaqozsskfldgsfe.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnaGFxbGFxb3pzc2tmbGRnc2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MzQsImV4cCI6MjA4NDc4MjUzNH0.aC2DMOUNhS2uK6KGI5Sf2c2vGhrCKHMnRyZhL3WwSus';
@@ -394,6 +397,7 @@
             }
 
             specialItems = [];
+            CaracolBancada.select();
             
             document.querySelectorAll('#os-list > div').forEach(c => c.classList.remove('os-selected'));
             const cardEl = document.getElementById(`card-${id}`);
@@ -495,6 +499,7 @@
                 const name = comp.name;
                 const trk = trackingList.find(t => (t.component === name || t.component_name === name));
                 
+                const canStart = CaracolBancada.ready(name);
                 const statusPeca = trk?.status || 'Aguardando';
                 const setorAtual = trk?.current_stage || trk?.stage || '';
                 // Card fica bloqueado/cinza sempre que a peça sair da bancada para qualquer outro setor
@@ -555,11 +560,12 @@
                         actionBtnHtml = `<button type="button" onclick="startServiceTimer('${name}', '${t}')" class="text-xs bg-turbo-indigo hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded-lg transition-all uppercase text-[9px] tracking-wider"><i class="fa-solid fa-play mr-1"></i> Iniciar</button>`;
                     }
 
+                    if (!canStart) actionBtnHtml = actionBtnHtml.replace(/<button (?=[^>]*onclick="(?:startServiceTimer|resumeServiceTimer|resumeSavedServiceTimer)\()/g, '<button disabled ');
                     return `
                         <div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 px-2 rounded-lg transition">
                             <div class="flex items-center space-x-3">
                                 <label class="flex items-center space-x-3 cursor-pointer group">
-                                    <input type="checkbox" ${isSent ? 'disabled' : ''} ${savedLog ? 'checked' : ''} class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" data-service="${t}">
+                                    <input type="checkbox" ${isSent || !canStart ? 'disabled' : ''} ${savedLog ? 'checked' : ''} class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" data-service="${t}">
                                     <span class="text-xs font-bold text-slate-500 group-hover:text-slate-800 transition uppercase">${t}</span>
                                 </label>
                             </div>
@@ -589,6 +595,7 @@
                             </div>
                             <span class="text-[10px] font-black uppercase px-4 py-1.5 ${badgeColor} text-white rounded-full">${badgeText}</span>
                         </div>
+                        ${!canStart ? '<p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">Valide o checklist 3 do Caracol acima antes de iniciar os serviços.</p>' : ''}
                         ${retraBannerHtml}
                         ${Rework.render(name, !isSent, false)}
                         <div class="flex-grow overflow-y-auto max-h-[300px] pr-1">
@@ -610,8 +617,9 @@
         };
 
         // INICIA O CRONÔMETRO DE UM SUBPROCESSO ESPECÍFICO (BANCADA)
-        function startServiceTimer(componentName, serviceName) {
+        async function startServiceTimer(componentName, serviceName) {
             if (!selectedOS) return;
+            if (!await CaracolBancada.ensure(componentName)) return;
             const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
             const pausedKey = `timer_paused_${selectedOS.id}_${componentName}_${serviceName}`;
             localStorage.setItem(timerKey, new Date().toISOString());
@@ -636,15 +644,17 @@
             renderComponents();
         }
 
-        function resumeServiceTimer(componentName, serviceName) {
+        async function resumeServiceTimer(componentName, serviceName) {
             if (!selectedOS) return;
+            if (!await CaracolBancada.ensure(componentName)) return;
             const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
             localStorage.setItem(timerKey, new Date().toISOString());
             renderComponents();
         }
 
-        function resumeSavedServiceTimer(componentName, serviceName, existingDurationSeconds) {
+        async function resumeSavedServiceTimer(componentName, serviceName, existingDurationSeconds) {
             if (!selectedOS) return;
+            if (!await CaracolBancada.ensure(componentName)) return;
             const timerKey = `timer_${selectedOS.id}_${componentName}_${serviceName}`;
             const pausedKey = `timer_paused_${selectedOS.id}_${componentName}_${serviceName}`;
             localStorage.setItem(pausedKey, (existingDurationSeconds || 0).toString());
