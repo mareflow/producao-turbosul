@@ -611,6 +611,8 @@
         // --- CORREÇÃO 1: CRIAÇÃO DO SELETOR E ESTILO DINÂMICO ---
         function createDecisionSelect(itemName, techVerdict, initialDecision) {
             const cleanName = itemName.replace(/\s+/g, '_').toLowerCase();
+            const fullEligible = ProductionFlow.fullParts.includes(ProductionFlow.component(itemName));
+            if (!fullEligible) initialDecision = ProductionFlow.independentDecision(initialDecision, techVerdict);
             const normInitial = (initialDecision || '').toUpperCase().trim();
             const optionsList = [
                 { value: '', label: 'SELECIONAR...' },
@@ -619,7 +621,7 @@
                 { value: 'TROCAR', label: 'TROCAR' },
                 { value: 'TROCAR CONJUNTO', label: 'TROCAR CONJUNTO (FULL)' }
             ];
-            const options = optionsList.map(opt => {
+            const options = optionsList.filter(opt => fullEligible || opt.value !== 'TROCAR CONJUNTO').map(opt => {
                 const isSelected = (opt.value === initialDecision || (opt.value === 'TROCAR CONJUNTO' && normInitial.includes('CONJUNTO'))) ? 'selected' : '';
                 return `<option value="${opt.value}" ${isSelected}>${opt.label}</option>`;
             }).join('');
@@ -738,7 +740,7 @@
                     <tr class="${rowClass} hover:bg-slate-50 transition border-b">
                         <td class="px-6 py-5 text-sm font-black text-slate-800 uppercase tracking-tighter">
                             <i class="fa-solid ${icon} mr-3"></i>${item.name}
-                            <p class="text-[9px] text-slate-400 font-bold italic mt-1 uppercase">Auditoria Comercial Obrigatória</p>
+                            <p class="text-[9px] text-slate-400 font-bold italic mt-1 uppercase">${item.name === 'REPAROS' ? 'Serviços em produção — fora do conjunto FULL' : 'Auditoria Comercial Obrigatória'}</p>
                         </td>
                         <td class="px-6 py-5 text-sm">
                             ${createDecisionSelect(item.name, techVerdict, salesDecision)}
@@ -1016,44 +1018,22 @@
             const activeOrder = currentOrders.find(o => o.id === activeOSId);
 
             if (tipo === 'trocar') {
-                const coreParts = ["EIXO", "ROTOR", "REPAROS", "CCE", "EIXO ROTOR", "ROTOR COMPRESSOR", "CARCAÇA CENTRAL"];
-
-                selects.forEach(s => {
-                    const name = (s.dataset.itemName || '').toUpperCase().trim();
-                    const matchesCore = coreParts.some(cp => name === cp || name.includes(cp));
-
-                    if (matchesCore) {
-                        s.value = 'TROCAR CONJUNTO';
-                        s.classList.remove('hidden'); // Garante que o dropdown continua visível na página
-                        const badge = s.parentElement.querySelector('.badge-conjunto');
-                        if (badge) badge.remove();
-
-                        updateStatusSelectStyle(s);
-
-                        // Atualiza no checklist em memória
-                        if (activeOrder && activeOrder.checklist) {
-                            const it = activeOrder.checklist.find(c => {
-                                const dbName = (c.item_name || c.name || '').toUpperCase().trim();
-                                return dbName === name || coreParts.some(cp => dbName.includes(cp));
-                            });
-                            if (it) it.decisao_vendas = 'TROCAR CONJUNTO';
-                        }
-                    }
-                });
-
-                // Persiste imediatamente no Supabase para garantir segurança dos dados
-                if (activeOSId && supabaseClient) {
-                    try {
-                        for (const cp of ["EIXO", "ROTOR", "REPAROS", "CCE"]) {
-                            await supabaseClient.from('checklist_analysis_general')
-                                .update({ decisao_vendas: 'TROCAR CONJUNTO' })
-                                .eq('service_order_id', activeOSId)
-                                .ilike('item_name', `%${cp}%`);
-                        }
-                    } catch (err) {
-                        console.warn("Aviso ao salvar troca de conjunto no banco:", err);
-                    }
+                const coreSelects = Array.from(selects).filter(s => ProductionFlow.fullParts.includes(ProductionFlow.component(s.dataset.itemName)));
+                // Persiste apenas os nomes exatos selecionados; itens de checklist não entram no FULL.
+                if (activeOSId && supabaseClient && coreSelects.length) {
+                    const {error} = await supabaseClient.from('checklist_analysis_general')
+                        .update({decisao_vendas:'TROCAR CONJUNTO'}).eq('service_order_id',activeOSId)
+                        .in('item_name',coreSelects.map(s=>s.dataset.itemName));
+                    if (error) { showToast('Não foi possível salvar a troca do conjunto: '+error.message,'error'); return; }
                 }
+                coreSelects.forEach(s => {
+                    s.value='TROCAR CONJUNTO';s.classList.remove('hidden');
+                    s.parentElement.querySelector('.badge-conjunto')?.remove();
+                    updateStatusSelectStyle(s);
+                    const code=ProductionFlow.component(s.dataset.itemName);
+                    const item=activeOrder?.checklist?.find(c=>ProductionFlow.component(c.item_name || c.name)===code);
+                    if(item)item.decisao_vendas='TROCAR CONJUNTO';
+                });
 
                 showToast('Status atualizado para "TROCAR CONJUNTO (FULL)".');
             } else if (tipo === 'reset') {
@@ -1353,7 +1333,7 @@
                     alert('Selecione uma ordem de serviço na fila primeiro.');
                     return;
                 }
-                showQuickActionModal('trocar', 'TROCAR CONJUNTO (FULL)', 'Deseja marcar os componentes do Conjunto Rotativo (Eixo, Rotor, CCE e Reparos) como "TROCAR CONJUNTO"?');
+                showQuickActionModal('trocar', 'TROCAR CONJUNTO (FULL)', 'Marcar Eixo, Rotor e CCE como "TROCAR CONJUNTO (FULL)"? Reparos segue separado para os serviços da produção.');
             });
 
             resetDiagnosticoBtn.addEventListener('click', () => {
@@ -1549,11 +1529,11 @@
                     const decisionElements = document.querySelectorAll('.decision-select-item');
                     const activeOrder = currentOrders.find(o => o.id === activeOSId) || {};
 
-                    const decisions = Array.from(decisionElements).map(s => ({
+                    const decisions = ProductionFlow.commercialDecisions(Array.from(decisionElements).map(s => ({
                         item_name: s.dataset.itemName,
                         tech_verdict: s.dataset.techVerdict || 'NÃO INFORMADO',
                         decisao_vendas: s.value
-                    }));
+                    })));
 
                     const payload = {
                         os_id: activeOSId,
@@ -1599,6 +1579,7 @@
 
                     if (!error) {
                         await AccessoryFlow.routeApproved(supabaseClient, activeOSId);
+                        await ProductionFlow.ensureRepairs(supabaseClient, activeOSId);
                         await ProductionFlow.setOrderStatus(supabaseClient, activeOSId, newStatus, approvalUpdate, ['Aguardando Aprovação Comercial', 'Aguardando Venda']);
                     }
 

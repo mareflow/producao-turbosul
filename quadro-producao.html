@@ -517,7 +517,7 @@
                 const triageParts = triagePartsRes.data || [];
                 const triageItems = checklistRes.data || [];
                 const isConjuntoNovo = ProductionFlow.isNew({ analysis: triageItems, full_tracking: compRes.data || [] });
-                // Usa a mesma unidade de rastreio das filas: o FULL substitui seus quatro componentes.
+                // Usa a mesma unidade de rastreio das filas: o FULL substitui apenas eixo, rotor e CCE; Reparos mantém seu rastreio.
                 const components = ProductionFlow.tracking({
                     full_tracking: compRes.data || [], analysis: triageItems, purchase_parts: triageParts
                 });
@@ -526,7 +526,7 @@
                 const isNaDesmontagem = ['Aguardando Desmontagem OS', 'Em Desmontagem Operacional'].includes(osStatus);
 
                 // 1. Componentes base obrigatórios que compõem o turbo
-                const basePieces = hasConjunto ? ['CCO', 'CT', 'CONJUNTO ROTATIVO'] : ['CCO', 'CCE', 'CT', 'EIXO', 'ROTOR', 'REPAROS'];
+                const basePieces = hasConjunto ? ['CCO', 'CT', ...(isConjuntoNovo ? ['REPAROS'] : []), 'CONJUNTO ROTATIVO'] : ['CCO', 'CCE', 'CT', 'EIXO', 'ROTOR', 'REPAROS'];
                 const extraPieces = [];
 
                 // 2. Identifica componentes adicionais/especiais (Geometria, Atuador, etc.)
@@ -682,7 +682,7 @@
                                 </div>
                                 <div>
                                     <h4 class="font-black text-slate-800 text-sm uppercase">${componentLabel}</h4>
-                                    ${isConjunto ? '<p class="text-[10px] text-slate-500 mt-1">Inclui eixo, rotor, CCE e reparos</p>' : ''}
+                                    ${isConjunto ? `<p class="text-[10px] text-slate-500 mt-1">Inclui eixo, rotor${isConjuntoNovo ? ' e CCE' : ', CCE e reparos'}</p>` : ''}
                                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                                         <i class="fa-solid fa-location-dot mr-1 text-slate-400"></i> Setor: <span class="font-black ${isCompra ? 'text-amber-700' : 'text-slate-700'}">${sectorName}</span>
                                     </p>

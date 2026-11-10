@@ -55,7 +55,7 @@ const requests=ctx.window.PartRequests;
     tables.service_orders.push({id:'full',status:'Aguardando Triagem'});
     for(const item_name of ['EIXO','ROTOR','CCE','REPAROS'])tables.checklist_analysis_general.push({id:next++,service_order_id:'full',item_name,decisao_vendas:'TROCAR CONJUNTO'});
     await requests.confirm(client,'full','EIXO','STOCK');
-    assert.equal(tables.triage_parts.filter(r=>r.service_order_id==='full'&&!r.is_resolved).length,4);
+    assert.equal(tables.triage_parts.filter(r=>r.service_order_id==='full'&&!r.is_resolved).length,3);
     assert.equal((await requests.list(client)).filter(r=>r.os_id==='full').length,1,'Pedido único para conjunto full');
     assert.ok(tables.component_tracking.filter(r=>r.service_order_id==='full').every(r=>r.current_stage==='ESTOQUE'));
     await requests.receive(client,'full','CONJUNTO ROTATIVO (FULL)');

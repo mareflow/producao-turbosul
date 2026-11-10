@@ -756,6 +756,7 @@
     <script src="js/rework.js"></script>
     <script src="js/general-disassembly.js"></script>
     <script src="js/production-flow.js"></script>
+    <script src="js/part-requests.js"></script>
     <script>
 
         let allOrders = [];
@@ -1142,7 +1143,7 @@
                         analysisMap.set((tp.item_name || '').toUpperCase().trim(), tp);
                     });
                     isConjuntoNovo = triageParts.some(p => 
-                        ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || '').toUpperCase().trim()) && 
+                        ProductionFlow.fullParts.includes((p.item_name || '').toUpperCase().trim()) &&
                         (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
                     );
                 }
@@ -1156,7 +1157,7 @@
                 let status = p ? (p.status || 'Pendente').toUpperCase().trim() : 'AGUARDANDO';
 
                 const tp = analysisMap.get(nome.toUpperCase());
-                const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(nome.toUpperCase());
+                const isCorePart = ProductionFlow.fullParts.includes(nome.toUpperCase());
                 const isThisConjuntoNovo = isConjuntoNovo && isCorePart;
 
                 // Verifica se a peça está aguardando compra
@@ -1177,7 +1178,7 @@
                             <i class="fa-solid fa-box-open mr-1"></i> ${isThisConjuntoNovo ? 'Receber Conjunto (P/ Carcaçamento)' : 'Receber Peça (P/ Montagem)'}
                         </button>
                     `;
-                } else if (isThisConjuntoNovo || status === 'CONJUNTO NOVO') {
+                } else if (isThisConjuntoNovo || (isCorePart && status === 'CONJUNTO NOVO')) {
                     stage = 'MONTAGEM';
                     status = 'CONJUNTO NOVO';
                     bgClass = 'bg-emerald-50/70 border-emerald-300 shadow-sm';
@@ -1562,46 +1563,9 @@
             if (!confirm(confirmMsg)) return;
 
             try {
-                if (isConjuntoNovo) {
-                    const coreParts = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'];
-                    for (const cp of coreParts) {
-                        await supabaseClient
-                            .from('component_tracking')
-                            .upsert({
-                                service_order_id: osId,
-                                component_name: cp,
-                                current_stage: 'MONTAGEM',
-                                status: 'CONJUNTO NOVO',
-                                last_update: new Date().toISOString()
-                            }, { onConflict: 'service_order_id,component_name' });
-                    }
-
-                    await supabaseClient.from('history_events').insert({
-                        service_order_id: osId,
-                        action: 'Chegada de Conjunto Rotativo Novo',
-                        details: 'Conjunto rotativo novo recebido do setor de compras e encaminhado diretamente para Carcaçamento na Montagem.',
-                        timestamp: new Date().toISOString()
-                    });
-                } else {
-                    await supabaseClient
-                        .from('component_tracking')
-                        .upsert({
-                            service_order_id: osId,
-                            component_name: pieceName.toUpperCase().trim(),
-                            current_stage: 'MONTAGEM',
-                            status: 'RECEBIDO DA COMPRA',
-                            last_update: new Date().toISOString()
-                        }, { onConflict: 'service_order_id,component_name' });
-
-                    await supabaseClient.from('history_events').insert({
-                        service_order_id: osId,
-                        action: 'Peça Recebida da Compra',
-                        details: `Peça ${pieceName} recebida do setor de compras e encaminhada diretamente para a Montagem.`,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-
-                alert(`✅ ${isConjuntoNovo ? 'Conjunto Rotativo Novo' : pieceName} recebido com sucesso e liberado na Montagem!`);
+                const full = isConjuntoNovo && ProductionFlow.fullParts.includes(ProductionFlow.component(pieceName));
+                await PartRequests.receive(supabaseClient, osId, full ? 'CONJUNTO ROTATIVO (FULL)' : pieceName);
+                alert('Recebimento confirmado. ' + (ProductionFlow.component(pieceName) === 'REPAROS' ? 'Reparos segue para os serviços da Desmontagem.' : 'Peça liberada para o setor de destino.'));
                 await loadAdminDashboard();
                 openDeepDiveModal(osId);
             } catch (err) {

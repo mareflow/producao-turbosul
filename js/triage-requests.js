@@ -25,13 +25,13 @@ function renderizarPecas(items) {
     for (const item of items || []) {
         const decision = ProductionFlow.normalize(item.decisao_vendas);
         if (!['TROCAR','TROCAR CONJUNTO','CONDENADA EM PRODUCAO'].includes(decision) && !item.is_condenada_producao) continue;
-        const code = PartRequests.code(item.item_name), group = code.includes('CONJUNTO') || (window.currentIsTrocaConjunto && ProductionFlow.core.includes(code));
+        const code = PartRequests.code(item.item_name), group = code.includes('CONJUNTO') || (window.currentIsTrocaConjunto && ProductionFlow.fullParts.includes(code));
         const name = group ? 'CONJUNTO ROTATIVO (FULL)' : PartRequests.label(item.item_name);
         parts.set(name,{name,group});
     }
     window.currentTriageParts = [...parts.values()];
     container.innerHTML = [...parts.values()].map(p => {
-        const codes = p.group ? ProductionFlow.core : [PartRequests.code(p.name)];
+        const codes = p.group ? ProductionFlow.fullParts : [PartRequests.code(p.name)];
         const rows = receipts.filter(r=>codes.includes(PartRequests.code(r.part_name)));
         const received = codes.every(code=>rows.some(r=>PartRequests.code(r.part_name)===code && PartRequests.status(r)==='RECEIVED'));
         const type = received ? 'RECEIVED' : rows.map(r=>PartRequests.status(r)).find(v=>v!=='DRAFT') || 'DRAFT';
@@ -39,7 +39,7 @@ function renderizarPecas(items) {
         const label = received ? 'Baixa concluída' : locked ? PartRequests.typeLabel(type)+' • confirmado, aguardando baixa' : 'Escolha e confirme o tipo de pedido';
         return `<div class="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-slate-100" data-name="${e(p.name)}">
             <div><p class="text-xs font-black text-slate-800">${e(p.name)}</p><p class="text-[10px] text-slate-500 mt-1">${e(label)}</p>
-            ${p.group ? '<p class="text-[10px] text-amber-700">Eixo, Rotor, CCE e Reparos — pedido único</p>' : ''}</div>
+            ${p.group ? '<p class="text-[10px] text-amber-700">Eixo, Rotor e CCE — pedido único; Reparos segue separado na produção</p>' : ''}</div>
             <div class="flex gap-1 bg-slate-100 rounded-lg p-1">
                 <button type="button" ${locked?'disabled':''} data-request-type="STOCK" class="btn-toggle-stock ${type==='STOCK'?'active':''} text-[10px] px-4 py-2 rounded-md font-bold disabled:opacity-50">ESTOQUE</button>
                 <button type="button" ${locked?'disabled':''} data-request-type="ORDER" class="btn-toggle-order ${type==='PURCHASE'?'active':''} text-[10px] px-4 py-2 rounded-md font-bold disabled:opacity-50">PEDIR</button>
@@ -111,7 +111,7 @@ async function atualizarContadores() {
 
 function coletarDadosDasPecas() {
     const rows=window.currentTriageRequests || [],pecasEstado=[];let temFaltante=false,temIndefinido=false;
-    for(const part of window.currentTriageParts || []) for(const code of part.group?ProductionFlow.core:[PartRequests.code(part.name)]) {
+    for(const part of window.currentTriageParts || []) for(const code of part.group?ProductionFlow.fullParts:[PartRequests.code(part.name)]) {
         const row=rows.find(r=>PartRequests.code(r.part_name)===code), status=PartRequests.status(row);
         if(status==='DRAFT')temIndefinido=true;if(status!=='RECEIVED')temFaltante=true;
         pecasEstado.push({name:PartRequests.label(code),availability:row?.availability || 'PENDING',is_resolved:status==='RECEIVED'});
@@ -131,6 +131,7 @@ async function salvarTriagem(statusFinalOverride=null) {
         const fields={identificacao_e_marcacao_code:code,identificacao_e_marcacao_type:document.getElementById('select-marking-type').value,
             observation:document.getElementById('obs-triagem').value,serial_number:document.getElementById('input-serial-number').value.trim().toUpperCase()};
         const id=selecionada._supabaseId || selecionada.id;
+        await ProductionFlow.ensureRepairs(supabaseClient,id);
         await ProductionFlow.setOrderStatus(supabaseClient,id,statusFinalOverride || 'Aguardando Desmontagem OS',fields,['Aguardando Triagem','Standby']);
         await PartRequests.checked(supabaseClient.from('history_events').insert({service_order_id:id,action:'TRIAGEM LIBERADA',description:'O.S. liberada; pedidos pendentes permanecem aguardando baixa física.'}));
         location.reload();

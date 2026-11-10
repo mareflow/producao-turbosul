@@ -35,11 +35,11 @@ function order() { return { triage_parts: tables.checklist_analysis_general, pur
     tables.checklist_analysis_general = core.map(item_name => ({ service_order_id: 'os', item_name, decisao_vendas: 'TROCAR CONJUNTO' }));
     tables.triage_parts = core.map(part_name => ({ service_order_id: 'os', part_name, availability: 'STOCK', is_resolved: true }));
     tables.component_tracking = core.map(component_name => ({ service_order_id: 'os', component_name, current_stage: component_name === 'EIXO' ? 'BALANCEAMENTO' : 'MONTAGEM', tracking_data: [] }));
-    assert.equal(flow.tracking(order()).length, 1);
-    assert.equal(flow.tracking(order())[0].current_stage, 'MONTAGEM', 'Conjunto recebido não exibe eixo isolado');
+    assert.equal(flow.tracking(order()).length, 2, 'FULL e Reparos separados');
+    assert.equal(flow.tracking(order()).find(t=>t.component_name==='CONJUNTO ROTATIVO').current_stage, 'MONTAGEM', 'Conjunto recebido não exibe eixo isolado');
     await flow.move('Conjunto Novo', 'RETIFICA', { note: 'Correção no conjunto' });
     assert.equal(tables.component_tracking.length, 5);
-    assert.ok(tables.component_tracking.every(t => t.current_stage === 'RETIFICA' && t.current_sector === 'RETIFICA'));
+    assert.ok(tables.component_tracking.filter(t=>t.component_name!=='REPAROS').every(t => t.current_stage === 'RETIFICA' && t.current_sector === 'RETIFICA'));
     sector = 'RETIFICA'; await flow.move('CONJUNTO ROTATIVO', 'MONTAGEM', { note: 'Correção concluída' });
     assert.ok(tables.component_tracking.every(t => t.current_stage === 'MONTAGEM'));
     assert.equal(tables.component_tracking[0].tracking_data.length, 2, 'Histórico de ida e volta preservado');

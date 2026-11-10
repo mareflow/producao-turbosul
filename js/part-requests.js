@@ -23,8 +23,8 @@ const PartRequests = {
         ]);
         if (!order || ProductionFlow.isClosed(order)) throw new Error('Esta O.S. está encerrada. Atualize a fila.');
         const code = this.code(part);
-        const group = code.includes('CONJUNTO') || (ProductionFlow.core.includes(code) && ProductionFlow.isNew({analysis:analysis || []}));
-        const codes = group ? ProductionFlow.core : [code];
+        const group = code.includes('CONJUNTO') || (ProductionFlow.fullParts.includes(code) && ProductionFlow.isNew({analysis:analysis || []}));
+        const codes = group ? ProductionFlow.fullParts : [code];
         return { order, analysis:analysis || [], receipts:receipts || [], codes, group, name:group ? 'CONJUNTO ROTATIVO (FULL)' : this.label(part) };
     },
     async confirm(client, id, part, type, options = {}) {
@@ -44,7 +44,7 @@ const PartRequests = {
         }
         if (missing.length) await this.checked(client.from('triage_parts').insert(missing.map(code=>({service_order_id:id,part_name:this.label(code),...receiptValue}))));
         const stage = this.stage(type), now = new Date().toISOString();
-        const components = ctx.group ? ProductionFlow.coreNames() : ctx.codes;
+        const components = ctx.group ? ProductionFlow.fullNames() : ctx.codes;
         await this.checked(client.from('component_tracking').upsert(components.map(component_name=>({
             service_order_id:id,component_name,current_stage:stage,current_sector:stage,
             status:type === 'STOCK' ? 'AGUARDANDO_RETIRADA_ESTOQUE' : 'AGUARDANDO_COMPRA',
@@ -67,11 +67,11 @@ const PartRequests = {
         if (rows.every(r=>this.status(r)==='RECEIVED')) return {...ctx,alreadyReceived:true};
         const type = this.status(rows[0]);
         if (!this.states[type] || rows.some(r=>this.status(r)!==type)) throw new Error('Confirme um único tipo de pedido antes de dar baixa.');
-        const now = new Date().toISOString(), components = ctx.group ? ProductionFlow.coreNames() : ctx.codes;
+        const now = new Date().toISOString(), components = ctx.group ? ProductionFlow.fullNames() : ctx.codes;
         await this.checked(client.from('component_tracking').upsert(components.map(component_name=>({
             service_order_id:id,component_name,
-            current_stage:ctx.group ? 'MONTAGEM' : component_name==='EIXO' ? 'BALANCEAMENTO' : ['CT','CCO'].includes(component_name) ? 'DESMONTAGEM' : 'MONTAGEM',
-            current_sector:ctx.group ? 'MONTAGEM' : component_name==='EIXO' ? 'BALANCEAMENTO' : ['CT','CCO'].includes(component_name) ? 'DESMONTAGEM' : 'MONTAGEM',
+            current_stage:ctx.group ? 'MONTAGEM' : component_name==='EIXO' ? 'BALANCEAMENTO' : ['CT','CCO','REPAROS'].includes(component_name) ? 'DESMONTAGEM' : 'MONTAGEM',
+            current_sector:ctx.group ? 'MONTAGEM' : component_name==='EIXO' ? 'BALANCEAMENTO' : ['CT','CCO','REPAROS'].includes(component_name) ? 'DESMONTAGEM' : 'MONTAGEM',
             status:ctx.group ? 'CONJUNTO NOVO' : 'PEÇA RECEBIDA',
             status_description:`Baixa física: ${this.typeLabel(type)}.`,
             ...(ctx.group ? {verdict_vendas:'TROCAR CONJUNTO'} : {}),last_update:now
@@ -99,7 +99,7 @@ const PartRequests = {
         const fullOrders=new Set(tracking.filter(t=>t.verdict_vendas==='TROCAR CONJUNTO').map(t=>t.service_order_id));
         const grouped = new Map();
         for (const row of active) {
-            const full = this.code(row.part_name).includes('CONJUNTO') || (ProductionFlow.core.includes(this.code(row.part_name)) && (fullOrders.has(row.service_order_id) || ProductionFlow.isNew({analysis:analysis.filter(a=>a.service_order_id===row.service_order_id)})));
+            const full = this.code(row.part_name).includes('CONJUNTO') || (ProductionFlow.fullParts.includes(this.code(row.part_name)) && (fullOrders.has(row.service_order_id) || ProductionFlow.isNew({analysis:analysis.filter(a=>a.service_order_id===row.service_order_id)})));
             const type = this.status(row), name = full ? 'CONJUNTO ROTATIVO (FULL)' : this.label(row.part_name);
             const key = [row.service_order_id,name,type].join(':');
             if (!grouped.has(key)) grouped.set(key,{order:row.service_orders,os_id:row.service_order_id,name,type,group:full});

@@ -420,15 +420,15 @@
                             const osTracking = ProductionFlow.tracking({ full_tracking: trackings.filter(t => t.service_order_id === os.id) });
                             const osTriage = (allTriageParts || []).filter(tp => tp.service_order_id === os.id);
                             const isOsConjuntoNovo = osTriage.some(p => 
-                                ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || '').toUpperCase().trim()) && 
+                                ProductionFlow.fullParts.includes((p.item_name || '').toUpperCase().trim()) &&
                                 (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
                             );
 
-                            // Se for Conjunto Novo, as peças de núcleo (EIXO, ROTOR, CCE, REPAROS) não são checadas na Desmontagem
+                            // Se for Conjunto Novo, as três peças do FULL (EIXO, ROTOR, CCE) não são checadas na Desmontagem
                             const componentsToCheck = [...MASTER_COMPONENTS,
                                 ...osTracking.filter(t => AccessoryFlow.part(t.component_name) || t.component_name === 'CONJUNTO ROTATIVO').map(t => ({ title: t.component_name }))]
                                 .map(c => c.title)
-                                .filter(compName => !(isOsConjuntoNovo && ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(compName.toUpperCase())));
+                                .filter(compName => !(isOsConjuntoNovo && ProductionFlow.fullParts.includes(compName.toUpperCase())));
                             
                             // Se ainda houver alguma peça cujo setor atual NÃO seja pós-desmontagem, mantém na fila
                             const hasPendingPiece = osTracking.some(t => t.current_stage === 'DESMONTAGEM') || componentsToCheck.some(compName => {
@@ -653,13 +653,13 @@
                 .filter(t => !MASTER_COMPONENTS.some(c => c.title === t.component_name) && !specialItemsList.some(c => c.title === t.component_name) && t.current_stage === 'DESMONTAGEM')
                 .map(t => ({ title: t.component_name, items: ['Análise', 'Desmontagem/Limpeza', 'Conferência'] }));
             const hasCore = (currentSelection.tracking || []).some(t => t.component_name === 'CONJUNTO ROTATIVO');
-            const allToRender = [...MASTER_COMPONENTS.filter(c => !hasCore || !ProductionFlow.core.includes(c.title)), ...accessories, ...specialItemsList];
+            const allToRender = [...MASTER_COMPONENTS.filter(c => !hasCore || !ProductionFlow.bundleParts(currentSelection).includes(c.title)), ...accessories, ...specialItemsList];
             
             let todasPecasEnviadas = true;
 
             // 1. Verifica se a OS como um todo foi marcada como Conjunto Novo (Full)
             const isOsConjuntoNovo = (currentSelection.triage_parts || []).some(p => 
-                ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || '').toUpperCase().trim()) && 
+                ProductionFlow.fullParts.includes((p.item_name || '').toUpperCase().trim()) &&
                 (p.decisao_vendas || '').toUpperCase().trim() === 'TROCAR CONJUNTO'
             );
 
@@ -681,7 +681,7 @@
                 const isPendingOrder = (['ORDER','PENDING','PURCHASE_REQUEST','STOCK_REQUEST'].includes(analysisItem?.availability) && analysisItem?.is_resolved !== true) || statusPeca.includes('COMPRA') || stageAtual.includes('COMPRA');
                 
                 // 3. Verifica se esta peça específica deve ser tratada como Conjunto Novo na UI
-                const isCorePart = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes(comp.title.toUpperCase());
+                const isCorePart = ProductionFlow.fullParts.includes(comp.title.toUpperCase());
                 const isThisPartConjuntoNovo = isOsConjuntoNovo && isCorePart;
 
                 // A peça é bloqueada se já foi enviada OU se está aguardando compra OU se for Conjunto Novo

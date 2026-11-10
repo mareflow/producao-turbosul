@@ -1,5 +1,7 @@
 const ProductionFlow = {
+    // O núcleo recondicionado usa reparos; a compra FULL contém somente estas três peças.
     core: ['EIXO', 'ROTOR', 'CCE', 'REPAROS'],
+    fullParts: ['EIXO', 'ROTOR', 'CCE'],
     sectors: ['DESMONTAGEM', 'RETIFICA', 'SOLDA', 'METROLOGIA', 'BANCADA', 'BALANCEAMENTO', 'MONTAGEM'],
     normalize(value) { return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase(); },
     isClosed(order) {
@@ -58,13 +60,45 @@ const ProductionFlow = {
     component(value) {
         const key = this.normalize(value);
         return ({ 'CONJUNTO NOVO': 'CONJUNTO ROTATIVO', 'PECA INTEIRA': 'PEÇA INTEIRA', 'CARCACA DE TURBINA (CT)': 'CT',
+            'EIXO ROTOR': 'EIXO', 'ROTOR COMPRESSOR': 'ROTOR', 'CARCACA CENTRAL': 'CCE',
             'GEOMETRIA VARIAVEL': 'GEOMETRIA', 'CANOTE DA GEOMETRIA': 'CANOTE', 'FLANGE DA GEOMETRIA': 'FLANGE' })[key] || String(value || '').trim().toUpperCase();
     },
     isNew(order) {
-        return (order.triage_parts || order.analysis || []).some(item => this.core.includes(this.component(item.item_name)) && this.normalize(item.decisao_vendas) === 'TROCAR CONJUNTO') ||
-            (order.full_tracking || order.tracking || []).some(t => t.verdict_vendas === 'TROCAR CONJUNTO');
+        return (order.triage_parts || order.analysis || []).some(item => this.fullParts.includes(this.component(item.item_name)) && this.normalize(item.decisao_vendas) === 'TROCAR CONJUNTO') ||
+            (order.full_tracking || order.tracking || []).some(t => (this.fullParts.includes(this.component(t.component_name)) || this.component(t.component_name) === 'CONJUNTO ROTATIVO') && t.verdict_vendas === 'TROCAR CONJUNTO');
     },
-    coreNames() { return [...this.core, 'CONJUNTO ROTATIVO']; },
+    bundleParts(order = {}) { return this.isNew(order) ? this.fullParts : this.core; },
+    coreNames(order = {}) { return [...this.bundleParts(order), 'CONJUNTO ROTATIVO']; },
+    fullNames() { return [...this.fullParts, 'CONJUNTO ROTATIVO']; },
+    independentDecision(decision, technical = '') {
+        const value = this.normalize(decision);
+        if (value !== 'TROCAR CONJUNTO') return decision || '';
+        const verdict = this.normalize(technical);
+        return ['TROCAR','RUIM'].includes(verdict) ? 'TROCAR' : verdict === 'RECONDICIONAR' ? 'RECONDICIONAR' : 'OK';
+    },
+    commercialDecisions(rows) {
+        const full = rows.some(row => this.fullParts.includes(this.component(row.item_name)) && this.normalize(row.decisao_vendas) === 'TROCAR CONJUNTO');
+        return rows.map(row => ({...row, decisao_vendas: this.fullParts.includes(this.component(row.item_name))
+            ? full ? 'TROCAR CONJUNTO' : row.decisao_vendas
+            : this.independentDecision(row.decisao_vendas, row.tech_verdict || row.status)}));
+    },
+    async ensureRepairs(client, id) {
+        const results = await Promise.all([
+            client.from('service_orders').select('status').eq('id', id).maybeSingle(),
+            client.from('component_tracking').select('id').eq('service_order_id', id).eq('component_name', 'REPAROS').maybeSingle(),
+            client.from('checklist_analysis_general').select('status,decisao_vendas').eq('service_order_id', id).eq('item_name', 'REPAROS').maybeSingle()
+        ]);
+        for (const result of results) if (result.error) throw result.error;
+        const [order, existing, analysis] = results.map(result => result.data);
+        if (!order || this.isClosed(order)) throw new Error('Esta O.S. está encerrada. Atualize a fila.');
+        if (existing) return;
+        const {error} = await client.from('component_tracking').upsert({service_order_id:id,component_name:'REPAROS',
+            current_stage:'DESMONTAGEM',current_sector:'DESMONTAGEM',status:'Aguardando',
+            verdict_vendas:this.independentDecision(analysis?.decisao_vendas,analysis?.status) || 'RECONDICIONAR',
+            status_description:'Reparos segue para os serviços da produção, separado do conjunto FULL.',last_update:new Date().toISOString()
+        },{onConflict:'service_order_id,component_name',ignoreDuplicates:true});
+        if (error) throw error;
+    },
     pendingStage(rows) {
         const pending = (rows || []).filter(r => r.is_resolved !== true);
         if (pending.some(r => r.availability === 'PURCHASE_REQUEST')) return 'COMPRA';
@@ -72,16 +106,17 @@ const ProductionFlow = {
         return 'TRIAGEM';
     },
     received(order) {
-        return this.core.every(name => (order.purchase_parts || []).some(p => this.component(p.part_name) === name && p.availability === 'STOCK' && p.is_resolved === true));
+        return this.fullParts.every(name => (order.purchase_parts || []).some(p => this.component(p.part_name) === name && p.availability === 'STOCK' && p.is_resolved === true));
     },
     tracking(order) {
         const list = order.full_tracking || order.tracking || [];
         const aggregate = list.find(t => this.component(t.component_name) === 'CONJUNTO ROTATIVO');
         if (!this.isNew(order) && !aggregate) return list;
-        const members = list.filter(t => this.core.includes(this.component(t.component_name)));
-        const commonStage = members.length === 4 && members.every(t => t.current_stage === members[0].current_stage) ? members[0].current_stage : 'MONTAGEM';
-        const stage = Array.isArray(order.purchase_parts) && this.isNew(order) && !this.received(order) ? this.pendingStage(order.purchase_parts.filter(p=>this.core.includes(this.component(p.part_name)))) : (aggregate?.current_stage || commonStage);
-        return [...list.filter(t => !this.core.includes(this.component(t.component_name)) && this.component(t.component_name) !== 'CONJUNTO ROTATIVO'),
+        const parts = this.bundleParts(order);
+        const members = list.filter(t => parts.includes(this.component(t.component_name)));
+        const commonStage = members.length === parts.length && members.every(t => t.current_stage === members[0].current_stage) ? members[0].current_stage : 'MONTAGEM';
+        const stage = Array.isArray(order.purchase_parts) && this.isNew(order) && !this.received(order) ? this.pendingStage(order.purchase_parts.filter(p=>this.fullParts.includes(this.component(p.part_name)))) : (aggregate?.current_stage || commonStage);
+        return [...list.filter(t => !parts.includes(this.component(t.component_name)) && this.component(t.component_name) !== 'CONJUNTO ROTATIVO'),
             { ...aggregate, component_name: 'CONJUNTO ROTATIVO', current_stage: stage, current_sector: stage,
                 status: aggregate?.status || (stage === 'COMPRA' ? 'AGUARDANDO_COMPRA' : 'CONJUNTO NOVO') }];
     },
@@ -102,6 +137,9 @@ const ProductionFlow = {
             (log.from === 'MONTAGEM' || !['MONTAGEM','BALANCEAMENTO'].includes(log.to)))
             .reduce((max, log) => Math.max(max, Date.parse(log.timestamp) || 0), 0);
         return logs.some(log => log.sector === 'BALANCEAMENTO' && log.duration_seconds > 0 && (Date.parse(log.end_time) || 0) >= lastDeparture);
+    },
+    repairsReady(order = {}) {
+        return (order.full_tracking || order.tracking || []).some(part => this.component(part.component_name) === 'REPAROS' && this.normalize(part.current_stage || part.current_sector) === 'MONTAGEM');
     },
     coreMounted(order = {}) {
         const tracking = order.full_tracking || order.tracking || [];
@@ -156,9 +194,11 @@ const ProductionFlow = {
         for (const r of results) if (r.error) throw r.error;
         const [tracking, analysis, receipts] = results.map(r => r.data || []);
         const name = this.component(component);
-        const newCore = this.isNew({ analysis });
+        const freshOrder = {analysis,full_tracking:tracking};
+        const newCore = this.isNew(freshOrder);
+        const bundle = this.bundleParts(freshOrder);
         const whole = name === 'PEÇA INTEIRA';
-        const grouped = name === 'CONJUNTO ROTATIVO' || (newCore && this.core.includes(name));
+        const grouped = name === 'CONJUNTO ROTATIVO' || (newCore && this.fullParts.includes(name));
         const current = tracking.find(t => t.component_name === (grouped ? 'CONJUNTO ROTATIVO' : name));
         if (target === 'BALANCEAMENTO') {
             const fresh = {analysis,full_tracking:tracking};
@@ -167,12 +207,15 @@ const ProductionFlow = {
                 throw new Error('Somente o eixo pode ir direto ao Balanceamento. O conjunto rotativo deve ser montado e enviado pela Montagem.');
             }
             if (whole && !tracking.some(t => t.component_name === 'EIXO')) throw new Error('A O.S. não possui eixo registrado para Balanceamento.');
-            if (grouped && !this.core.every(part => tracking.some(t => t.component_name === part && t.current_stage === 'MONTAGEM'))) {
-                throw new Error('Eixo, rotor, CCE e reparos devem estar na Montagem para enviar o conjunto ao Balanceamento.');
+            if (grouped && !bundle.every(part => tracking.some(t => t.component_name === part && t.current_stage === 'MONTAGEM'))) {
+                throw new Error((newCore ? 'Eixo, rotor e CCE' : 'Eixo, rotor, CCE e reparos') + ' devem estar na Montagem para enviar o conjunto ao Balanceamento.');
             }
         }
+        if (whole && sector === 'MONTAGEM' && newCore && !this.repairsReady(freshOrder)) {
+            throw new Error('Aguarde Reparos concluir os serviços e chegar à Montagem antes de encaminhar a turbina completa.');
+        }
         if (current && !['REABERTA', sector].includes(current.current_stage)) throw new Error('A peça já está em outro setor. Atualize a tela.');
-        const names = whole ? [...new Set([...tracking.filter(t => t.current_stage === sector || this.coreNames().includes(t.component_name) || ['CT', 'CCO'].includes(t.component_name)).map(t => t.component_name), 'PEÇA INTEIRA'])] : grouped ? this.coreNames() : [name];
+        const names = whole ? [...new Set([...tracking.filter(t => t.current_stage === sector || this.coreNames(freshOrder).includes(t.component_name) || ['CT', 'CCO'].includes(t.component_name)).map(t => t.component_name), 'PEÇA INTEIRA'])] : grouped ? this.coreNames(freshOrder) : [name];
         const pending = receipts.some(p => names.includes(this.component(p.part_name)) && (p.availability === 'ORDER' || p.is_resolved !== true));
         if (pending) throw new Error('A peça ainda aguarda baixa de recebimento na Triagem.');
         const activeTimer = Object.keys(localStorage).some(key => names.some(part => key === `timer_${id}_${part}` || key === `timer_paused_${id}_${part}` || key.startsWith(`timer_${id}_${part}_`) || key.startsWith(`timer_paused_${id}_${part}_`)) ||

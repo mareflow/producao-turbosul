@@ -273,9 +273,9 @@
 
         window.addEventListener('load', fetchQueue);
 
-        const CORE_PARTS = ['EIXO', 'ROTOR', 'CCE', 'REPAROS'];
+        const CORE_PARTS = ProductionFlow.fullParts;
         function isNewCore(order) {
-            return (order.triage_parts || []).some(p => CORE_PARTS.includes((p.item_name || '').toUpperCase().trim()) && p.decisao_vendas === 'TROCAR CONJUNTO');
+            return ProductionFlow.isNew(order);
         }
         function purchasePending(order, name) {
             const aliases = { CT: 'CARCAÇA DE TURBINA (CT)', GEOMETRIA: 'GEOMETRIA VARIÁVEL', CANOTE: 'CANOTE DA GEOMETRIA', FLANGE: 'FLANGE DA GEOMETRIA' };
@@ -493,10 +493,7 @@
                 return 'NUCLEO_EM_BALANCEAMENTO';
             }
 
-            const isConjuntoNovo = (selectedOS.triage_parts || []).some(p => 
-                ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || "").toUpperCase().trim()) && 
-                (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
-            );
+            const isConjuntoNovo = isNewCore(selectedOS);
 
             const isConjuntoBalanceado = ProductionFlow.coreBalanced(selectedOS);
 
@@ -508,7 +505,8 @@
                 const ctStage = ct ? (ct.target_sector || ct.current_stage || ct.stage || '').toUpperCase() : '';
                 const ccoStage = cco ? (cco.target_sector || cco.current_stage || cco.stage || '').toUpperCase() : '';
                 const coreReady = conjuntoRotativo && stageConjunto === 'MONTAGEM';
-                const carcasasProntas = ctStage === 'MONTAGEM' && ccoStage === 'MONTAGEM' && coreReady;
+                const reparosProntos = !isNewCore(selectedOS) || ProductionFlow.repairsReady(selectedOS);
+                const carcasasProntas = ctStage === 'MONTAGEM' && ccoStage === 'MONTAGEM' && coreReady && reparosProntos;
 
                 if (!carcasasProntas) {
                     return 'CARCACAMENTO_AGUARDANDO';
@@ -588,6 +586,7 @@
             }
             const annexes = tracking.filter(t => AccessoryFlow.part(t.component_name) ||
                 (etapa === 'NUCLEO' && ['CT','CCO'].includes(ProductionFlow.component(t.component_name))) ||
+                (isNewCore(selectedOS) && ProductionFlow.component(t.component_name) === 'REPAROS') ||
                 ![...ProductionFlow.core, 'CT','CCO','CONJUNTO ROTATIVO'].includes(ProductionFlow.component(t.component_name)));
             accompaniment.innerHTML = '<p class="text-xs font-bold text-slate-500 mb-2">PEÇAS DE ACOMPANHAMENTO — localização e encaminhamento</p>' +
                 annexes.map(t => '<div class="flex flex-wrap items-center gap-2 mb-2"><span class="text-xs font-bold">' + Rework.escape(t.component_name) + ': ' + Rework.escape(t.current_stage) + '</span>' + (t.current_stage === 'MONTAGEM' ? '<details class="text-xs"><summary class="cursor-pointer text-blue-700">Encaminhar / retornar</summary>' + ProductionFlow.render(t.component_name) + '</details>' : '') + '</div>').join('');
@@ -605,10 +604,7 @@
                 if (conjunto) renderPecasCards({'Conjunto Rotativo':conjunto});
                 else renderPecasCards({ Eixo: eixo, Rotor: rotor, CCE: cce, Reparos: reparos });
             } else {
-                const isConjuntoNovo = (selectedOS.triage_parts || []).some(p => 
-                    ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || "").toUpperCase().trim()) && 
-                    (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
-                );
+                const isConjuntoNovo = isNewCore(selectedOS);
 
                 const badgeText = isConjuntoNovo 
                     ? "Etapa 2: Carcaçamento (Housings) — <span class='text-amber-200'>CONJUNTO NOVO</span>" 
@@ -702,7 +698,9 @@
                 case 'CARCACAMENTO_AGUARDANDO':
                     bannerStatus.innerHTML = isNewCore(selectedOS) && !newCoreReceived(selectedOS)
                         ? `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ CONJUNTO NOVO AGUARDANDO BAIXA DE RECEBIMENTO NA TRIAGEM</span>`
-                        : `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ AGUARDANDO CONJUNTO, CT E CCO NA MONTAGEM</span>`;
+                        : isNewCore(selectedOS) && !ProductionFlow.repairsReady(selectedOS)
+                            ? `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ AGUARDANDO REPAROS CONCLUIR OS SERVIÇOS E CHEGAR À MONTAGEM</span>`
+                            : `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ AGUARDANDO CONJUNTO, CT E CCO NA MONTAGEM</span>`;
                     btnIniciar.disabled = true;
                     btnIniciar.classList.remove('hidden');
                     btnIniciar.className = 'w-full bg-slate-400 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest transition-all cursor-not-allowed';
@@ -930,10 +928,7 @@
             
             const stageConjunto = conjuntoRotativo ? (conjuntoRotativo.target_sector || conjuntoRotativo.current_stage || conjuntoRotativo.stage || '').toUpperCase() : '';
             
-            const isConjuntoNovo = (selectedOS.triage_parts || []).some(p => 
-                ['EIXO', 'ROTOR', 'CCE', 'REPAROS'].includes((p.item_name || "").toUpperCase().trim()) && 
-                (p.decisao_vendas || "").toUpperCase().trim() === "TROCAR CONJUNTO"
-            );
+            const isConjuntoNovo = isNewCore(selectedOS);
 
             const isConjuntoBalanceado = ProductionFlow.coreBalanced(selectedOS);
 
