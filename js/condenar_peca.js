@@ -271,6 +271,11 @@
                 } catch (e) { }
 
                 const names = this.getStandardNames(this.currentComponent);
+                if (this.currentSector === 'BANCADA' && names.trackingCode === 'CT') {
+                    if (!window.CaracolBancada || !await window.CaracolBancada.ensure('CT', this.currentOsId)) {
+                        throw new Error('Salve e valide o checklist 3 do Caracol antes de encaminhar a CT à Triagem.');
+                    }
+                }
                 const now = new Date().toISOString();
                 const { data: confirmedRequests, error: requestError } = await supabase.from('triage_parts').select('id')
                     .eq('service_order_id', this.currentOsId).in('part_name', [names.standard, names.trackingCode])

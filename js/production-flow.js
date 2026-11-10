@@ -178,6 +178,11 @@ const ProductionFlow = {
         const activeTimer = Object.keys(localStorage).some(key => names.some(part => key === `timer_${id}_${part}` || key === `timer_paused_${id}_${part}` || key.startsWith(`timer_${id}_${part}_`) || key.startsWith(`timer_paused_${id}_${part}_`)) ||
             (sector === 'MONTAGEM' && (key.startsWith(`timer_${id}_MONTAGEM_`) || key.startsWith(`timer_paused_${id}_MONTAGEM_`))));
         if (activeTimer) throw new Error('Finalize os cronômetros dos serviços desta O.S. antes de encaminhar.');
+        if (sector === 'BANCADA' && names.some(part => this.component(part) === 'CT' || window.CaracolChecklist?.isCT(part))) {
+            if (!window.CaracolBancada || !await window.CaracolBancada.ensure('CT', id)) {
+                throw new Error('Salve e valide o checklist 3 do Caracol antes de encaminhar a CT para outro setor.');
+            }
+        }
         const note = String(options.note || '').trim();
         const now = new Date().toISOString();
         const payload = names.map(part => {

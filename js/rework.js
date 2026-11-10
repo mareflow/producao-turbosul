@@ -88,7 +88,7 @@ const Rework = {
         const active = sessions.find(s => s.state !== 'finished');
         const total = sessions.reduce((sum, s) => sum + this.seconds(s), 0);
         const time = seconds => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-        const button = (action, label) => `<button type="button" data-rework-action="${action}" ${!enabled || (sector === 'BANCADA' && ['start', 'resume'].includes(action) && window.CaracolBancada && !window.CaracolBancada.ready(component)) ? 'disabled' : ''} class="px-3 py-2 rounded-lg text-xs font-bold bg-red-600 text-white disabled:opacity-40">${label}</button>`;
+        const button = (action, label) => `<button type="button" data-rework-action="${action}" ${!enabled ? 'disabled' : ''} class="px-3 py-2 rounded-lg text-xs font-bold bg-red-600 text-white disabled:opacity-40">${label}</button>`;
         return `<div class="my-4 p-3 border border-red-200 rounded-xl bg-red-50 text-left w-full">
             <details ${active ? 'open' : ''}><summary class="cursor-pointer font-black text-xs uppercase text-red-700">Retrabalho · Total <span data-rework-total>${time(total)}</span></summary>
             <p class="text-xs text-slate-600 mt-2">Observação obrigatória a cada início ou retomada.</p>
@@ -139,7 +139,6 @@ const Rework = {
         if (this.busy.has(key) || panel.dataset.reworkEnabled !== 'true') return;
         this.busy.add(key);
         try {
-            if (sector === 'BANCADA' && ['start', 'resume'].includes(action) && window.CaracolBancada && !await window.CaracolBancada.ensure(component, id)) return;
             const note = ['start', 'resume'].includes(action) ? await this.requestNote() : '';
             if (note === null) return;
             if (['start', 'resume'].includes(action) && !note.trim()) throw new Error('A observação do retrabalho é obrigatória.');
