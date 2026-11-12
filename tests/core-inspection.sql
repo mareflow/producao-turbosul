@@ -9,6 +9,11 @@ begin
     where t.verdict_vendas='TROCAR CONJUNTO' and s.status='Em Produção' order by s.business_id limit 1;
   if v_id is null then raise exception 'Fixture de O.S. FULL ativa ausente'; end if;
   select to_jsonb(t) into v_before from public.component_tracking t where service_order_id=v_id and component_name='REPAROS';
+  begin
+    insert into public.component_tracking(service_order_id,component_name,current_stage,verdict_vendas)
+      values(gen_random_uuid(),'CONJUNTO ROTATIVO','MONTAGEM','TROCAR CONJUNTO');
+    raise exception 'FALHOU: tela antiga pulou a conferência';
+  exception when others then if sqlerrm not like 'Atualize a tela: o conjunto novo%' then raise;end if;end;
   -- Simula pedido de compra confirmado apenas dentro da transação de teste.
   update public.triage_parts set availability='PURCHASE_REQUEST',is_resolved=false,resolved_at=null where service_order_id=v_id and part_name in ('EIXO','ROTOR','CCE');
   v_result:=public.receive_new_core(v_id);v_first:=(v_result->>'receipt_id')::uuid;

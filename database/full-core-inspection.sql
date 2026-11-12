@@ -106,7 +106,12 @@ begin
   if new.component_name not in ('EIXO','ROTOR','CCE','CONJUNTO ROTATIVO') or new.verdict_vendas is distinct from 'TROCAR CONJUNTO' then return new; end if;
   select e into v_receipt from jsonb_array_elements(coalesce(new.tracking_data,'[]')) with ordinality x(e,n)
     where e->>'action'='RECEBIMENTO_CONJUNTO_NOVO' order by n desc limit 1;
-  if v_receipt is null then return new; end if;
+  if v_receipt is null then
+    if new.current_stage not in ('BANCADA','TRIAGEM','COMPRA','ESTOQUE') then
+      raise exception 'Atualize a tela: o conjunto novo deve ter baixa para conferência na Bancada antes da Montagem.';
+    end if;
+    return new;
+  end if;
   select e->>'result' into v_result from jsonb_array_elements(coalesce(new.tracking_data,'[]')) with ordinality x(e,n)
     where e->>'action'='CONFERENCIA_CONJUNTO_NOVO' and e->>'receipt_id'=v_receipt->>'receipt_id' order by n desc limit 1;
   if v_result is distinct from 'APROVADO' and new.current_stage not in ('BANCADA','TRIAGEM','COMPRA','ESTOQUE') then
