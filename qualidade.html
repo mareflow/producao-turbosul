@@ -282,7 +282,7 @@
                             <div class="absolute -left-[21px] top-1 w-3 h-3 bg-red-600 rounded-full border-2 border-white"></div>
                             <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight">${ev.action}</p>
                             <p class="text-[10px] text-slate-500 font-medium">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
-                            ${ev.details ? `<p class="text-[9px] text-slate-400 italic">"${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}"</p>` : ''}
+                            ${ev.details ? `<p class="text-[9px] text-slate-400 italic">"${Rework.escape(Rework.eventText(ev))}"</p>` : ''}
                         </div>`).join('');
                 } else { 
                     timeline.innerHTML = '<p class="text-xs text-slate-400 italic text-center">Nenhum evento registrado ainda.</p>'; 

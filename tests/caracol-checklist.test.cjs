@@ -27,7 +27,7 @@ const client={auth:{getSession:async()=>({data:{session:{user:{id:'operator',ema
     }};return q;
 }};
 const ctx=vm.createContext({window:{},document,console,selectedOS:{id:'os'},supabaseClient:client,setInterval:noop,location:{pathname:'/bancada'},crypto:require('node:crypto'),localStorage:new Proxy({getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},{ownKeys:()=>[...storage.keys()],getOwnPropertyDescriptor:()=>({enumerable:true,configurable:true})}),alert:message=>alerts.push(message),renderComponents:noop});
-for(const file of ['js/production-flow.js','js/rework.js','js/caracol-checklist.js','js/caracol-bancada.js'])vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
+for(const file of ['js/production-flow.js','js/rework.js','js/caracol-checklist.js','js/caracol-bancada.js','js/core-inspection.js'])vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
 const model=ctx.window.CaracolChecklist,ui=ctx.window.CaracolBancada;
 function extract(file,name){const source=fs.readFileSync(file,'utf8'),start=source.search(new RegExp('(?:async )?function '+name+'\\('));assert.ok(start>=0,name);for(const end of source.slice(start).matchAll(/^[ \t]{0,8}\}/gm)){const text=source.slice(start,start+end.index+end[0].length);try{new vm.Script(text);return text;}catch{}}throw Error(name);}
 const answered=()=>Array.from(model.items,item_name=>({item_name,status:'PEÇA OK',observation:''}));

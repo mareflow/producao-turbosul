@@ -1315,7 +1315,7 @@
                                         <span class="text-[10px] text-amber-800 font-bold">${new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
                                     </div>
                                     <p class="text-xs font-black text-amber-950 uppercase tracking-tight">${ev.action}</p>
-                                    ${ev.details ? `<div class="text-[10px] text-amber-900 bg-amber-100/70 rounded p-2 mt-1.5 font-medium border border-amber-200">${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}</div>` : ''}
+                                    ${ev.details ? `<div class="text-[10px] text-amber-900 bg-amber-100/70 rounded p-2 mt-1.5 font-medium border border-amber-200">${Rework.escape(Rework.eventText(ev))}</div>` : ''}
                                 </div>
                             </div>`;
                         }
@@ -1325,7 +1325,7 @@
                             <div class="absolute -left-[9px] top-1 w-4 h-4 bg-turbo-teal rounded-full border-2 border-white shadow-sm"></div>
                             <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight">${ev.action}</p>
                             <p class="text-[10px] text-slate-500 font-medium mt-1">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
-                            ${ev.details ? `<p class="text-[9px] text-turbo-teal italic mt-1 font-semibold leading-relaxed">"${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}"</p>` : ''}
+                            ${ev.details ? `<p class="text-[9px] text-turbo-teal italic mt-1 font-semibold leading-relaxed">"${Rework.escape(Rework.eventText(ev))}"</p>` : ''}
                         </div>`;
                     }).join('');
                 } else { 

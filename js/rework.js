@@ -20,6 +20,10 @@ const Rework = {
         try { const value = JSON.parse(event.details); return value.kind === 'rework_session' ? value : null; }
         catch { return null; }
     },
+    eventText(event) {
+        try { const data = JSON.parse(event.details); if (data && typeof data === 'object' && data.kind) return event.description || event.details; } catch {}
+        return event.details || event.description || '';
+    },
     async events(client, orderId) {
         const rows = [];
         for (let offset = 0; ; offset += 500) {
@@ -80,7 +84,7 @@ const Rework = {
         const ctx = this.context();
         if (!ctx.id) return '';
         if (!this.cache.has(ctx.id)) this.load(ctx.id).then(() => this.refresh()).catch(() => this.refresh());
-        return `<section data-rework-order="${this.escape(ctx.id)}" data-rework-sector="${this.escape(ctx.sector)}" data-rework-component="${this.escape(component)}" data-rework-enabled="${enabled}">
+        return `${typeof ProductionFlow !== 'undefined' ? ProductionFlow.inspectionBanner(ctx.order || {}, component) : ''}<section data-rework-order="${this.escape(ctx.id)}" data-rework-sector="${this.escape(ctx.sector)}" data-rework-component="${this.escape(component)}" data-rework-enabled="${enabled}">
             ${this.body(ctx.id, ctx.sector, component, enabled)}</section>${includeRouting && typeof ProductionFlow !== 'undefined' ? ProductionFlow.render(component, enabled) : ''}`;
     },
     body(id, sector, component, enabled) {

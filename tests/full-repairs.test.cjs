@@ -3,7 +3,15 @@ const noop=()=>{},nodes=new Map(),notices=[];
 function node(){return {innerHTML:'',innerText:'',textContent:'',value:'',style:{},dataset:{},classList:{add:noop,remove:noop,toggle:noop},querySelector:()=>null,querySelectorAll:()=>[]};}
 const tables={service_orders:[{id:'full',status:'Em Produção'}],component_tracking:[],checklist_analysis_general:[],triage_parts:[],history_events:[]};
 let next=1,readFailure='',sector='MONTAGEM',selects=[];
-const client={auth:{getSession:async()=>({data:{session:{user:{id:'operator'}}}})},from(table){
+const client={async rpc(name,{p_order}) {
+    assert.equal(name,'receive_new_core');
+    const arrival={action:'RECEBIMENTO_CONJUNTO_NOVO',receipt_id:'receipt-test',timestamp:'2026-11-12T12:00:00Z'};
+    for(const row of tables.component_tracking.filter(r=>r.service_order_id===p_order&&['EIXO','ROTOR','CCE','CONJUNTO ROTATIVO'].includes(r.component_name))) {
+        row.current_stage=row.current_sector='BANCADA';row.tracking_data=[...(row.tracking_data||[]),arrival];
+    }
+    for(const row of tables.triage_parts.filter(r=>r.service_order_id===p_order&&['EIXO','ROTOR','CCE'].includes(r.part_name)))Object.assign(row,{availability:'STOCK',is_resolved:true,resolved_at:arrival.timestamp});
+    return {data:{stage:'BANCADA',receipt_id:arrival.receipt_id},error:null};
+},auth:{getSession:async()=>({data:{session:{user:{id:'operator'}}}})},from(table){
     let op='select',payload,filters=[],one=false,options={},join=false;
     const q={select(fields=''){join=fields.includes('service_orders');return q;},eq(k,v){filters.push(row=>row[k]===v);return q;},in(k,values){filters.push(row=>values.includes(row[k]));return q;},
         maybeSingle(){one=true;return q;},insert(p){op='insert';payload=p;return q;},update(p){op='update';payload=p;return q;},upsert(p,o){op='upsert';payload=p;options=o;return q;},
@@ -74,7 +82,11 @@ function choice(name,value='RECONDICIONAR'){return {dataset:{itemName:name},valu
     assert.equal(flow.received(order()),true,'baixa FULL depende de só três peças');
     assert.equal(JSON.stringify(track('REPAROS')),before,'baixa FULL não altera serviços, setor ou veredito de Reparos');
     assert.equal(flow.tracking(order()).length,2,'FULL e Reparos são unidades diferentes de rastreio');
-    assert.deepEqual(Array.from(flow.stations(order())).sort(),['MONTAGEM','RETIFICA']);
+    assert.deepEqual(Array.from(flow.stations(order())).sort(),['BANCADA','RETIFICA']);
+    assert.equal(flow.coreInspection(order()).approved,false);
+    sector='BANCADA';await assert.rejects(flow.move('CONJUNTO ROTATIVO','MONTAGEM'),/conferência aprovada/);
+    for(const row of tables.component_tracking.filter(r=>flow.fullNames().includes(r.component_name))) {row.current_stage=row.current_sector='MONTAGEM';row.tracking_data.push({action:'CONFERENCIA_CONJUNTO_NOVO',receipt_id:'receipt-test',result:'APROVADO',note:'Conjunto correto'});}
+    sector='MONTAGEM';
     ctx.window.currentTriageRequests=tables.triage_parts;ctx.renderizarPecas(tables.checklist_analysis_general);
     assert.equal(ctx.window.currentTriageParts.length,1);assert.ok(nodes.get('lista-pecas').innerHTML.includes('Eixo, Rotor e CCE'));
     assert.ok(!nodes.get('lista-pecas').innerHTML.includes('data-name="REPAROS"'),'recondicionar Reparos não cria compra');

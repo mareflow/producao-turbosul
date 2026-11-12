@@ -1,7 +1,15 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const tables={service_orders:[{id:'os',status:'Aguardando Triagem',business_id:'O.S-001'}],triage_parts:[],checklist_analysis_general:[],component_tracking:[],history_events:[]};
 let next=1,writes=0;
-const client={from(table){let operation='select',payload,filters=[],single=false,join=false;const q={
+const client={async rpc(name,{p_order}) {
+    assert.equal(name,'receive_new_core');
+    const arrival={action:'RECEBIMENTO_CONJUNTO_NOVO',receipt_id:'receipt-test',timestamp:'2026-11-12T12:00:00Z'};
+    for(const row of tables.component_tracking.filter(r=>r.service_order_id===p_order&&['EIXO','ROTOR','CCE','CONJUNTO ROTATIVO'].includes(r.component_name))) {
+        row.current_stage=row.current_sector='BANCADA';row.tracking_data=[...(row.tracking_data||[]),arrival];
+    }
+    for(const row of tables.triage_parts.filter(r=>r.service_order_id===p_order&&['EIXO','ROTOR','CCE'].includes(r.part_name)))Object.assign(row,{availability:'STOCK',is_resolved:true,resolved_at:arrival.timestamp});
+    return {data:{stage:'BANCADA',receipt_id:arrival.receipt_id},error:null};
+},from(table){let operation='select',payload,filters=[],single=false,join=false;const q={
     select(fields=''){join=fields.includes('service_orders');return q;},maybeSingle(){single=true;return q;},
     eq(k,v){filters.push(r=>r[k]===v);return q;},in(k,values){filters.push(r=>values.includes(r[k]));return q;},
     update(data){operation='update';payload=data;return q;},insert(data){operation='insert';payload=data;return q;},upsert(data){operation='upsert';payload=data;return q;},
@@ -59,7 +67,7 @@ const requests=ctx.window.PartRequests;
     assert.equal((await requests.list(client)).filter(r=>r.os_id==='full').length,1,'Pedido único para conjunto full');
     assert.ok(tables.component_tracking.filter(r=>r.service_order_id==='full').every(r=>r.current_stage==='ESTOQUE'));
     await requests.receive(client,'full','CONJUNTO ROTATIVO (FULL)');
-    assert.ok(tables.component_tracking.filter(r=>r.service_order_id==='full').every(r=>r.current_stage==='MONTAGEM'));
+    assert.ok(tables.component_tracking.filter(r=>r.service_order_id==='full').every(r=>r.current_stage==='BANCADA'));
     assert.equal((await requests.list(client)).length,0);
     tables.service_orders.push({id:'partial',status:'Aguardando Triagem'});
     const partialReceipt={id:next++,service_order_id:'partial',part_name:'GEOMETRIA VARIÁVEL',availability:'STOCK_REQUEST',is_resolved:false,resolved_at:null};
@@ -72,6 +80,17 @@ const requests=ctx.window.PartRequests;
     assert.equal(tables.history_events.filter(r=>r.service_order_id==='partial').length,1);
     await requests.confirm(client,'partial','GEOMETRIA','STOCK');
     assert.equal(tables.history_events.filter(r=>r.service_order_id==='partial').length,1,'Recuperação não duplica histórico');
+    // Uma reprovação do servidor expõe uma única reposição ainda sem tipo definido.
+    const rejectedCore=tables.component_tracking.find(r=>r.service_order_id==='full'&&r.component_name==='CONJUNTO ROTATIVO');
+    rejectedCore.tracking_data.push({action:'CONFERENCIA_CONJUNTO_NOVO',receipt_id:'receipt-test',result:'REPROVADO',note:'Aplicação incorreta'});
+    for(const row of tables.triage_parts.filter(r=>r.service_order_id==='full'))Object.assign(row,{availability:'PENDING',is_resolved:false,resolved_at:null});
+    const replacement=(await requests.list(client)).filter(r=>r.os_id==='full');
+    assert.equal(replacement.length,1);assert.equal(replacement[0].type,'DRAFT');assert.equal(replacement[0].nonconformity,'Aplicação incorreta');
+    await requests.confirm(client,'full','CONJUNTO ROTATIVO (FULL)','STOCK');
+    assert.equal((await requests.list(client)).find(r=>r.os_id==='full').type,'STOCK');
+    assert.equal(tables.history_events.filter(r=>r.service_order_id==='full'&&r.action==='PEDIDO DE ESTOQUE CONFIRMADO').length,2,'reposição tem solicitação própria mesmo com o mesmo tipo');
+    await requests.confirm(client,'full','CONJUNTO ROTATIVO (FULL)','STOCK');
+    assert.equal(tables.history_events.filter(r=>r.service_order_id==='full'&&r.action==='PEDIDO DE ESTOQUE CONFIRMADO').length,2,'clique repetido não duplica solicitação de reposição');
     await assert.rejects(()=>requests.receive(client,'os','CANOTE'),/Confirme o pedido/);
     tables.service_orders[0].status='Finalizado';await assert.rejects(()=>requests.confirm(client,'os','CCO','PURCHASE'),/encerrada/);
     console.log('OK: cancelamento, confirmação imutável, compra e estoque pendentes, baixa física, conjunto/avulso e preservação dos serviços');

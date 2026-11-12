@@ -78,18 +78,26 @@ async function renderizarPendencias(quiet = false) {
     try {
         const requests = await PartRequests.list(supabaseClient), e = PartRequests.escape;
         const filtered = requests.filter(r=>pedidoFiltro==='TODOS'||r.type===pedidoFiltro);
-        const filters = '<div class="flex gap-2 mb-4">'+[['TODOS','Todos'],['PURCHASE','Compras'],['STOCK','Estoque']].map(([type,label])=>
+        const filters = '<div class="flex gap-2 mb-4">'+[['TODOS','Todos'],['DRAFT','Definir pedido'],['PURCHASE','Compras'],['STOCK','Estoque']].map(([type,label])=>
             `<button type="button" data-request-filter="${type}" class="px-4 py-2 rounded-lg text-xs font-bold ${pedidoFiltro===type?'bg-blue-600 text-white':'bg-slate-100 text-slate-600'}">${label} (${type==='TODOS'?requests.length:requests.filter(r=>r.type===type).length})</button>`).join('')+'</div>';
         container.innerHTML=filters+(filtered.length?`<div class="overflow-x-auto"><table class="w-full text-sm"><thead class="text-left text-xs text-slate-500 bg-slate-50"><tr><th class="p-4">O.S.</th><th class="p-4">Peça</th><th class="p-4">Tipo de pedido</th><th class="p-4">Cliente / Modelo</th><th class="p-4">Baixa física</th></tr></thead><tbody>${filtered.map((r,index)=>
-            `<tr class="border-b border-slate-100"><td class="p-4 font-bold text-blue-600">${e(r.order.business_id)}</td><td class="p-4 font-bold">${e(r.name)}</td><td class="p-4"><span class="rounded px-2 py-1 text-xs font-bold ${r.type==='STOCK'?'bg-teal-50 text-teal-700':'bg-amber-50 text-amber-700'}">${PartRequests.typeLabel(r.type)}</span></td><td class="p-4">${e(r.order.client)}<br><span class="text-xs text-slate-400">${e(r.order.model)}</span></td><td class="p-4"><button type="button" data-receive-request="${index}" class="bg-green-600 text-white px-4 py-2 text-xs font-bold rounded-lg">${r.type==='STOCK'?'Confirmar retirada':'Confirmar recebimento'}</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="p-8 text-center text-sm text-slate-400">Nenhum pedido confirmado pendente.</p>');
+            `<tr class="border-b border-slate-100"><td class="p-4 font-bold text-blue-600">${e(r.order.business_id)}</td><td class="p-4 font-bold">${e(r.name)}${r.nonconformity?`<p class="text-xs text-red-700 font-normal mt-2">Não conformidade: ${e(r.nonconformity)}. Solicitação de reposição.</p>`:''}</td><td class="p-4"><span class="rounded px-2 py-1 text-xs font-bold ${r.type==='STOCK'?'bg-teal-50 text-teal-700':'bg-amber-50 text-amber-700'}">${r.type==='DRAFT'?'Definir compra ou estoque':PartRequests.typeLabel(r.type)}</span></td><td class="p-4">${e(r.order.client)}<br><span class="text-xs text-slate-400">${e(r.order.model)}</span></td><td class="p-4">${r.type==='DRAFT'?`<button type="button" data-define-request="${index}" data-type="PURCHASE" class="bg-blue-600 text-white px-3 py-2 text-xs font-bold rounded-lg mr-2">Pedir compra</button><button type="button" data-define-request="${index}" data-type="STOCK" class="bg-teal-600 text-white px-3 py-2 text-xs font-bold rounded-lg">Pedir estoque</button>`:`<button type="button" data-receive-request="${index}" class="bg-green-600 text-white px-4 py-2 text-xs font-bold rounded-lg">${r.type==='STOCK'?'Confirmar retirada':'Confirmar recebimento'}</button>`}</td></tr>`).join('')}</tbody></table></div>`:'<p class="p-8 text-center text-sm text-slate-400">Nenhum pedido confirmado pendente.</p>');
         container.querySelectorAll('[data-request-filter]').forEach(button=>button.onclick=()=>filtrarPedidos(button.dataset.requestFilter));
+        container.querySelectorAll('[data-define-request]').forEach(button=>button.onclick=async()=>{
+            const r=filtered[Number(button.dataset.defineRequest)],type=button.dataset.type;
+            if(!await confirmarTipoPedido(r.name,type))return;
+            button.disabled=true;
+            try {await PartRequests.confirm(supabaseClient,r.os_id,r.name,type);await renderizarPendencias();await atualizarContadores();}
+            catch(error){alert('Não foi possível confirmar o pedido: '+error.message);}
+            finally{button.disabled=false;}
+        });
         container.querySelectorAll('[data-receive-request]').forEach(button=>button.onclick=()=>{const r=filtered[Number(button.dataset.receiveRequest)];marcarRecebido(r.os_id,r.name,r.group,r.type);});
     } catch(error) {console.error(error);container.innerHTML='<p class="p-6 text-red-600 text-xs">Não foi possível atualizar os pedidos.</p>';}
 }
 
 function marcarRecebido(osId,partName,isConjunto=false,type='PURCHASE') {
     osParaBaixa=osId; pecaParaBaixa=partName; isBaixaConjunto=isConjunto;
-    document.getElementById('modal-baixa-msg').textContent=(type==='STOCK'?'Confirmar a retirada física do estoque de ':'Confirmar o recebimento da compra de ')+partName+'? A peça será liberada para o setor de destino.';
+    document.getElementById('modal-baixa-msg').textContent=(type==='STOCK'?'Confirmar a retirada física do estoque de ':'Confirmar o recebimento da compra de ')+partName+'? '+(isConjunto?'O conjunto seguirá à Bancada para conferência antes da Montagem.':'A peça será liberada para o setor de destino.');
     document.getElementById('modal-baixa-peca').classList.remove('hidden');document.getElementById('modal-baixa-peca').classList.add('flex');
 }
 

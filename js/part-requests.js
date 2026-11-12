@@ -16,16 +16,17 @@ const PartRequests = {
     matches(ctx,row) { const code=this.code(row.part_name); return ctx.codes.includes(code) || (ctx.group && code.includes('CONJUNTO')); },
     async checked(query) { const result = await query; if (result.error) throw result.error; return result.data; },
     async context(client, id, part) {
-        const [order, analysis, receipts] = await Promise.all([
+        const [order, analysis, receipts, core] = await Promise.all([
             this.checked(client.from('service_orders').select('id,status').eq('id',id).maybeSingle()),
             this.checked(client.from('checklist_analysis_general').select('*').eq('service_order_id',id)),
-            this.checked(client.from('triage_parts').select('*').eq('service_order_id',id))
+            this.checked(client.from('triage_parts').select('*').eq('service_order_id',id)),
+            this.checked(client.from('component_tracking').select('*').eq('service_order_id',id).eq('component_name','CONJUNTO ROTATIVO').maybeSingle())
         ]);
         if (!order || ProductionFlow.isClosed(order)) throw new Error('Esta O.S. está encerrada. Atualize a fila.');
         const code = this.code(part);
-        const group = code.includes('CONJUNTO') || (ProductionFlow.fullParts.includes(code) && ProductionFlow.isNew({analysis:analysis || []}));
+        const group = code.includes('CONJUNTO') || (ProductionFlow.fullParts.includes(code) && ProductionFlow.isNew({analysis:analysis || [],tracking:core?[core]:[]}));
         const codes = group ? ProductionFlow.fullParts : [code];
-        return { order, analysis:analysis || [], receipts:receipts || [], codes, group, name:group ? 'CONJUNTO ROTATIVO (FULL)' : this.label(part) };
+        return { order, core, analysis:analysis || [], receipts:receipts || [], codes, group, name:group ? 'CONJUNTO ROTATIVO (FULL)' : this.label(part) };
     },
     async confirm(client, id, part, type, options = {}) {
         if (!this.states[type]) throw new Error('Selecione compra ou retirada do estoque.');
@@ -54,27 +55,33 @@ const PartRequests = {
         const ids = ctx.analysis.filter(a=>ctx.codes.includes(this.code(a.item_name))).map(a=>a.id);
         if (ids.length) await this.checked(client.from('checklist_analysis_general').update(value).in('id',ids));
         const action=type === 'STOCK' ? 'PEDIDO DE ESTOQUE CONFIRMADO' : 'PEDIDO DE COMPRA CONFIRMADO';
-        const description=`${ctx.name}: ${this.typeLabel(type)} confirmada pela triagem. Aguardando baixa física.${options.sector ? ' Setor solicitante: '+options.sector+'.' : ''}${options.note ? ' Observação: '+options.note : ''}`;
-        const history=await this.checked(client.from('history_events').select('id').eq('service_order_id',id).eq('action',action).eq('description',description));
+        const replacement=ctx.group ? ProductionFlow.coreInspection({tracking:ctx.core?[ctx.core]:[]}).review : null;
+        const requestDetails=JSON.stringify({kind:'part_request',type,parts:ctx.codes,...(replacement?.result==='REPROVADO'?{replacement_receipt_id:replacement.receipt_id}:{})});
+        const description=`${ctx.name}: ${this.typeLabel(type)} confirmada pela triagem.${replacement?.result==='REPROVADO'?' Reposição após não conformidade: '+replacement.note+'.':''} Aguardando baixa física.${options.sector ? ' Setor solicitante: '+options.sector+'.' : ''}${options.note ? ' Observação: '+options.note : ''}`;
+        const history=await this.checked(client.from('history_events').select('id').eq('service_order_id',id).eq('action',action).eq('description',description).eq('details',requestDetails));
         if (!(history || []).length) await this.checked(client.from('history_events').insert({service_order_id:id,action,description,
-            details:JSON.stringify({kind:'part_request',type,parts:ctx.codes}),timestamp:now}));
+            details:requestDetails,timestamp:now}));
         return {...ctx,type};
     },
     async receive(client,id,part) {
         const ctx = await this.context(client,id,part);
+        if (ctx.group) {
+            const result = await this.checked(client.rpc('receive_new_core',{p_order:id}));
+            return {...ctx,...result};
+        }
         const rows = ctx.receipts.filter(r=>this.matches(ctx,r));
         if (ctx.codes.some(code=>!rows.some(r=>this.code(r.part_name)===code))) throw new Error('Confirme o pedido antes de dar baixa.');
         if (rows.every(r=>this.status(r)==='RECEIVED')) return {...ctx,alreadyReceived:true};
         const type = this.status(rows[0]);
         if (!this.states[type] || rows.some(r=>this.status(r)!==type)) throw new Error('Confirme um único tipo de pedido antes de dar baixa.');
-        const now = new Date().toISOString(), components = ctx.group ? ProductionFlow.fullNames() : ctx.codes;
+        const now = new Date().toISOString(), components = ctx.codes;
         await this.checked(client.from('component_tracking').upsert(components.map(component_name=>({
             service_order_id:id,component_name,
-            current_stage:ctx.group ? 'MONTAGEM' : component_name==='EIXO' ? 'BALANCEAMENTO' : ['CT','CCO','REPAROS'].includes(component_name) ? 'DESMONTAGEM' : 'MONTAGEM',
-            current_sector:ctx.group ? 'MONTAGEM' : component_name==='EIXO' ? 'BALANCEAMENTO' : ['CT','CCO','REPAROS'].includes(component_name) ? 'DESMONTAGEM' : 'MONTAGEM',
-            status:ctx.group ? 'CONJUNTO NOVO' : 'PEÇA RECEBIDA',
+            current_stage:component_name==='EIXO' ? 'BALANCEAMENTO' : ['CT','CCO','REPAROS'].includes(component_name) ? 'DESMONTAGEM' : 'MONTAGEM',
+            current_sector:component_name==='EIXO' ? 'BALANCEAMENTO' : ['CT','CCO','REPAROS'].includes(component_name) ? 'DESMONTAGEM' : 'MONTAGEM',
+            status:'PEÇA RECEBIDA',
             status_description:`Baixa física: ${this.typeLabel(type)}.`,
-            ...(ctx.group ? {verdict_vendas:'TROCAR CONJUNTO'} : {}),last_update:now
+            last_update:now
         })),{onConflict:'service_order_id,component_name'}));
         const value = {availability:'STOCK',is_resolved:true};
         const ids = ctx.analysis.filter(a=>ctx.codes.includes(this.code(a.item_name))).map(a=>a.id);
@@ -89,20 +96,23 @@ const PartRequests = {
     },
     async list(client) {
         const rows = await this.checked(client.from('triage_parts').select('*, service_orders(id,business_id,client,model,status)')
-            .in('availability',Object.values(this.states)).eq('is_resolved',false));
+            .in('availability',[...Object.values(this.states),'PENDING','ORDER']).eq('is_resolved',false));
         const active = (rows || []).filter(r=>r.service_orders && !ProductionFlow.isClosed(r.service_orders));
         const ids = [...new Set(active.map(r=>r.service_order_id))];
         const [analysis, tracking] = ids.length ? await Promise.all([
             this.checked(client.from('checklist_analysis_general').select('service_order_id,item_name,decisao_vendas').in('service_order_id',ids)),
-            this.checked(client.from('component_tracking').select('service_order_id,verdict_vendas').eq('component_name','CONJUNTO ROTATIVO').in('service_order_id',ids))
+            this.checked(client.from('component_tracking').select('service_order_id,component_name,verdict_vendas,tracking_data').eq('component_name','CONJUNTO ROTATIVO').in('service_order_id',ids))
         ]) : [[],[]];
         const fullOrders=new Set(tracking.filter(t=>t.verdict_vendas==='TROCAR CONJUNTO').map(t=>t.service_order_id));
         const grouped = new Map();
         for (const row of active) {
             const full = this.code(row.part_name).includes('CONJUNTO') || (ProductionFlow.fullParts.includes(this.code(row.part_name)) && (fullOrders.has(row.service_order_id) || ProductionFlow.isNew({analysis:analysis.filter(a=>a.service_order_id===row.service_order_id)})));
             const type = this.status(row), name = full ? 'CONJUNTO ROTATIVO (FULL)' : this.label(row.part_name);
+            const core=tracking.find(t=>t.service_order_id===row.service_order_id);
+            const review=core && ProductionFlow.coreInspection({tracking:[core]}).review;
+            if(type==='DRAFT' && (!full || review?.result!=='REPROVADO'))continue;
             const key = [row.service_order_id,name,type].join(':');
-            if (!grouped.has(key)) grouped.set(key,{order:row.service_orders,os_id:row.service_order_id,name,type,group:full});
+            if (!grouped.has(key)) grouped.set(key,{order:row.service_orders,os_id:row.service_order_id,name,type,group:full,nonconformity:review?.result==='REPROVADO'?review.note:null});
         }
         return [...grouped.values()];
     }

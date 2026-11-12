@@ -120,6 +120,22 @@ const ProductionFlow = {
             { ...aggregate, component_name: 'CONJUNTO ROTATIVO', current_stage: stage, current_sector: stage,
                 status: aggregate?.status || (stage === 'COMPRA' ? 'AGUARDANDO_COMPRA' : 'CONJUNTO NOVO') }];
     },
+    coreInspection(order = {}) {
+        const parts = order.full_tracking || order.tracking || [];
+        const part = parts.find(t => this.component(t.component_name) === 'CONJUNTO ROTATIVO') || parts.find(t => this.fullParts.includes(this.component(t.component_name)));
+        const logs = this.logs(part);
+        const receipt = [...logs].reverse().find(log => log.action === 'RECEBIMENTO_CONJUNTO_NOVO');
+        const review = receipt && [...logs].reverse().find(log => log.action === 'CONFERENCIA_CONJUNTO_NOVO' && log.receipt_id === receipt.receipt_id);
+        return {receipt, review, approved: review?.result === 'APROVADO',
+            failures: logs.filter(log => log.action === 'CONFERENCIA_CONJUNTO_NOVO' && log.result === 'REPROVADO')};
+    },
+    inspectionBanner(order, component) {
+        const name = this.component(component);
+        if (![...this.fullNames(), 'PEÇA INTEIRA'].includes(name) || !this.isNew(order)) return '';
+        const state = this.coreInspection(order), e = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        return (state.receipt && !state.review ? '<p class="mb-3 p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 text-xs font-bold">Conjunto novo: conferência obrigatória na Bancada antes da Montagem.</p>' : '') +
+            (state.failures.length ? '<details class="mb-3 p-3 rounded-lg border border-red-300 bg-red-50 text-red-800 text-xs"><summary class="font-bold cursor-pointer">Não conformidades do conjunto: '+state.failures.length+'</summary>'+state.failures.map(log => '<p class="mt-2">'+e(new Date(log.timestamp).toLocaleString('pt-BR'))+' — '+e(log.note)+'</p>').join('')+'</details>' : '');
+    },
     serviceDone(logs, service) {
         const history = typeof logs === 'string' ? JSON.parse(logs) : (logs || []);
         const lastReturn = history.filter(log => log.action === 'ROTEAMENTO' && log.from === 'MONTAGEM')
@@ -167,14 +183,18 @@ const ProductionFlow = {
         return false;
     },
     destinations(component, sector = Rework.context().sector, order = Rework.context().order || {}) {
+        const name = this.component(component);
+        if (this.isNew(order) && (this.fullNames().includes(name) || name === 'PEÇA INTEIRA') && !this.coreInspection(order).approved) return [];
         return this.sectors.filter(s => s !== sector && (s !== 'BALANCEAMENTO' || this.canEnterBalance(component, sector, order)));
     },
     render(component, enabled = true) {
         const ctx = Rework.context();
         if (!ctx.id) return '';
+        const destinations = this.destinations(component, ctx.sector);
+        if (!destinations.length) return '';
         return `<div class="mt-3 w-full text-left" data-routing-component="${Rework.escape(component)}" data-routing-order="${Rework.escape(ctx.id)}">
             <p class="text-[10px] font-black text-slate-400 uppercase mb-3">Encaminhar para:</p>
-            <div class="grid grid-cols-2 gap-2">${this.destinations(component, ctx.sector).map(s => `<button type="button" data-routing-send data-routing-target="${s}" ${!enabled ? 'disabled' : ''}
+            <div class="grid grid-cols-2 gap-2">${destinations.map(s => `<button type="button" data-routing-send data-routing-target="${s}" ${!enabled ? 'disabled' : ''}
                 class="${s === 'MONTAGEM' ? 'col-span-2 bg-emerald-600 text-white' : 'bg-slate-50 text-slate-700'} py-3 rounded-lg text-[10px] uppercase font-black disabled:opacity-40 hover:brightness-95">${s === 'MONTAGEM' ? 'Pronto p/ Montagem' : ({DESMONTAGEM:'Desmontagem',RETIFICA:'Retífica',SOLDA:'Solda',METROLOGIA:'Metrologia',BANCADA:'Bancada',BALANCEAMENTO:'Balanceamento'})[s] || s}</button>`).join('')}</div></div>`;
     },
     async move(component, target, options = {}) {
@@ -200,6 +220,9 @@ const ProductionFlow = {
         const whole = name === 'PEÇA INTEIRA';
         const grouped = name === 'CONJUNTO ROTATIVO' || (newCore && this.fullParts.includes(name));
         const current = tracking.find(t => t.component_name === (grouped ? 'CONJUNTO ROTATIVO' : name));
+        if (newCore && (grouped || whole) && !this.coreInspection(freshOrder).approved) {
+            throw new Error('Conjunto novo exige conferência aprovada na Bancada. Use Aprovar ou Registrar não conformidade na conferência.');
+        }
         if (target === 'BALANCEAMENTO') {
             const fresh = {analysis,full_tracking:tracking};
             if (name === 'EIXO' && !grouped && !current) throw new Error('A O.S. não possui eixo registrado para Balanceamento.');

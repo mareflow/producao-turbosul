@@ -292,6 +292,10 @@
             });
         }
         function blockPendingCore() {
+            if (selectedOS && isNewCore(selectedOS) && !ProductionFlow.coreInspection(selectedOS).approved) {
+                alert('Aguarde a conferência e aprovação do conjunto novo na Bancada.');
+                return true;
+            }
             if (selectedOS && isNewCore(selectedOS) && !newCoreReceived(selectedOS)) {
                 alert('Conjunto novo aguardando baixa de recebimento na Triagem.');
                 return true;
@@ -467,7 +471,7 @@
 
         // MÁQUINA DE ESTADOS DETALHADA DO FLUXO DE MONTAGEM E TRÂNSITO FISICO
         function getAssemblyDetailedState() {
-            if (isNewCore(selectedOS) && !newCoreReceived(selectedOS)) return 'CARCACAMENTO_AGUARDANDO';
+            if (isNewCore(selectedOS) && (!newCoreReceived(selectedOS) || !ProductionFlow.coreInspection(selectedOS).approved)) return 'CARCACAMENTO_AGUARDANDO';
             const tracking = selectedOS.full_tracking || selectedOS.tracking || [];
             
             const eixo = tracking.find(t => (t.component_name || t.component || '').toUpperCase() === 'EIXO');
@@ -698,6 +702,8 @@
                 case 'CARCACAMENTO_AGUARDANDO':
                     bannerStatus.innerHTML = isNewCore(selectedOS) && !newCoreReceived(selectedOS)
                         ? `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ CONJUNTO NOVO AGUARDANDO BAIXA DE RECEBIMENTO NA TRIAGEM</span>`
+                        : isNewCore(selectedOS) && !ProductionFlow.coreInspection(selectedOS).approved
+                            ? `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ AGUARDANDO CONFERÊNCIA E APROVAÇÃO DO CONJUNTO NOVO NA BANCADA</span>`
                         : isNewCore(selectedOS) && !ProductionFlow.repairsReady(selectedOS)
                             ? `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ AGUARDANDO REPAROS CONCLUIR OS SERVIÇOS E CHEGAR À MONTAGEM</span>`
                             : `<span class="text-amber-500 font-black text-xs uppercase tracking-widest">▲ AGUARDANDO CONJUNTO, CT E CCO NA MONTAGEM</span>`;
@@ -1117,7 +1123,7 @@
                                         <span class="text-[10px] text-amber-800 font-bold">${new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
                                     </div>
                                     <p class="text-xs font-black text-amber-950 uppercase tracking-tight">${ev.action}</p>
-                                    ${ev.details ? `<div class="text-[10px] text-amber-900 bg-amber-100/70 rounded p-2 mt-1.5 font-medium border border-amber-200">${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}</div>` : ''}
+                                    ${ev.details ? `<div class="text-[10px] text-amber-900 bg-amber-100/70 rounded p-2 mt-1.5 font-medium border border-amber-200">${Rework.escape(Rework.eventText(ev))}</div>` : ''}
                                 </div>
                             </div>`;
                         }
@@ -1127,7 +1133,7 @@
                             <div class="absolute -left-[9px] top-1 w-4 h-4 bg-turbo-teal rounded-full border-2 border-white shadow-sm"></div>
                             <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight">${ev.action}</p>
                             <p class="text-[10px] text-slate-500 font-medium mt-1">${new Date(ev.timestamp).toLocaleString('pt-BR')}</p>
-                            ${ev.details ? `<p class="text-[9px] text-turbo-teal italic mt-1 font-semibold leading-relaxed">"${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}"</p>` : ''}
+                            ${ev.details ? `<p class="text-[9px] text-turbo-teal italic mt-1 font-semibold leading-relaxed">"${Rework.escape(Rework.eventText(ev))}"</p>` : ''}
                         </div>`;
                     }).join('');
                 } else { 

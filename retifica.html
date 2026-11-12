@@ -1174,7 +1174,7 @@ function openSpecialServiceModal() {
                                             <span class="text-[9px] text-amber-800 font-mono font-bold">${new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
                                         </div>
                                         <p class="text-[11px] font-black text-slate-900 uppercase mt-1 leading-snug">${ev.action}</p>
-                                        ${ev.details ? `<p class="text-[10px] text-amber-950 font-medium bg-white/90 border border-amber-200 rounded-lg p-2.5 mt-2 leading-relaxed whitespace-pre-wrap"><i class="fa-solid fa-circle-info mr-1 text-amber-600"></i>${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}</p>` : ''}
+                                        ${ev.details ? `<p class="text-[10px] text-amber-950 font-medium bg-white/90 border border-amber-200 rounded-lg p-2.5 mt-2 leading-relaxed whitespace-pre-wrap"><i class="fa-solid fa-circle-info mr-1 text-amber-600"></i>${Rework.escape(Rework.eventText(ev))}</p>` : ''}
                                     </div>
                                 </div>
                             `;
@@ -1187,7 +1187,7 @@ function openSpecialServiceModal() {
                                     <p class="text-[11px] font-black text-slate-800 uppercase tracking-tight leading-none">${ev.action}</p>
                                     <span class="text-[9px] text-slate-400 font-mono">${new Date(ev.timestamp).toLocaleString('pt-BR')}</span>
                                 </div>
-                                ${ev.details ? `<p class="text-[9px] text-slate-600 italic mt-1 font-semibold leading-relaxed bg-slate-50 p-2 rounded border border-slate-100">"${Rework.escape(Rework.parse(ev) ? ev.description : ev.details)}"</p>` : ''}
+                                ${ev.details ? `<p class="text-[9px] text-slate-600 italic mt-1 font-semibold leading-relaxed bg-slate-50 p-2 rounded border border-slate-100">"${Rework.escape(Rework.eventText(ev))}"</p>` : ''}
                             </div>
                         `;
                     }).join('');

@@ -682,6 +682,7 @@
                                 </div>
                                 <div>
                                     <h4 class="font-black text-slate-800 text-sm uppercase">${componentLabel}</h4>
+                                    ${ProductionFlow.inspectionBanner({tracking:components,analysis:triageItems},compName)}
                                     ${isConjunto ? `<p class="text-[10px] text-slate-500 mt-1">Inclui eixo, rotor${isConjuntoNovo ? ' e CCE' : ', CCE e reparos'}</p>` : ''}
                                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                                         <i class="fa-solid fa-location-dot mr-1 text-slate-400"></i> Setor: <span class="font-black ${isCompra ? 'text-amber-700' : 'text-slate-700'}">${sectorName}</span>
